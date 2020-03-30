@@ -1,0 +1,20 @@
+name: review
+channels:
+  - conda-forge
+  - anaconda
+  - defaults
+dependencies:
+  - dask
+  - gdal
+  - mysql
+  - mysql-python
+  - netcdf4
+  - postgresql
+  - psycopg2
+  - rasterio
+  - spyder
+  - tiledb
+  - tiledb-py
+  - tqdm
+  - xarray
+

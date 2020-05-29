@@ -4,17 +4,17 @@ channels:
   - anaconda
   - defaults
 dependencies:
+  - python=3.8
+  - dash
   - dask
+  - flask-caching
   - gdal
-  - mysql
-  - mysql-python
+  - h5py
   - netcdf4
   - postgresql
   - psycopg2
   - rasterio
   - spyder
-  - tiledb
-  - tiledb-py
   - tqdm
   - xarray
 

@@ -9,6 +9,7 @@ dependencies:
   - dask
   - flask-caching
   - gdal
+  - geopandas
   - h5py
   - netcdf4
   - postgresql

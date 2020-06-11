@@ -1,2 +1,2 @@
 # reViewer
-A portal for viewing a particular model's outputs. 
+A portal for viewing multidimensional gridded data sets. 

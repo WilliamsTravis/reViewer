@@ -1,8 +1,13 @@
 README.md
 setup.py
 reviewer/__init__.py
+reviewer/conversions.py
 reviewer/download.py
 reviewer/functions.py
+reviewer/griddata.py
+reviewer/mapbox.py
+reviewer/navbar.py
+reviewer/options.py
 reviewer/tiledb_practice.py
 reviewer.egg-info/PKG-INFO
 reviewer.egg-info/SOURCES.txt

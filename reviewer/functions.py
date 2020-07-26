@@ -25,6 +25,14 @@ def h5_to_df(file, dataset):
     scattermapbox plot.
     """
 
+def print_args(func, *args):
+    """Print a functions key word argument inputs for easy assignment."""
+    count = func.__code__.co_argcount
+    keys = func.__code__.co_varnames[:count]
+    kwargs = dict(zip(keys, args))
+    for key, arg in kwargs.items():
+        print("{} = {}".format(key, arg))
+
 
 # CLASSES
 class Data_Path:

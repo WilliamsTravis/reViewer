@@ -22,11 +22,11 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from flask_caching import Cache
 from pandas.core.common import SettingWithCopyWarning
-from reviewer import Data_Path
+
+from reviewer import Data_Path, print_args
 from reviewer.options import BASEMAPS, COLORSCALES, FILES
 from reviewer.mapbox import MAPLAYOUT
 from reviewer.navbar import NAVBAR
-
 
 warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
@@ -102,7 +102,7 @@ app.layout = html.Div([
     html.Div([
       dcc.Graph(id="map",
                 config={'showSendToCloud': True})]),
-    html.Div(id="mapdata_store", children=json.dumps(DEFAULT_MAPVIEW))
+    html.Div(id="mapview_store", children=json.dumps(DEFAULT_MAPVIEW))
 ])
 
 
@@ -130,11 +130,12 @@ def zoom_data(mapview_store, mapview, trig):
         A pandas data frame.
     """
 
+    # print_args(zoom_data, mapview_store, mapview, trig)
+
     # If trigger was zoom, but it didn't change enough, don't update
+    zoom_store = np.floor(mapview_store["mapbox.zoom"])
     if "relayoutData" in trig:
         if "mapbox.zoom" in mapview:
-            # print("\nZOOM: " + str(round(mapview["mapbox.zoom"], 2)) + "\n")
-            zoom_store = np.floor(mapview_store["mapbox.zoom"])
             zoom = np.floor(mapview["mapbox.zoom"])
             if zoom == zoom_store:
                 raise PreventUpdate
@@ -150,20 +151,21 @@ def zoom_data(mapview_store, mapview, trig):
 
     return dataset
 
-     
+
 @app.callback([Output("map", 'figure'),
-               Output("mapdata_store", "children")],
+               Output("mapview_store", "children")],
               [Input("file", "value"),
                Input("color", "value"),
                Input("basemap", "value"),
                Input("map", "relayoutData")],
-              [State("mapdata_store", "children")])
+              [State("mapview_store", "children")])
 def makeMap(file, color, basemap, mapview, mapview_store):
     """Starting with just a sample supply curve file and a basemap
 
     map_type = "satellite-streets"
     file = DP.join("outputs_sc.csv")
     """
+    
 
     # Get the upate triggering elemet name
     trig = dash.callback_context.triggered[0]['prop_id']
@@ -189,24 +191,24 @@ def makeMap(file, color, basemap, mapview, mapview_store):
 
     # Create the scattermapbox object
     data = dict(type='scattermapbox',
-              lon=df['longitude'],
-              lat=df['latitude'],
-              text=df['hovertext'],
-              mode='markers',
-              hoverinfo='text',
-              hovermode='closest',
-              showlegend=False,
-              marker=dict(colorscale=color,
-                          reversescale=False,
-                          color=df['mean_cf'],
-                          cmax=0.4,
-                          cmin=0.23,
-                          opacity=1.0,
-                          size=8,
-                          colorbar=dict(textposition="auto",
-                                        orientation="h",
-                                        font=dict(size=15,
-                                                  fontweight='bold'))))
+                lon=df['longitude'],
+                lat=df['latitude'],
+                text=df['hovertext'],
+                mode='markers',
+                hoverinfo='text',
+                hovermode='closest',
+                showlegend=False,
+                marker=dict(colorscale=color,
+                            reversescale=False,
+                            color=df['mean_cf'],
+                            cmax=0.4,
+                            cmin=0.23,
+                            opacity=1.0,
+                            size=8,
+                            colorbar=dict(textposition="auto",
+                                          orientation="h",
+                                          font=dict(size=15,
+                                                    fontweight='bold'))))
 
     # Set up layout
     layout_copy = copy.deepcopy(MAPLAYOUT)
@@ -222,11 +224,11 @@ def makeMap(file, color, basemap, mapview, mapview_store):
     gc.collect()
 
     # Check on Memory
-    # print("\nCPU: {}% \nMemory: {}%\n".format(psutil.cpu_percent(),
-    #                                 psutil.virtual_memory().percent))
+    cpu = psutil.cpu_percent()
+    memory = psutil.virtual_memory().percent
+    # print("\nCPU: {}% \nMemory: {}%\n".format(cpu, memory))
 
     return figure, json.dumps(mapview)
-
 
                 
 if __name__ == '__main__':

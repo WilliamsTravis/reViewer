@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Navigation Bar. 
+Dash HTML elements
 
 Include high-level options here as well (separate dropdowns or consolidated?)
 

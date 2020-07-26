@@ -10,12 +10,16 @@ dependencies:
   - flask-caching
   - gdal
   - geopandas
+  - gunicorn
+  - esmpy
   - h5py
   - netcdf4
   - postgresql
   - psycopg2
   - rasterio
+  - rioxarray
+  - scipy
   - spyder
   - tqdm
   - xarray
-
+  - xesmf

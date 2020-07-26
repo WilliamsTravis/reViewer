@@ -16,8 +16,13 @@ BASEMAPS = [{'label': 'Light', 'value': 'light'},
             {'label': 'Satellite', 'value': 'satellite'},
             {'label': 'Satellite Streets', 'value': 'satellite-streets'}]
 
+# Dataset options
 FILES = [{"label": "CONUS Sample", "value": "conus_sc.csv"},
          {"label": "Florida Sample", "value": "florida_sc.csv"}]
+
+# Zoom options
+ZOOM_DATASETS = {}
+
 
 # Color scale options - not everyone is built in
 COLORS = ['Default', 'Blackbody', 'Bluered', 'Blues', 'Earth', 'Electric',

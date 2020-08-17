@@ -8,23 +8,23 @@ This is a temporary script file.
 import copy
 import gc
 import json
-import psutil
+import os
 import warnings
+
+from glob import glob
 
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import h5py
 import numpy as np
-import pandas as pd
 
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from flask_caching import Cache
 from pandas.core.common import SettingWithCopyWarning
 
-from reviewer import Data_Path, print_args
-from reviewer.options import BASEMAPS, COLORSCALES, FILES
+from reviewer import Data_Path, print_args, value_map
+from reviewer.options import BASEMAPS, COLORSCALES, DATAFOLDERS, ZOOMLEVELS
 from reviewer.mapbox import MAPLAYOUT
 from reviewer.navbar import NAVBAR
 
@@ -42,21 +42,9 @@ DEFAULT_MAPVIEW = {
     "mapbox.pitch": 0
 }
 
-# Zoom-dependent data sets
-ZOOM_DATASETS = {
-    1: DP.join("Dataset_1.csv"),
-    2: DP.join("dataset_2.csv"),
-    3: DP.join("dataset_3.csv"),
-    4: DP.join("dataset_4.csv"),
-    5: DP.join("dataset_5.csv")
-}
-
-
 app = dash.Dash(__name__)
 server = app.server
-
-cache = Cache(config={'CACHE_TYPE': 'filesystem',
-                      'CACHE_DIR': 'data/cache',
+cache = Cache(config={'CACHE_TYPE': 'filesystem', 'CACHE_DIR': 'data/cache',
                       'CACHE_THRESHOLD': 2})
 cache.init_app(server)
 
@@ -89,11 +77,11 @@ app.layout = html.Div([
             style={"width": "50%", "float": "left"}
         ),
         dcc.Dropdown(
-            id="file",
+            id="project",
             clearable=False,
-            options=FILES,
+            options=DATAFOLDERS,
             multi=False,
-            value="florida_sc.csv",
+            value="ipm_wind_florida",
             style={"width": "50%", "float": "left"}
         )
       ],
@@ -106,7 +94,7 @@ app.layout = html.Div([
 ])
 
 
-def zoom_data(mapview_store, mapview, trig):
+def zoom_data(project, mapview_store, mapview, trig):
     """For a mapbox element, take it's current mapdata (zoom, pitch,
     center point, etc.) along with its previous mapdata, determine if the
     floor-level zoom value has changed, and, if so, trigger a map update
@@ -114,6 +102,9 @@ def zoom_data(mapview_store, mapview, trig):
 
     Parameters
     ----------
+    project : str
+        A path to the chosen project folder. This contains the set of
+        varying resolution datasets. 
     mapview_store : dict
         A dictionary object return from an html div storing a previously-
         triggered mapbox mapdata dictionary.
@@ -130,69 +121,76 @@ def zoom_data(mapview_store, mapview, trig):
         A pandas data frame.
     """
 
-    # print_args(zoom_data, mapview_store, mapview, trig)
+    print_args(zoom_data, project, mapview_store, mapview, trig)
+
+    # We need to assign a file to each possible zoom level
+    files = glob(DP.join(project, "*nc"))
+
+    # Get the shared base name
+    filebase = os.path.commonprefix(files)
+    if filebase[-1] == "_":
+        filebase = filebase[:-1]
+ 
+    # Get zoom - dataset assignments
+    datasets = {i: filebase + "_{}.nc".format(v) for i, v in ZOOMLEVELS.items()}
 
     # If trigger was zoom, but it didn't change enough, don't update
     zoom_store = np.floor(mapview_store["mapbox.zoom"])
     if "relayoutData" in trig:
         if "mapbox.zoom" in mapview:
-            zoom = np.floor(mapview["mapbox.zoom"])
-            if zoom == zoom_store:
+            zoomscale = np.floor(mapview["mapbox.zoom"])
+            if zoomscale == zoom_store:
                 raise PreventUpdate
             else:
                 print("Update triggered by zoom level!")
         else:
-            zoom = zoom_store
+            zoomscale = zoom_store
     else:
-        zoom = zoom_store
+        zoomscale = zoom_store
 
-    # dataset = pd.read_csv(ZOOM_DATASETS[zoom], low_memory=False)
-    dataset = ZOOM_DATASETS[zoom]
+    # Get the right zoom-level file for the given project
+    file = datasets[int(zoomscale)]
 
-    return dataset
+    return file
 
 
 @app.callback([Output("map", 'figure'),
                Output("mapview_store", "children")],
-              [Input("file", "value"),
+              [Input("project", "value"),
                Input("color", "value"),
                Input("basemap", "value"),
                Input("map", "relayoutData")],
               [State("mapview_store", "children")])
-def makeMap(file, color, basemap, mapview, mapview_store):
+def makeMap(project, color, basemap, mapview, mapview_store):
     """Starting with just a sample supply curve file and a basemap
-
-    map_type = "satellite-streets"
-    file = DP.join("outputs_sc.csv")
     """
     
+    # Print sample arguments
+    print_args(makeMap, project, color, basemap, mapview, mapview_store)
 
     # Get the upate triggering elemet name
     trig = dash.callback_context.triggered[0]['prop_id']
+    print("trig = " + "'" + trig + "'")
 
     # Extract saved mapdata
     if mapview_store == '{"autosize": true}':
+        mapview_store = DEFAULT_MAPVIEW
+    elif mapview_store == 'null':
         mapview_store = DEFAULT_MAPVIEW
     else:
         mapview_store = json.loads(mapview_store)
 
     # In the future we'll use the output of this function
-    future_dataset = zoom_data(mapview_store, mapview, trig)
-    print("DATASET USED: " + future_dataset)
+    data_path = zoom_data(project, mapview_store, mapview, trig)
 
     # Create a data frame of coordinates, index values, labels, etc
-    df = pd.read_csv(DP.join(file), low_memory=False)
-    df["hovertext"] = (df["county"] + " County, " + df["state"] + "<br>" +
-                       df["latitude"].round(2).astype(str) + ", " +
-                       df["longitude"].round(2).astype(str) + "<br>" +
-                       df["mean_cf"].round(4).astype(str))
-    df["hovertext"][
-        pd.isnull(df["hovertext"])] = df["mean_cf"].round(4).astype(str)
+    df = value_map(data_path, "mean")
+    df["hovertext"] = df["value_mean"].round(4).astype(str)
 
     # Create the scattermapbox object
     data = dict(type='scattermapbox',
-                lon=df['longitude'],
-                lat=df['latitude'],
+                lon=df['lon'],
+                lat=df['lat'],
                 text=df['hovertext'],
                 mode='markers',
                 hoverinfo='text',
@@ -200,9 +198,9 @@ def makeMap(file, color, basemap, mapview, mapview_store):
                 showlegend=False,
                 marker=dict(colorscale=color,
                             reversescale=False,
-                            color=df['mean_cf'],
-                            cmax=0.4,
-                            cmin=0.23,
+                            color=df['value_mean'],
+                            # cmax=0.4,
+                            # cmin=0.23,
                             opacity=1.0,
                             size=8,
                             colorbar=dict(textposition="auto",
@@ -212,7 +210,7 @@ def makeMap(file, color, basemap, mapview, mapview_store):
 
     # Set up layout
     layout_copy = copy.deepcopy(MAPLAYOUT)
-    layout_copy['title'] = "Florida Capacity Factors"
+    # layout_copy['title'] = "Florida Capacity Factors"
     if mapview and "mapbox.center" in mapview:
         layout_copy['mapbox']['center'] = mapview['mapbox.center']
         layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
@@ -224,8 +222,8 @@ def makeMap(file, color, basemap, mapview, mapview_store):
     gc.collect()
 
     # Check on Memory
-    cpu = psutil.cpu_percent()
-    memory = psutil.virtual_memory().percent
+    # cpu = psutil.cpu_percent()
+    # memory = psutil.virtual_memory().percent
     # print("\nCPU: {}% \nMemory: {}%\n".format(cpu, memory))
 
     return figure, json.dumps(mapview)

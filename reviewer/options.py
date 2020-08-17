@@ -16,13 +16,8 @@ BASEMAPS = [{'label': 'Light', 'value': 'light'},
             {'label': 'Satellite', 'value': 'satellite'},
             {'label': 'Satellite Streets', 'value': 'satellite-streets'}]
 
-# Dataset options
-FILES = [{"label": "CONUS Sample", "value": "conus_sc.csv"},
-         {"label": "Florida Sample", "value": "florida_sc.csv"}]
-
-# Zoom options
-ZOOM_DATASETS = {}
-
+# Data Set Options
+DATAFOLDERS = [{"label": "Florida Sample", "value": "ipm_wind_florida"}]
 
 # Color scale options - not everyone is built in
 COLORS = ['Default', 'Blackbody', 'Bluered', 'Blues', 'Earth', 'Electric',
@@ -30,7 +25,28 @@ COLORS = ['Default', 'Blackbody', 'Bluered', 'Blues', 'Earth', 'Electric',
           'Rainbow', 'RdBu', 'Reds', 'Viridis', 'RdWhBu',
           'RdWhBu (Extreme Scale)', 'RdYlGnBu', 'BrGn']
 COLORSCALES = [{'label': c, 'value': c} for c in COLORS]
-
+ZOOMLEVELS = {
+    1: 1,
+    2: 1,
+    3: 1,
+    4: 2,
+    5: 2,
+    6: 2,
+    7: 2,
+    8: 3,
+    9: 3,
+    10: 3,
+    11: 4,
+    12: 4,
+    13: 4,
+    14: 4,
+    15: 5,
+    16: 5,
+    17: 5,
+    18: 5,
+    19: 5,
+    20: 5
+}
 
 # Date options
 def date_options(min_year, max_year):

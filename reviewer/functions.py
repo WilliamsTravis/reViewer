@@ -8,14 +8,13 @@ Created on Sun Mar  8 16:12:01 2020
 @author: travis
 """
 
-import math
+import inspect
 import os
-import shutil
 
 from glob import glob
 
 import numpy as np
-import rasterio
+import pandas as pd
 import xarray as xr
 
 
@@ -27,11 +26,33 @@ def h5_to_df(file, dataset):
 
 def print_args(func, *args):
     """Print a functions key word argument inputs for easy assignment."""
-    count = func.__code__.co_argcount
-    keys = func.__code__.co_varnames[:count]
+    print("\nARGUMENTS for " + func.__name__ + ":")
+    sig = inspect.signature(func)
+    keys = sig.parameters.keys()
     kwargs = dict(zip(keys, args))
     for key, arg in kwargs.items():
-        print("{} = {}".format(key, arg))
+        if isinstance(arg, str):
+            arg = "'" + arg + "'"
+        print("  {} = {}".format(key, arg))
+    print("\n")
+
+
+def value_map(data_path, agg="mean"):
+    """Convert a 2 or 3D NetCDF file to a 2D pandas data frame of points.
+    
+    This will need to select a particular dataset, maybe aggregate by a
+    function, and filter and mask given a set of spatial and/or temporal
+    indices. We'll also need a scale factor and a nodata number.
+    """
+
+    with xr.open_dataset(data_path) as ds:
+        data = ds["value_" + agg]
+
+    df = data.to_dataframe()
+    df.reset_index(inplace=True)
+    df = df[~pd.isnull(df["value_" + agg])]
+
+    return df
 
 
 # CLASSES

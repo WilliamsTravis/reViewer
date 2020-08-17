@@ -114,32 +114,31 @@ def resamples(src, n=6):
     # Expand path
     src = os.path.expanduser(src)
 
-
     # Open highest resolution original file    
     ds = xr.open_dataset(src)
 
     # Build regridder
     x = ds["lon"].values
     y = ds["lat"].values
-    rx = np.diff(x)[0]
-    ry = np.diff(y)[0]
+    res = np.diff(x)[0]
 
     # The spatial reference needs to be removed, and the transform replaced
     crs = ds["spatial_ref"].copy()
     del ds["spatial_ref"]
 
     scales = {}
-    for scale in np.arange(1, n, 1):
-        scales[scale] = (rx * scale, ry * scale)
+    for scale in np.arange(1, n + 1, 1):
+        scales[scale] = res * scale
 
-    for scale, ress in scales.items():
+    for scale, res in scales.items():
 
         # New file name
-        dst = src.replace(".nc", "_{}.nc".format(scale))
+        zoom_level = n + 1 - scale
+        dst = src.replace(".nc", "_{}.nc".format(zoom_level))
 
         # Create Target Grid
-        grid = xr.Dataset({"lat": (["lat"], np.arange(y[0], y[-1], ress[1])),
-                           "lon": (["lon"], np.arange(x[0], x[-1], ress[0]))})
+        grid = xr.Dataset({"lat": (["lat"], np.arange(y[0], y[-1], res)),
+                           "lon": (["lon"], np.arange(x[0], x[-1], res))})
 
         # Regrid
         regridder = xe.Regridder(ds, grid, 'bilinear')
@@ -147,9 +146,9 @@ def resamples(src, n=6):
 
         # Compression on each dataset before adding spatial reference back in
         encoding = {k: {'zlib': True} for k in rds.keys()}
-    
+
         # Rewrite geotransform
-        crs.attrs["GeoTransform"] = [rx, 0, x[0], 0, ry, y[0]]
+        crs.attrs["GeoTransform"] = [res, 0, x[0], 0, res, y[0]]
         rds = rds.assign(spatial_ref = crs)
 
         # Save
@@ -182,8 +181,8 @@ def to_geo(df):
 
     # Make sure everything is lower case
     df.columns = [c.lower() for c in df.columns]
-    df.columns = [c if c not in lons else "lon" for c in df.columns ]
-    df.columns = [c if c not in lats else "lat" for c in df.columns ]
+    df.columns = [c if c not in lons else "lon" for c in df.columns]
+    df.columns = [c if c not in lats else "lat" for c in df.columns]
 
     # Now make a point out of each row and creat the geodataframe
     df["geometry"] = df.apply(to_point, axis=1)
@@ -238,7 +237,7 @@ def to_grid(df, res):
     grid_points = np.array(np.meshgrid(gridy, gridx)).T.reshape(-1, 2)
 
     # Go ahead and make the geotransform 
-    geotransform = [res, 0, minx, 0, -res, miny]
+    geotransform = [res, 0, minx, 0, res, miny]
 
     # Get source point coordinates
     pdf = df[["lat", "lon"]]
@@ -263,7 +262,7 @@ def to_grid(df, res):
     values = vdf.T.values  # Putting time first here
 
     # Okay, now use this to create our 3D empty target grid
-    grid = np.zeros((values.shape[0], gridy.shape[0], gridx.shape[0])) - 9999
+    grid = np.zeros((values.shape[0], gridy.shape[0], gridx.shape[0]))
 
     # Now, use the cartesian indices to add the values to the new grid
     grid[:, df["iy"].values, df["ix"].values] = values # <--------------------- Check these values against the original dataset
@@ -328,11 +327,7 @@ def to_netcdf(array, dst, time, transform, attributes=None, clobber=True):
     else:
         nlat, nlon = np.shape(array)
 
-    # Scale data
-    array[array == -9999] = np.iinfo("uint16").max
-    array = array.astype("uint16")
-
-    # Create Coordinates (res, 0, minx, 0, -res, miny)
+    # Create Coordinates (res, 0, minx, 0, res, miny)
     lons = np.arange(nlon) * transform[0] + transform[2]
     lats = np.arange(nlat) * transform[4] + transform[5]
 
@@ -360,13 +355,22 @@ def to_netcdf(array, dst, time, transform, attributes=None, clobber=True):
     longitudes.standard_name = 'longitude' 
 
     # Variables (for var, attrs in variables.items():)
-    variable = nco.createVariable('value', 'u2', ('time', 'lat', 'lon'),
+    variable = nco.createVariable('value', 'i2', ('time', 'lat', 'lon'),
                                   fill_value=-9999, zlib=True)
     variable.standard_name = 'index'
     variable.units = 'unitless'
     variable.long_name = 'Index Value'
     variable.scale_factor = 1
     variable.setncattr('grid_mapping', 'spatial_ref')
+
+    # Mean Variables 
+    mean_variable = nco.createVariable('value_mean', 'i2', ('lat', 'lon'),
+                                       fill_value=-9999, zlib=True)
+    mean_variable.standard_name = 'index'
+    mean_variable.units = 'unitless'
+    mean_variable.long_name = 'Index Value'
+    mean_variable.scale_factor = 1
+    mean_variable.setncattr('grid_mapping', 'spatial_ref')
 
     # Appending the CRS information
     refs = osr.SpatialReference()
@@ -397,6 +401,8 @@ def to_netcdf(array, dst, time, transform, attributes=None, clobber=True):
     longitudes[:] = lons
     times[:] = hours
     variable[:] = array
+    marray = np.nanmean(array, axis=0)
+    mean_variable[:] = marray
 
     # Done
     nco.close()
@@ -433,5 +439,7 @@ def main(src, outdir="."):
 
 
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    src = "/home/travis/github/reViewer/data/ipm_wind_florida/ipm_wind_cfp_fl_2012.h5"
+    outdir = "/home/travis/github/reViewer/data/ipm_wind_florida"
+    main(src, outdir)

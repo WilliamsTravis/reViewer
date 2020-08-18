@@ -39,7 +39,7 @@ fix_cfs(FILES)
 
 app = dash.Dash(__name__, external_stylesheets=[STYLESHEET])
 server = app.server
-valid_auth_pairs = {'soco': 'Bbbmwshcd1.'}
+valid_auth_pairs = {'soco': 'wievergnitset'}
 auth = dash_auth.BasicAuth(app, valid_auth_pairs)
 
 

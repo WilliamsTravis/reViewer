@@ -9,7 +9,7 @@ import os
 
 import pandas as pd
 import plotly.express as px
-
+import plotly.graph_objects as go
 from revruns import Data_Path
 
 
@@ -48,7 +48,8 @@ BUTTON_STYLES = {
 
 CHARTOPTIONS = [{"label": "Cumulative Capacity", "value": "cumsum"},
                 {"label": "Scatterplot", "value": "scatter"},
-                {"label": "Histogram", "value": "histogram"}]
+                {"label": "Histogram", "value": "histogram"},
+                {"label": "Boxplot", "value": "box"}]
 
 COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
           'Default': 'Default', 'Earth': 'Earth', 'Electric': 'Electric',
@@ -405,7 +406,6 @@ def get_scatter(paths, x, y, mapsel, point_size):
 
 def get_histogram(paths, y, mapsel, point_size):
     """Return a histogram."""
-
     df = None
     for key, path in paths.items():
         if df is None:
@@ -436,6 +436,49 @@ def get_histogram(paths, y, mapsel, point_size):
         marker=dict(
             line=dict(
                 width=0
+                )
+            ),
+        unselected=dict(
+            marker=dict(
+                color="grey")
+            )
+        )
+
+    return fig
+
+
+def get_boxplot(paths, y, mapsel, point_size):
+    """Return a set of boxplots."""
+    df = None
+    for key, path in paths.items():
+        if df is None:
+            df = pd.read_csv(path)
+            df["gid"] = df.index
+            df = df[["gid", y]]
+            df["hh"] = key
+            df = df[["gid", y, "hh"]]
+        else:
+            df2 = pd.read_csv(path)
+            df2["gid"] = df2.index
+            df2 = df2[["gid", y]]
+            df2["hh"] = key
+            df2 = df2[["gid", y, "hh"]]
+            df = pd.concat([df, df2])
+
+    if mapsel:
+        idx = [p["pointIndex"] for p in mapsel["points"]]
+        df = df[df["gid"].isin(idx)]
+
+    fig = px.box(df, x="hh", y=y, color="hh",
+                 title=get_label(VARIABLES, y) + " Boxplots",
+                 labels={y: UNITS[y]})
+
+    fig.update_traces(
+        marker=dict(
+            size=point_size,
+            opacity=1,
+            line=dict(
+                width=0,
                 )
             ),
         unselected=dict(

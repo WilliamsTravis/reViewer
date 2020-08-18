@@ -10,6 +10,7 @@ import json
 import os
 
 import dash
+import dash_auth
 import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
@@ -22,7 +23,7 @@ from support import DATASETS, DEFAULT_MAPVIEW, MAPLAYOUT
 from support import STYLESHEET, TITLES, TAB_STYLE, TABLET_STYLE, UNITS
 from support import VARIABLES
 from support import chart_point_filter, fix_cfs, get_label, make_scales
-from support import get_ccap, get_histogram, get_scatter
+from support import get_boxplot, get_ccap, get_histogram, get_scatter
 
 os.chdir(os.path.expanduser("~/github/reViewer/projects/soco"))
 
@@ -38,6 +39,9 @@ fix_cfs(FILES)
 
 app = dash.Dash(__name__, external_stylesheets=[STYLESHEET])
 server = app.server
+valid_auth_pairs = {'soco': 'Bbbmwshcd1.'}
+auth = dash_auth.BasicAuth(app, valid_auth_pairs)
+
 
 # Page Layout
 app.layout = html.Div([
@@ -371,7 +375,7 @@ def chart_tab_options(tab_choice, chart_choice):
     styles[idx] = {"width": "100%", "text-align": "center"}
 
     # If Cumulative capacity only show the y variable
-    if chart_choice in ["cumsum", "histogram"]:
+    if chart_choice in ["cumsum", "histogram", "box"]:
         children = [
             dcc.Tab(value='chart',
                     label='Chart Type',
@@ -595,6 +599,8 @@ def make_chart(chart, x, y, mapvar, mapsel, point_size, reset, sync_variable,
         fig = get_scatter(paths, x, y, mapsel, int(point_size))
     elif chart == "histogram":
         fig = get_histogram(paths, y, mapsel, int(point_size))
+    elif chart == "box":
+        fig = get_boxplot(paths, y, mapsel, int(point_size))
 
     # Update the layout and traces
     fig.update_layout(

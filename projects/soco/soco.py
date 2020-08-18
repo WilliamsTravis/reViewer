@@ -17,10 +17,12 @@ import pandas as pd
 from dash.dependencies import Input, Output, State
 from reviewer import print_args
 from revruns import Data_Path
-from support import BASEMAPS, BUTTON_STYLES, MAPLAYOUT, TITLES, UNITS
-from support import STYLESHEET, VARIABLES
-from support import TAB_STYLE, TABLET_STYLE, COLOR_OPTIONS
-from support import fix_cfs, make_scales, get_label, get_ccap, get_scatter
+from support import BASEMAPS, BUTTON_STYLES, CHARTOPTIONS, COLOR_OPTIONS
+from support import DATASETS, DEFAULT_MAPVIEW, MAPLAYOUT
+from support import STYLESHEET, TITLES, TAB_STYLE, TABLET_STYLE, UNITS
+from support import VARIABLES
+from support import chart_point_filter, fix_cfs, get_label, make_scales
+from support import get_ccap, get_histogram, get_scatter
 
 os.chdir(os.path.expanduser("~/github/reViewer/projects/soco"))
 
@@ -33,36 +35,9 @@ SCALES = make_scales(FILES, DP.join("scales.csv"))
 
 fix_cfs(FILES)
 
-DEFAULT_MAPVIEW = {
-    "mapbox.center": {
-        "lon": -85,
-        "lat": 32.5
-    },
-    "mapbox.zoom": 5.0,
-    "mapbox.bearing": 0,
-    "mapbox.pitch": 0
-}
-
-DATASETS = [{"label": "120m Hub Height", "value": DP.join("120hh_20ps.csv")},
-            {"label": "140m Hub Height", "value": DP.join("140hh_20ps.csv")},
-            {"label": "160m Hub Height", "value": DP.join("160hh_20ps.csv")}]
-
-
-CHARTOPTIONS = [{"label": "Cumulative Capacity", "value": "cumsum"},
-                {"label": "Scatterplot", "value": "scatter"}]
-
-LCOEOPTIONS = [{"label": "Site-Based", "value": "mean_lcoe"},
-               {"label": "Transmission", "value": "lcot"},
-               {"label": "Total", "value": "total_lcoe"}]
-
-RESET_BUTTON_STYLE = {
-        'height': '100%',
-        'background-color': '#FCCD34',
-        "display": "table-cell"
-        }
 
 app = dash.Dash(__name__, external_stylesheets=[STYLESHEET])
-
+server = app.server
 
 # Page Layout
 app.layout = html.Div([
@@ -73,21 +48,38 @@ app.layout = html.Div([
         children=[
 
             html.Div([
-              html.H2(
-                  "Southern Company - reV - Preliminary Results",
-                  style={
-                     'height': 50,
-                     'width': 900,
-                     'float': 'left',
-                     'position': 'relative',
-                     "color": "white",
-                     'font-family': 'Times New Roman',
-                     'font-size': '48px',
-                     "margin-bottom": 5,
-                     "margin-left": 15,
-                     "margin-top": 0
-                     }
+
+              html.Div([
+                  html.H1(
+                      "reView",
+                      style={
+                         'float': 'left',
+                         'position': 'relative',
+                         "color": "white",
+                         'font-family': 'Times New Roman',
+                         'font-size': '48px',
+                         "font-face": "bold",
+                         "margin-bottom": 5,
+                         "margin-left": 15,
+                         "margin-top": 0
+                         }
                   ),
+                  html.H2(
+                      " | Southern Company Preliminary Results",
+                      style={
+                        'float': 'left',
+                        'position': 'relative',
+                        "color": "white",
+                        'font-family': 'Times New Roman',
+                        'font-size': '36px',
+                        "margin-bottom": 5,
+                        "margin-left": 15,
+                        "margin-top": 10,
+                        "margin-right": 55
+                        }
+                    ),
+
+                  ]),
 
               html.Button(
                     id='sync_variables',
@@ -150,7 +142,7 @@ app.layout = html.Div([
 
     html.Div([
 
-        # Map of Capacity Factors / LCOE
+        # MAP DIV
         html.Div([
             html.Div([
 
@@ -233,7 +225,7 @@ app.layout = html.Div([
             ], className="row"),
 
             # The map
-            dcc.Graph(id="map"),
+            dcc.Graph(id="map", config={'showSendToCloud': True}),
 
             # Point Size
             html.Div(
@@ -312,7 +304,7 @@ app.layout = html.Div([
                                 clearable=False,
                                 options=VARIABLES,
                                 multi=False,
-                                value="total_lcoe"
+                                value="mean_cf"
                             ),
                         ]),
                     ]),
@@ -320,7 +312,7 @@ app.layout = html.Div([
             ], className="row"),
 
             # The chart
-            dcc.Graph(id="chart"),
+            dcc.Graph(id="chart", config={'showSendToCloud': True}),
 
             # Point Size
             html.Div(
@@ -379,7 +371,7 @@ def chart_tab_options(tab_choice, chart_choice):
     styles[idx] = {"width": "100%", "text-align": "center"}
 
     # If Cumulative capacity only show the y variable
-    if chart_choice == "cumsum":
+    if chart_choice in ["cumsum", "histogram"]:
         children = [
             dcc.Tab(value='chart',
                     label='Chart Type',
@@ -387,7 +379,7 @@ def chart_tab_options(tab_choice, chart_choice):
                     selected_style=TABLET_STYLE
                     ),
             dcc.Tab(value='yvariable',
-                    label='Y Variable',
+                    label='Variable',
                     style=TABLET_STYLE,
                     selected_style=TABLET_STYLE)
             ]
@@ -449,6 +441,24 @@ def toggle_rev_color_button(click):
     return children, style
 
 
+# @app.callback(Output("map_variable_options", "value"),
+#               [Input("chart_yvariable_options", "value"),
+#                Input("sync_variables", "n_clicks")])
+# def sync_map(chart_selection, sync):
+#     """If syncing is on, change the map value given chart input."""
+#     if sync % 2 == 1:
+#         return chart_selection
+
+
+# @app.callback(Output("chart_yvariable_options", "value"),
+#               [Input("map_variable_options", "value"),
+#                Input("sync_variables", "n_clicks")])
+# def sync_chart(map_selection, sync):
+#     """If syncing is on, change the chart value given map input."""
+#     if sync % 2 == 1:
+#         return map_selection
+
+
 @app.callback(
     [Output('map', 'figure'),
      Output("mapview_store", "children")],
@@ -460,22 +470,20 @@ def toggle_rev_color_button(click):
      Input("chart", "selectedData"),
      Input("map_point_size", "value"),
      Input("rev_color", "n_clicks"),
-     Input("reset_chart", "n_clicks")],
-    [State("map", "relayoutData"),
-     State("sync_variables", "n_clicks")])
+     Input("reset_chart", "n_clicks"),
+     Input("sync_variables", "n_clicks")],
+    [State("map", "relayoutData")])
 def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
-             point_size, rev_color, reset, mapview, sync_variable):
+             point_size, rev_color, reset, sync_variable, mapview):
     """Make the scatterplot map."""
-    print_args(make_map, hubheight, variable, basemap, color, chartvar,
-               chartsel, mapview, sync_variable, rev_color)
+    # print_args(make_map, hubheight, variable, basemap, color, chartvar,
+    #            chartsel, mapview, sync_variable, rev_color)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     if sync_variable % 2 == 1:
         if "variable" in trig:
             if trig == "chart_yvariable_options.value":
                 variable = chartvar
-
-    print("MAP TRIG: " + trig)
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -487,19 +495,17 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
     df = pd.read_csv(hubheight)
 
     # Reset any previous selections
-    if "reset" in trig:
-        chartsel = None
+    # if "reset" in trig:
+    #     chartsel = None
 
     # If there is a selection in the chart filter these points
     if chartsel:
-        points = chartsel["points"]
-        vals = [p["y"] for p in points]
-        df = df[(df[chartvar] >= min(vals)) &
-                (df[chartvar] <= max(vals))]
+        df = chart_point_filter(df, chartsel, chartvar)
 
     df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   " +
                   df[variable].round(2).astype(str) + " " + UNITS[variable])
     df = df[[variable, "latitude", "longitude", "text"]]
+
     if rev_color % 2 == 1:
         rev_color = False
     else:
@@ -558,34 +564,67 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
      Input("map_variable_options", "value"),
      Input("map", "selectedData"),
      Input("chart_point_size", "value"),
-     Input("reset_chart", "n_clicks")],
-    [State("map", "relayoutData"),
-     State("sync_variables", "n_clicks")])
-def make_chart(chart, xvariable, yvariable, mapvar, mapsel, point_size,
-               reset, chartview, sync_variable):
+     Input("reset_chart", "n_clicks"),
+     Input("sync_variables", "n_clicks")],
+    [State("map", "relayoutData")])
+def make_chart(chart, x, y, mapvar, mapsel, point_size, reset, sync_variable,
+               chartview):
     """Make one of a variety of charts."""
-    print_args(make_chart, chart, xvariable, yvariable, mapvar, mapsel,
-               point_size, sync_variable)
+    print_args(make_chart, chart, x, y, mapvar, mapsel, point_size,
+               sync_variable)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     if sync_variable % 2 == 1:
         if "variable" in trig:
             if trig == "map_variable_options.value":
-                yvariable = mapvar
+                y = mapvar
 
     # Reset any previous selections
-    if "reset" in trig:
-        mapsel = None
+    # if "reset" in trig:
+    #     mapsel = None
 
     # Only the 20MW plant for now
     files = [f for f in FILES if "20ps" in f]
     files.sort()
     paths = {os.path.splitext(os.path.basename(f))[0][:3]: f for f in files}
 
+    # Get the initial figure
     if chart == "cumsum":
-        fig = get_ccap(paths, yvariable, mapsel, int(point_size))
+        fig = get_ccap(paths, y, mapsel, int(point_size))
     elif chart == "scatter":
-        fig = get_scatter(paths, xvariable, yvariable, mapsel, int(point_size))
+        fig = get_scatter(paths, x, y, mapsel, int(point_size))
+    elif chart == "histogram":
+        fig = get_histogram(paths, y, mapsel, int(point_size))
+
+    # Update the layout and traces
+    fig.update_layout(
+        font_family="Time New Roman",
+        title_font_family="Times New Roman",
+        legend_title_font_color="white",
+        font_color="white",
+        title_font_size=35,
+        font_size=15,
+        margin=dict(l=70, r=20, t=70, b=20),
+        height=500,
+        paper_bgcolor="#1663B5",
+        legend_title_text='Hub Height',
+        dragmode="select",
+        title=dict(
+                yref="paper",
+                y=1,
+                x=0.1,
+                yanchor="bottom",
+                pad=dict(b=10)
+                ),
+        legend=dict(
+            title_font_family="Times New Roman",
+            font=dict(
+               family="Times New Roman",
+               size=15,
+               color="white"
+               )
+           )
+        )
 
     return fig
 

@@ -10,6 +10,11 @@ import os
 import pandas as pd
 import plotly.express as px
 
+from revruns import Data_Path
+
+
+DATAPATH = Data_Path("./data")
+
 
 BASEMAPS = [{'label': 'Light', 'value': 'light'},
             {'label': 'Dark', 'value': 'dark'},
@@ -40,6 +45,10 @@ BUTTON_STYLES = {
         'margin-top': '-2px'
         }
     }
+
+CHARTOPTIONS = [{"label": "Cumulative Capacity", "value": "cumsum"},
+                {"label": "Scatterplot", "value": "scatter"},
+                {"label": "Histogram", "value": "histogram"}]
 
 COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
           'Default': 'Default', 'Earth': 'Earth', 'Electric': 'Electric',
@@ -94,6 +103,27 @@ COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
 
 COLOR_OPTIONS = [{"label": k, "value": v} for k, v in COLORS.items()]
 
+DATASETS = [
+    {"label": "120m Hub Height", "value": DATAPATH.join("120hh_20ps.csv")},
+    {"label": "140m Hub Height", "value": DATAPATH.join("140hh_20ps.csv")},
+    {"label": "160m Hub Height", "value": DATAPATH.join("160hh_20ps.csv")}
+    ]
+
+DEFAULT_MAPVIEW = {
+    "mapbox.center": {
+        "lon": -85,
+        "lat": 32.5
+    },
+    "mapbox.zoom": 5.0,
+    "mapbox.bearing": 0,
+    "mapbox.pitch": 0
+}
+
+
+LCOEOPTIONS = [{"label": "Site-Based", "value": "mean_lcoe"},
+               {"label": "Transmission", "value": "lcot"},
+               {"label": "Total", "value": "total_lcoe"}]
+
 MAPTOKEN = ('pk.eyJ1IjoidHJhdmlzc2l1cyIsImEiOiJjamZiaHh4b28waXNkMnptaWlwcHZvd'
             'zdoIn0.9pxpgXxyyhM6qEF_dcyjIQ')
 
@@ -124,6 +154,12 @@ MAPLAYOUT = dict(
         zoom=2)
 )
 
+RESET_BUTTON_STYLE = {
+        'height': '100%',
+        'background-color': '#FCCD34',
+        "display": "table-cell"
+        }
+
 STYLESHEET = 'https://codepen.io/chriddyp/pen/bWLwgP.css'
 
 TAB_STYLE = {'height': '25px', 'padding': '0'}
@@ -152,7 +188,7 @@ SCALES = {
     "total_lcoe": {}
     }
 
-UNITS = {'mean_cf': '%',
+UNITS = {'mean_cf': 'CF %',
          'mean_lcoe': '$/MWh',
          'mean_res': 'm/s',
          'capacity': 'MW',
@@ -173,6 +209,38 @@ VARIABLES = [
     {"label": "LCOT", "value": "lcot"},
     {"label": "Total LCOE", "value": "total_lcoe"}
 ]
+
+
+def chart_point_filter(df, chartsel, chartvar):
+    """Filter a dataframe by points selected from the chart."""
+    points = chartsel["points"]
+    if "binNumber" in points[0]:
+        vals = [p["x"] for p in points]
+    else:
+        vals = [p["y"] for p in points]
+    try:
+        df = df[(df[chartvar] >= min(vals)) &
+                (df[chartvar] <= max(vals))]
+    except ValueError:
+        pass
+
+    return df
+
+
+def fix_cfs(files):
+    """Convert capacity factors to percents if needed."""
+    for f in files:
+        df = pd.read_csv(f)
+        if "ps" in f and "mean_cf" in df.columns:
+            if df["mean_cf"].max() < 1:
+                df["mean_cf"] = round(df["mean_cf"] * 100, 2)
+                df.to_csv(f, index=False)
+
+
+def get_label(options, value):
+    """Get the label of a DASH list of options, given the value."""
+    option = [d for d in options if d["value"] == value]
+    return option[0]["label"]
 
 
 def make_scales(files, dst):
@@ -203,35 +271,20 @@ def make_scales(files, dst):
     return ranges
 
 
-def get_label(options, value):
-    """Get the label of a DASH list of options, given the value."""
-    option = [d for d in options if d["value"] == value]
-    return option[0]["label"]
-
-
-def fix_cfs(files):
-    """Convert capacity factors to percents if needed."""
-    for f in files:
-        df = pd.read_csv(f)
-        if "ps" in f and "mean_cf" in df.columns:
-            if df["mean_cf"].max() < 1:
-                df["mean_cf"] = round(df["mean_cf"] * 100, 2)
-                df.to_csv(f, index=False)
-
-
-def get_ccap(paths, variable, mapsel, point_size):
+# Chart functions
+def get_ccap(paths, y, mapsel, point_size):
     """Return a cumulative capacity scatterplot."""
     df = None
     for key, path in paths.items():
         if df is None:
             df = pd.read_csv(path)
             df["gid"] = df.index
-            df = df[["gid", "capacity", variable]]
-            if variable == "capacity":
+            df = df[["gid", "capacity", y]]
+            if y == "capacity":
                 df.columns = ["gid", "capacity", "capacity2"]
                 var = "capacity2"
             else:
-                var = variable
+                var = y
             df = df.sort_values(var)
             df["ccap"] = df["capacity"].cumsum()
             df["value"] = df[var]
@@ -240,12 +293,12 @@ def get_ccap(paths, variable, mapsel, point_size):
         else:
             df2 = pd.read_csv(path)
             df2["gid"] = df2.index
-            df2 = df2[["gid", "capacity", variable]]
-            if variable == "capacity":
+            df2 = df2[["gid", "capacity", y]]
+            if y == "capacity":
                 df2.columns = ["gid", "capacity", "capacity2"]
                 var = "capacity2"
             else:
-                var = variable
+                var = y
             df2 = df2.sort_values(var)
             df2["hh"] = key
             df2["ccap"] = df2["capacity"].cumsum()
@@ -263,40 +316,11 @@ def get_ccap(paths, variable, mapsel, point_size):
     fig = px.scatter(df,
                      x="ccap",
                      y="value",
-                     title=(get_label(VARIABLES, variable) +
+                     title=(get_label(VARIABLES, y) +
                             " by Cumulative Capacity"),
                      labels={"ccap": UNITS["capacity"],
-                             "value": UNITS[variable]},
+                             "value": UNITS[y]},
                      color='hh')
-
-    fig.update_layout(
-        font_family="Time New Roman",
-        title_font_family="Times New Roman",
-        legend_title_font_color="white",
-        font_color="white",
-        title_font_size=35,
-        font_size=15,
-        margin=dict(l=70, r=20, t=70, b=20),
-        height=500,
-        paper_bgcolor="#1663B5",
-        legend_title_text='Hub Height',
-        dragmode="select",
-        title=dict(
-                yref="paper",
-                y=1,
-                x=0.1,
-                yanchor="bottom",
-                pad=dict(b=10)
-                ),
-        legend=dict(
-            title_font_family="Times New Roman",
-            font=dict(
-               family="Times New Roman",
-               size=15,
-               color="white"
-               )
-           )
-        )
 
     fig.update_traces(
         marker=dict(
@@ -315,7 +339,7 @@ def get_ccap(paths, variable, mapsel, point_size):
 
 
 def get_scatter(paths, x, y, mapsel, point_size):
-    """Return a cumulative capacity scatterplot."""
+    """Return a regular scatterplot."""
     df = None
     for key, path in paths.items():
         if df is None:
@@ -363,35 +387,6 @@ def get_scatter(paths, x, y, mapsel, point_size):
                              "value": UNITS[y]},
                      color='hh')
 
-    fig.update_layout(
-        font_family="Time New Roman",
-        title_font_family="Times New Roman",
-        legend_title_font_color="white",
-        font_color="white",
-        title_font_size=35,
-        font_size=15,
-        margin=dict(l=70, r=20, t=70, b=20),
-        height=500,
-        paper_bgcolor="#1663B5",
-        legend_title_text='Hub Height',
-        dragmode="select",
-        title=dict(
-                yref="paper",
-                y=1,
-                x=0.1,
-                yanchor="bottom",
-                pad=dict(b=10)
-                ),
-        legend=dict(
-            title_font_family="Times New Roman",
-            font=dict(
-               family="Times New Roman",
-               size=15,
-               color="white"
-               )
-           )
-        )
-
     fig.update_traces(
         marker=dict(
             size=point_size,
@@ -407,3 +402,46 @@ def get_scatter(paths, x, y, mapsel, point_size):
 
     return fig
 
+
+def get_histogram(paths, y, mapsel, point_size):
+    """Return a histogram."""
+
+    df = None
+    for key, path in paths.items():
+        if df is None:
+            df = pd.read_csv(path)
+            df["gid"] = df.index
+            df = df[["gid", y]]
+            df["hh"] = key
+            df = df[["gid", y, "hh"]]
+        else:
+            df2 = pd.read_csv(path)
+            df2["gid"] = df2.index
+            df2 = df2[["gid", y]]
+            df2["hh"] = key
+            df2 = df2[["gid", y, "hh"]]
+            df = pd.concat([df, df2])
+
+    if mapsel:
+        idx = [p["pointIndex"] for p in mapsel["points"]]
+        df = df[df["gid"].isin(idx)]
+
+    fig = px.histogram(df,
+                       x=y,
+                       color="hh",
+                       title=get_label(VARIABLES, y) + " Histogram",
+                       labels={y: UNITS[y]})
+
+    fig.update_traces(
+        marker=dict(
+            line=dict(
+                width=0
+                )
+            ),
+        unselected=dict(
+            marker=dict(
+                color="grey")
+            )
+        )
+
+    return fig

@@ -502,6 +502,11 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
     # if "reset" in trig:
     #     chartsel = None
 
+    if rev_color % 2 == 0:
+        rev_color = True
+    else:
+        rev_color = False
+
     # If there is a selection in the chart filter these points
     if chartsel:
         df = chart_point_filter(df, chartsel, chartvar)

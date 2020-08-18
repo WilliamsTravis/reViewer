@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Sat Aug 15 15:47:40 2020
@@ -9,6 +8,7 @@ Created on Sat Aug 15 15:47:40 2020
 import os
 
 import pandas as pd
+import plotly.express as px
 
 
 BASEMAPS = [{'label': 'Light', 'value': 'light'},
@@ -18,29 +18,117 @@ BASEMAPS = [{'label': 'Light', 'value': 'light'},
             {'label': 'Satellite', 'value': 'satellite'},
             {'label': 'Satellite Streets', 'value': 'satellite-streets'}]
 
+BUTTON_STYLES = {
+    "on": {
+        'height': '45px',
+        "width": "225px",
+        'padding': '4px',
+        'background-color': '#FCCD34',
+        'border-radius': '4px',
+        'font-family': 'Times New Roman',
+        'font-size': '13px',
+        'margin-top': '-2px'
+        },
+    "off": {
+        'height': '45px',
+        "width": "225px",
+        'padding': '4px',
+        'background-color': '#b89627',
+        'border-radius': '4px',
+        'font-family': 'Times New Roman',
+        'font-size': '13px',
+        'margin-top': '-2px'
+        }
+    }
+
+COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
+          'Default': 'Default', 'Earth': 'Earth', 'Electric': 'Electric',
+          'Greens': 'Greens', 'Greys': 'Greys', 'Hot': 'Hot', 'Jet': 'Jet',
+          'Picnic': 'Picnic', 'Portland': 'Portland', 'Rainbow': 'Rainbow',
+          'RdBu': 'RdBu',  'Viridis': 'Viridis', 'Reds': 'Reds',
+          # 'RdWhBu': [[0.00, 'rgb(115,0,0)'],
+          #             [0.10, 'rgb(230,0,0)'],
+          #             [0.20, 'rgb(255,170,0)'],
+          #             [0.30, 'rgb(252,211,127)'],
+          #             [0.40, 'rgb(255, 255, 0)'],
+          #             [0.45, 'rgb(255, 255, 255)'],
+          #             [0.55, 'rgb(255, 255, 255)'],
+          #             [0.60, 'rgb(143, 238, 252)'],
+          #             [0.70, 'rgb(12,164,235)'],
+          #             [0.80, 'rgb(0,125,255)'],
+          #             [0.90, 'rgb(10,55,166)'],
+          #             [1.00, 'rgb(5,16,110)']],
+          # 'RdWhBu (Extreme Scale)':  [[0.00, 'rgb(115,0,0)'],
+          #                             [0.02, 'rgb(230,0,0)'],
+          #                             [0.05, 'rgb(255,170,0)'],
+          #                             [0.10, 'rgb(252,211,127)'],
+          #                             [0.20, 'rgb(255, 255, 0)'],
+          #                             [0.30, 'rgb(255, 255, 255)'],
+          #                             [0.70, 'rgb(255, 255, 255)'],
+          #                             [0.80, 'rgb(143, 238, 252)'],
+          #                             [0.90, 'rgb(12,164,235)'],
+          #                             [0.95, 'rgb(0,125,255)'],
+          #                             [0.98, 'rgb(10,55,166)'],
+          #                             [1.00, 'rgb(5,16,110)']],
+          # 'RdYlGnBu':  [[0.00, 'rgb(124, 36, 36)'],
+          #               [0.25, 'rgb(255, 255, 48)'],
+          #               [0.5, 'rgb(76, 145, 33)'],
+          #               [0.85, 'rgb(0, 92, 221)'],
+          #               [1.00, 'rgb(0, 46, 110)']],
+          # 'BrGn':  [[0.00, 'rgb(91, 74, 35)'],
+          #           [0.10, 'rgb(122, 99, 47)'],
+          #           [0.15, 'rgb(155, 129, 69)'],
+          #           [0.25, 'rgb(178, 150, 87)'],
+          #           [0.30, 'rgb(223,193,124)'],
+          #           [0.40, 'rgb(237, 208, 142)'],
+          #           [0.45, 'rgb(245,245,245)'],
+          #           [0.55, 'rgb(245,245,245)'],
+          #           [0.60, 'rgb(198,234,229)'],
+          #           [0.70, 'rgb(127,204,192)'],
+          #           [0.75, 'rgb(62, 165, 157)'],
+          #           [0.85, 'rgb(52,150,142)'],
+          #           [0.90, 'rgb(1,102,94)'],
+          #           [1.00, 'rgb(0, 73, 68)']]
+          }
+
+
+COLOR_OPTIONS = [{"label": k, "value": v} for k, v in COLORS.items()]
+
 MAPTOKEN = ('pk.eyJ1IjoidHJhdmlzc2l1cyIsImEiOiJjamZiaHh4b28waXNkMnptaWlwcHZvd'
             'zdoIn0.9pxpgXxyyhM6qEF_dcyjIQ')
 
 MAPLAYOUT = dict(
     height=500,
-    font=dict(color='#CCCCCC',
+    font=dict(color='white',
               fontweight='bold'),
-    titlefont=dict(color='#CCCCCC',
-                   size='20',
+    titlefont=dict(color='white',
+                   size=35,
                    family='Time New Roman',
                    fontweight='bold'),
-    margin=dict(l=55, r=35, b=65, t=90, pad=4),
+    margin=dict(l=20, r=115, t=70, b=20),
     hovermode="closest",
     plot_bgcolor="#083C04",
-    paper_bgcolor="black",
+    paper_bgcolor="#1663B5",
     legend=dict(font=dict(size=10, fontweight='bold'), orientation='h'),
-    title='<b>Index Values/b>',
+    title=dict(
+        yref="paper",
+        x=0.1,
+        y=1,
+        yanchor="bottom",
+        pad=dict(b=10)
+    ),
     mapbox=dict(
         accesstoken=MAPTOKEN,
         style="satellite-streets",
         center=dict(lon=-95.7, lat=37.1),
         zoom=2)
 )
+
+STYLESHEET = 'https://codepen.io/chriddyp/pen/bWLwgP.css'
+
+TAB_STYLE = {'height': '25px', 'padding': '0'}
+
+TABLET_STYLE = {'line-height': '25px', 'padding': '0'}
 
 TITLES = {'mean_cf': 'Mean Capacity Factor',
           'mean_lcoe': 'Mean Site-Based LCOE',
@@ -52,7 +140,19 @@ TITLES = {'mean_cf': 'Mean Capacity Factor',
           'lcot': 'LCOT',
           'total_lcoe': 'Total LCOE'}
 
-UNITS = {'mean_cf': 'unitless',
+SCALES = {
+    "mean_cf": {},
+    "mean_lcoe": {},
+    "mean_res": {},
+    "capacity": {},
+    "area_sq_km": {},
+    "trans_capacity": {},
+    "trans_cap_cost": {},
+    "lcot": {},
+    "total_lcoe": {}
+    }
+
+UNITS = {'mean_cf': '%',
          'mean_lcoe': '$/MWh',
          'mean_res': 'm/s',
          'capacity': 'MW',
@@ -62,17 +162,28 @@ UNITS = {'mean_cf': 'unitless',
          'lcot': '$/MWh',
          'total_lcoe': '$/MWh'}
 
-STYLESHEET = 'https://codepen.io/chriddyp/pen/bWLwgP.css'
+VARIABLES = [
+    {"label": "Mean Capacity Factor", "value": "mean_cf"},
+    {"label": "Mean Windspeed", "value": "mean_res"},
+    {"label": "Total Generation Capacity", "value": "capacity"},
+    {"label": "Supply Curve Point Area", "value": "area_sq_km"},
+    {"label": "Total Transmission Capacity", "value": "trans_capacity"},
+    {"label": 'Transmission Capital Costs', "value": 'trans_cap_cost'},
+    {"label": "Mean Site-Based LCOE", "value": "mean_lcoe"},
+    {"label": "LCOT", "value": "lcot"},
+    {"label": "Total LCOE", "value": "total_lcoe"}
+]
 
 
 def make_scales(files, dst):
-    """find the minimum and maximum values for each variable in all files."""
-
+    """Find the minimum and maximum values for each variable in all files."""
     if not os.path.exists(dst):
         dfs = []
         for f in files:
-            dfs.append(pd.read_csv(f))
-    
+            df = pd.read_csv(f)
+            df["mean_cf"] = round(df["mean_cf"] * 100, 2)
+            dfs.append(df)
+
         ranges = {}
         for variable in TITLES.keys():
             mins = []
@@ -85,17 +196,214 @@ def make_scales(files, dst):
 
         ranges = pd.DataFrame(ranges)
         ranges.to_csv(dst, index=False)
-    
+
     ranges = pd.read_csv(dst)
-    ranges.index = ["min", "max"]    
- 
+    ranges.index = ["min", "max"]
+
     return ranges
 
 
 def get_label(options, value):
+    """Get the label of a DASH list of options, given the value."""
     option = [d for d in options if d["value"] == value]
     return option[0]["label"]
 
-    
-    
-    
+
+def fix_cfs(files):
+    """Convert capacity factors to percents if needed."""
+    for f in files:
+        df = pd.read_csv(f)
+        if "ps" in f and "mean_cf" in df.columns:
+            if df["mean_cf"].max() < 1:
+                df["mean_cf"] = round(df["mean_cf"] * 100, 2)
+                df.to_csv(f, index=False)
+
+
+def get_ccap(paths, variable, mapsel, point_size):
+    """Return a cumulative capacity scatterplot."""
+    df = None
+    for key, path in paths.items():
+        if df is None:
+            df = pd.read_csv(path)
+            df["gid"] = df.index
+            df = df[["gid", "capacity", variable]]
+            if variable == "capacity":
+                df.columns = ["gid", "capacity", "capacity2"]
+                var = "capacity2"
+            else:
+                var = variable
+            df = df.sort_values(var)
+            df["ccap"] = df["capacity"].cumsum()
+            df["value"] = df[var]
+            df["hh"] = key
+            df = df[["gid", "ccap", "value", "hh"]]
+        else:
+            df2 = pd.read_csv(path)
+            df2["gid"] = df2.index
+            df2 = df2[["gid", "capacity", variable]]
+            if variable == "capacity":
+                df2.columns = ["gid", "capacity", "capacity2"]
+                var = "capacity2"
+            else:
+                var = variable
+            df2 = df2.sort_values(var)
+            df2["hh"] = key
+            df2["ccap"] = df2["capacity"].cumsum()
+            df2["value"] = df2[var]
+            df2["hh"] = key
+            df2 = df2[["gid", "ccap", "value", "hh"]]
+            df = pd.concat([df, df2])
+
+    df = df.sort_values("ccap")
+
+    if mapsel:
+        idx = [p["pointIndex"] for p in mapsel["points"]]
+        df = df[df["gid"].isin(idx)]
+
+    fig = px.scatter(df,
+                     x="ccap",
+                     y="value",
+                     title=(get_label(VARIABLES, variable) +
+                            " by Cumulative Capacity"),
+                     labels={"ccap": UNITS["capacity"],
+                             "value": UNITS[variable]},
+                     color='hh')
+
+    fig.update_layout(
+        font_family="Time New Roman",
+        title_font_family="Times New Roman",
+        legend_title_font_color="white",
+        font_color="white",
+        title_font_size=35,
+        font_size=15,
+        margin=dict(l=70, r=20, t=70, b=20),
+        height=500,
+        paper_bgcolor="#1663B5",
+        legend_title_text='Hub Height',
+        dragmode="select",
+        title=dict(
+                yref="paper",
+                y=1,
+                x=0.1,
+                yanchor="bottom",
+                pad=dict(b=10)
+                ),
+        legend=dict(
+            title_font_family="Times New Roman",
+            font=dict(
+               family="Times New Roman",
+               size=15,
+               color="white"
+               )
+           )
+        )
+
+    fig.update_traces(
+        marker=dict(
+            size=point_size,
+            line=dict(
+                width=0
+                )
+            ),
+        unselected=dict(
+            marker=dict(
+                color="grey")
+            )
+        )
+
+    return fig
+
+
+def get_scatter(paths, x, y, mapsel, point_size):
+    """Return a cumulative capacity scatterplot."""
+    df = None
+    for key, path in paths.items():
+        if df is None:
+            df = pd.read_csv(path)
+            df["gid"] = df.index
+            df = df[["gid", x, y]]
+            if x == y:
+                df.columns = ["gid", x, y + "2"]
+                var = y + "2"
+            else:
+                var = y
+            df = df.sort_values(var)
+            df["x"] = df[x]
+            df["value"] = df[var]
+            df["hh"] = key
+            df = df[["gid", "x", "value", "hh"]]
+        else:
+            df2 = pd.read_csv(path)
+            df2["gid"] = df2.index
+            df2 = df2[["gid", x, y]]
+            if x == y:
+                df2.columns = ["gid",  x, y + "2"]
+                var = y + "2"
+            else:
+                var = y
+            df2 = df2.sort_values(var)
+            df2["x"] = df2[x]
+            df2["value"] = df2[var]
+            df2["hh"] = key
+            df2 = df2[["gid", "x", "value", "hh"]]
+            df = pd.concat([df, df2])
+
+    df = df.sort_values("x")
+
+    if mapsel:
+        idx = [p["pointIndex"] for p in mapsel["points"]]
+        df = df[df["gid"].isin(idx)]
+
+    fig = px.scatter(df,
+                     x="x",
+                     y="value",
+                     title=(get_label(VARIABLES, y) + " by " +
+                            get_label(VARIABLES, x)),
+                     labels={"x": UNITS[x],
+                             "value": UNITS[y]},
+                     color='hh')
+
+    fig.update_layout(
+        font_family="Time New Roman",
+        title_font_family="Times New Roman",
+        legend_title_font_color="white",
+        font_color="white",
+        title_font_size=35,
+        font_size=15,
+        margin=dict(l=70, r=20, t=70, b=20),
+        height=500,
+        paper_bgcolor="#1663B5",
+        legend_title_text='Hub Height',
+        dragmode="select",
+        title=dict(
+                yref="paper",
+                y=1,
+                x=0.1,
+                yanchor="bottom",
+                pad=dict(b=10)
+                ),
+        legend=dict(
+            title_font_family="Times New Roman",
+            font=dict(
+               family="Times New Roman",
+               size=15,
+               color="white"
+               )
+           )
+        )
+
+    fig.update_traces(
+        marker=dict(
+            size=point_size,
+            line=dict(
+                width=0
+                )
+            ),
+        unselected=dict(
+            marker=dict(
+                color="grey")
+            )
+        )
+
+    return fig
+

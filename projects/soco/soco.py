@@ -13,13 +13,16 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import pandas as pd
-import plotly.express as px
 
 from dash.dependencies import Input, Output, State
 from reviewer import print_args
 from revruns import Data_Path
-from support import BASEMAPS, MAPLAYOUT, TITLES, UNITS, STYLESHEET
-from support import make_scales, get_label
+from support import BASEMAPS, BUTTON_STYLES, MAPLAYOUT, TITLES, UNITS
+from support import STYLESHEET, VARIABLES
+from support import TAB_STYLE, TABLET_STYLE, COLOR_OPTIONS
+from support import fix_cfs, make_scales, get_label, get_ccap, get_scatter
+
+os.chdir(os.path.expanduser("~/github/reViewer/projects/soco"))
 
 
 DP = Data_Path("./data")
@@ -27,6 +30,8 @@ DP = Data_Path("./data")
 FILES = DP.contents("*csv")
 
 SCALES = make_scales(FILES, DP.join("scales.csv"))
+
+fix_cfs(FILES)
 
 DEFAULT_MAPVIEW = {
     "mapbox.center": {
@@ -42,106 +47,435 @@ DATASETS = [{"label": "120m Hub Height", "value": DP.join("120hh_20ps.csv")},
             {"label": "140m Hub Height", "value": DP.join("140hh_20ps.csv")},
             {"label": "160m Hub Height", "value": DP.join("160hh_20ps.csv")}]
 
-VARIABLES = [{"label": "Capacity", "value": "capacity"},
-             {"label": "Site-Based LCOE", "value": "mean_lcoe"},
-             {"label": "LCOT", "value": "lcot"},
-             {"label": "Total LCOE", "value": "total_lcoe"}]
 
-CHARTOPTIONS = [{"label": "Cumulative Capacity", "value": "cumsum"}]
+CHARTOPTIONS = [{"label": "Cumulative Capacity", "value": "cumsum"},
+                {"label": "Scatterplot", "value": "scatter"}]
 
 LCOEOPTIONS = [{"label": "Site-Based", "value": "mean_lcoe"},
                {"label": "Transmission", "value": "lcot"},
                {"label": "Total", "value": "total_lcoe"}]
+
+RESET_BUTTON_STYLE = {
+        'height': '100%',
+        'background-color': '#FCCD34',
+        "display": "table-cell"
+        }
 
 app = dash.Dash(__name__, external_stylesheets=[STYLESHEET])
 
 
 # Page Layout
 app.layout = html.Div([
- 
-    # Map of Capacity Factors / LCOE    
-    html.Div([
-        html.Div([
-            html.Div([
-                # html.H5("Turbine Hub Height", className="four columns"),
-                dcc.Dropdown(
-                    id="map_options",
-                    clearable=False,
-                    options=DATASETS,
-                    multi=False,
-                    value=DP.join("120hh_20ps.csv"),
-                    className="four columns",
-                    style={"width": "100%"})
-            ]),
-            html.Div([
-                # html.H5("Variable", className="four columns"),
-                dcc.Dropdown(
-                    id="variable_options",
-                    clearable=False,
-                    options=VARIABLES,
-                    multi=False,
-                    value="capacity",
-                    className="four columns",
-                    style={"width": "100%"})
-            ]),
-            html.Div([
-                 # html.H5("Basemap", className="four columns"),
-                 dcc.Dropdown(
-                    id="basemap_options",
-                    clearable=False,
-                    options=BASEMAPS,
-                    multi=False,
-                    value="light",
-                    className="four columns",
-                    style={"width": "100%"})            
-            ]),
-        ], className="row"),
-        dcc.Graph(
-            id="map",
-        )], className="six columns"),
 
-    # Chart of cumulative cpacity vs LCOE
+    # Navigation bar
+    html.Nav(
+        className="top-bar fixed",
+        children=[
+
+            html.Div([
+              html.H2(
+                  "Southern Company - reV - Preliminary Results",
+                  style={
+                     'height': 50,
+                     'width': 900,
+                     'float': 'left',
+                     'position': 'relative',
+                     "color": "white",
+                     'font-family': 'Times New Roman',
+                     'font-size': '48px',
+                     "margin-bottom": 5,
+                     "margin-left": 15,
+                     "margin-top": 0
+                     }
+                  ),
+
+              html.Button(
+                    id='sync_variables',
+                    children='Sync Variables: On',
+                    n_clicks=1,
+                    type='button',
+                    title=('Click to sync the chosen variable between the map '
+                           'and y-axis of the chart.'),
+                    style=BUTTON_STYLES["on"]
+                    ),
+
+              html.Button(
+                    id='rev_color',
+                    children='Reverse Map Color: Off',
+                    n_clicks=1,
+                    type='button',
+                    title=('Click to render the map with the inverse of '
+                           'the chosen color ramp.'),
+                    style=BUTTON_STYLES["on"]
+                    ),
+
+              html.Button(
+                    id="reset_chart",
+                    children="Reset Selections",
+                    title="Clear Point Selection Filters.",
+                    # style=BUTTON_STYLES["on"]
+                    style={'display': 'none'}  # <----------------------------- Not ready yet, I have to cache the selections
+                    ),
+
+              html.A(
+                html.Img(
+                  src=("static/nrel_logo.png"),
+                  className='twelve columns',
+                  style={
+                      'height': 70,
+                      'width': 180,
+                      "float": "right",
+                      'position': 'relative',
+                      "margin-left": "10",
+                      'border-bottom-right-radius': '3px'
+                      }
+                ),
+                href="https://www.nrel.gov/",
+                target="_blank"
+              )
+
+              ],
+                style={
+                    'background-color': '#1663B5',
+                    'width': '100%',
+                    "height": 70,
+                    'margin-right': '0px',
+                    'margin-top': '-15px',
+                    'margin-bottom': '35px',
+                    'border': '3px solid #FCCD34',
+                    'border-radius': '5px'
+                    },
+                className='row'),
+        ]),
+
     html.Div([
+
+        # Map of Capacity Factors / LCOE
         html.Div([
-            dcc.Dropdown(
-                id="chart_options",
-                clearable=False,
-                options=CHARTOPTIONS,
-                multi=False,
-                value="cumsum",
-                className="four columns",
-                style={"width": "100%"}),
-            dcc.Dropdown(
-                id="lcoe_options",
-                clearable=False,
-                options=LCOEOPTIONS,
-                multi=False,
-                value="total_lcoe",
-                className="four columns",
-                style={"width": "100%"}),
+            html.Div([
+
+                # Map options
+                dcc.Tabs(
+                    id="map_options_tab",
+                    value="hh",
+                    style=TAB_STYLE,
+                    children=[
+                        dcc.Tab(value='hh',
+                                label='Hub Height',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE
+                                ),
+                        dcc.Tab(value='variable',
+                                label='Variable',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE),
+                        dcc.Tab(value='basemap',
+                                label='Basemap',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE),
+                        dcc.Tab(value='color',
+                                label='Color Ramp',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE)
+                    ]),
+
+                # Hub height dataset option
+                html.Div(
+                    id="hubheight_options_div",
+                    children=[
+                        dcc.Dropdown(
+                            id="hubheight_options",
+                            clearable=False,
+                            options=DATASETS,
+                            multi=False,
+                            value=DP.join("120hh_20ps.csv")
+                        )
+                    ]),
+
+                # Variable options
+                html.Div(
+                    id="map_variable_options_div",
+                    children=[
+                        dcc.Dropdown(
+                            id="map_variable_options",
+                            clearable=False,
+                            options=VARIABLES,
+                            multi=False,
+                            value="mean_cf"
+                        )
+                    ]),
+
+                # Basmap options
+                html.Div(
+                    id="basemap_options_div",
+                    children=[
+                         dcc.Dropdown(
+                            id="basemap_options",
+                            clearable=False,
+                            options=BASEMAPS,
+                            multi=False,
+                            value="light"
+                         )
+                    ]),
+
+                # Color scale options
+                html.Div(
+                    id="color_options_div",
+                    children=[
+                          dcc.Dropdown(
+                            id="color_options",
+                            clearable=False,
+                            options=COLOR_OPTIONS,
+                            multi=False,
+                            value="Viridis"
+                          )
+                    ]),
             ], className="row"),
-         dcc.Graph(
-            id="chart",
-        )], className="six columns"),
+
+            # The map
+            dcc.Graph(id="map"),
+
+            # Point Size
+            html.Div(
+                id="map_point_size_div",
+                children=[
+                    html.H6("Point Size:",
+                            className="two columns"),
+                    dcc.Input(
+                        id="map_point_size",
+                        value=5,
+                        type="number",
+                        className="two columns",
+                        style={"margin-left": -5, "width": "7%"}
+                    ),
+                ], className="row"),
+            ], className="six columns"),
+
+        # Chart of cumulative cpacity vs LCOE
+        html.Div([
+            html.Div([
+                html.Div([
+
+                    # Chart options
+                    dcc.Tabs(
+                        id="chart_options_tab",
+                        value="chart",
+                        style=TAB_STYLE,
+                        children=[
+                            dcc.Tab(value='chart',
+                                    label='Chart Type',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE
+                                    ),
+                            dcc.Tab(value='xvariable',
+                                    label='X Variable',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE),
+                            dcc.Tab(value='yvariable',
+                                    label='Y Variable',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE)
+                            ]),
+
+                    # Type of chart
+                    html.Div(
+                        id="chart_options_div",
+                        children=[
+                            dcc.Dropdown(
+                                id="chart_options",
+                                clearable=False,
+                                options=CHARTOPTIONS,
+                                multi=False,
+                                value="cumsum"
+                            ),
+                        ]),
+
+                    # X-axis Variable
+                    html.Div(
+                        id="chart_xvariable_options_div",
+                        children=[
+                            dcc.Dropdown(
+                                id="chart_xvariable_options",
+                                clearable=False,
+                                options=VARIABLES,
+                                multi=False,
+                                value="mean_cf"
+                            ),
+                        ]),
+
+                    # Y-axis Variable
+                    html.Div(
+                        id="chart_yvariable_options_div",
+                        children=[
+                            dcc.Dropdown(
+                                id="chart_yvariable_options",
+                                clearable=False,
+                                options=VARIABLES,
+                                multi=False,
+                                value="total_lcoe"
+                            ),
+                        ]),
+                    ]),
+
+            ], className="row"),
+
+            # The chart
+            dcc.Graph(id="chart"),
+
+            # Point Size
+            html.Div(
+                id="chart_point_size_div",
+                children=[
+                    html.H6("Point Size:",
+                            className="two columns"),
+                    dcc.Input(
+                        id="chart_point_size",
+                        value=5,
+                        type="number",
+                        className="two columns",
+                        style={"margin-left": -5, "width": "7%"}
+                    ),
+                ], className="row"),
+            ], className="six columns"),
+
+    ], className="row"),
 
     # To maintain the view after updating the map
-    html.Div(id="mapview_store", 
+    html.Div(id="mapview_store",
+             children=json.dumps(DEFAULT_MAPVIEW),
+             style={"display": "none"}),
+    html.Div(id="chartview_store",
              children=json.dumps(DEFAULT_MAPVIEW),
              style={"display": "none"})
 ], className="row")
-    
+
+
+@app.callback([Output('hubheight_options_div', 'style'),
+               Output('map_variable_options_div', 'style'),
+               Output('basemap_options_div', 'style'),
+               Output('color_options_div', 'style')],
+              [Input('map_options_tab', 'value')])
+def map_tab_options(tab_choice):
+    """Choose which map tab dropdown to display."""
+    styles = [{'display': 'none'}] * 4
+    order = ["hh", "variable", "basemap", "color"]
+    idx = order.index(tab_choice)
+    styles[idx] = {"width": "100%", "text-align": "center"}
+
+    return styles[0], styles[1], styles[2], styles[3]
+
+
+@app.callback([Output('chart_options_tab', 'children'),
+               Output('chart_options_div', 'style'),
+               Output('chart_xvariable_options_div', 'style'),
+               Output('chart_yvariable_options_div', 'style')],
+              [Input('chart_options_tab', 'value'),
+               Input('chart_options', 'value')])
+def chart_tab_options(tab_choice, chart_choice):
+    """Choose which map tab dropown to display."""
+    styles = [{'display': 'none'}] * 3
+    order = ["chart", "xvariable", "yvariable"]
+    idx = order.index(tab_choice)
+    styles[idx] = {"width": "100%", "text-align": "center"}
+
+    # If Cumulative capacity only show the y variable
+    if chart_choice == "cumsum":
+        children = [
+            dcc.Tab(value='chart',
+                    label='Chart Type',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE
+                    ),
+            dcc.Tab(value='yvariable',
+                    label='Y Variable',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE)
+            ]
+    else:
+        children = [
+            dcc.Tab(value='chart',
+                    label='Chart Type',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE
+                    ),
+            dcc.Tab(value='xvariable',
+                    label='X Variable',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE),
+            dcc.Tab(value='yvariable',
+                    label='Y Variable',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE)
+            ]
+
+    return children, styles[0], styles[1], styles[2]
+
+
+@app.callback([Output('sync_variables', 'children'),
+               Output('sync_variables', 'style')],
+              [Input('sync_variables', 'n_clicks')])
+def toggle_sync_button(click):
+    """Toggle Syncing on/off."""
+    if not click:
+        click = 0
+    if click % 2 == 1:
+        children = "Sync Variables: On"
+        style = BUTTON_STYLES["on"]
+
+    else:
+        children = "Sync Variables: Off"
+        style = BUTTON_STYLES["off"]
+
+    return children, style,
+
+
+@app.callback([Output('rev_color', 'children'),
+               Output('rev_color', 'style')],
+              [Input('rev_color', 'n_clicks')])
+def toggle_rev_color_button(click):
+    """Toggle Reverse Color on/off."""
+    if not click:
+        click = 0
+    if click % 2 == 1:
+        children = 'Reverse Map Color: Off'
+        style = BUTTON_STYLES["off"]
+        # style["width"] = "250px",
+
+    else:
+        children = 'Reverse Map Color: On'
+        style = BUTTON_STYLES["on"]
+        # style["width"] = "250px",
+
+    return children, style
+
 
 @app.callback(
     [Output('map', 'figure'),
      Output("mapview_store", "children")],
-    [Input("map_options", "value"),
-     Input("variable_options", "value"),
-     Input("basemap_options", "value")],
-    [State("map", "relayoutData")])
-def make_map(selection, variable, basemap, mapview):
+    [Input("hubheight_options", "value"),
+     Input("map_variable_options", "value"),
+     Input("basemap_options", "value"),
+     Input("color_options", "value"),
+     Input("chart_yvariable_options", "value"),
+     Input("chart", "selectedData"),
+     Input("map_point_size", "value"),
+     Input("rev_color", "n_clicks"),
+     Input("reset_chart", "n_clicks")],
+    [State("map", "relayoutData"),
+     State("sync_variables", "n_clicks")])
+def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
+             point_size, rev_color, reset, mapview, sync_variable):
+    """Make the scatterplot map."""
+    print_args(make_map, hubheight, variable, basemap, color, chartvar,
+               chartsel, mapview, sync_variable, rev_color)
 
-    
-    print_args(make_map, selection, variable, basemap, mapview)
+    trig = dash.callback_context.triggered[0]['prop_id']
+    if sync_variable % 2 == 1:
+        if "variable" in trig:
+            if trig == "chart_yvariable_options.value":
+                variable = chartvar
+
+    print("MAP TRIG: " + trig)
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -149,12 +483,27 @@ def make_map(selection, variable, basemap, mapview):
     elif 'mapbox.center' not in mapview.keys():
         mapview = DEFAULT_MAPVIEW
 
-
     # Build the scatter plot data object
-    df = pd.read_csv(selection)
+    df = pd.read_csv(hubheight)
+
+    # Reset any previous selections
+    if "reset" in trig:
+        chartsel = None
+
+    # If there is a selection in the chart filter these points
+    if chartsel:
+        points = chartsel["points"]
+        vals = [p["y"] for p in points]
+        df = df[(df[chartvar] >= min(vals)) &
+                (df[chartvar] <= max(vals))]
+
     df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   " +
                   df[variable].round(2).astype(str) + " " + UNITS[variable])
-    df = df[[variable, "latitude" ,"longitude", "text"]]
+    df = df[[variable, "latitude", "longitude", "text"]]
+    if rev_color % 2 == 1:
+        rev_color = False
+    else:
+        rev_color = True
     data = dict(type='scattermapbox',
                 lon=df['longitude'],
                 lat=df['latitude'],
@@ -163,83 +512,80 @@ def make_map(selection, variable, basemap, mapview):
                 hoverinfo='text',
                 hovermode='closest',
                 showlegend=False,
-                marker=dict(colorscale="Viridis",
-                            reversescale=False,
-                            color=df[variable],
-                            cmax=SCALES[variable]["min"],
-                            cmin=SCALES[variable]["max"],
-                            opacity=1.0,
-                            size=5,
-                            colorbar=dict(title=UNITS[variable],
-                                          dtickrange=SCALES[variable],
-                                          textposition="auto",
-                                          orientation="h",
-                                          font=dict(size=15,
-                                                    fontweight='bold')))
+                marker=dict(
+                    colorscale=color,
+                    reversescale=rev_color,
+                    color=df[variable],
+                    cmin=SCALES[variable]["min"],
+                    cmax=SCALES[variable]["max"],
+                    opacity=1.0,
+                    size=point_size,
+                    colorbar=dict(
+                        title=UNITS[variable],
+                        dtickrange=SCALES[variable],
+                        textposition="auto",
+                        orientation="h",
+                        font=dict(
+                            size=15,
+                            fontweight='bold')
+                        )
+                    )
                 )
 
     # Set up layout
-    title = TITLES[variable] + " - " + get_label(DATASETS, selection)
+    title = TITLES[variable] + " - " + get_label(DATASETS, hubheight)
     layout_copy = copy.deepcopy(MAPLAYOUT)
     layout_copy['mapbox']['center'] = mapview['mapbox.center']
     layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
     layout_copy['mapbox']['bearing'] = mapview['mapbox.bearing']
     layout_copy['mapbox']['pitch'] = mapview['mapbox.pitch']
-    layout_copy['titlefont']=dict(color='#CCCCCC', size=35,
-                                  family='Time New Roman',
-                                  fontweight='bold')
-    layout_copy['title'] = title
+    layout_copy['titlefont'] = dict(color='white', size=35,
+                                    family='Time New Roman',
+                                    fontweight='bold')
+    layout_copy["dragmode"] = "select"
+    layout_copy['title']['text'] = title
     layout_copy['mapbox']['style'] = basemap
     figure = dict(data=[data], layout=layout_copy)
 
     return figure, json.dumps(mapview)
 
 
-   
 @app.callback(
     Output('chart', 'figure'),
-    [Input("map_options", "value"),
-     Input("lcoe_options", "value")])
-def make_chart(selection, lcoe):
+    [Input("chart_options", "value"),
+     Input("chart_xvariable_options", "value"),
+     Input("chart_yvariable_options", "value"),
+     Input("map_variable_options", "value"),
+     Input("map", "selectedData"),
+     Input("chart_point_size", "value"),
+     Input("reset_chart", "n_clicks")],
+    [State("map", "relayoutData"),
+     State("sync_variables", "n_clicks")])
+def make_chart(chart, xvariable, yvariable, mapvar, mapsel, point_size,
+               reset, chartview, sync_variable):
+    """Make one of a variety of charts."""
+    print_args(make_chart, chart, xvariable, yvariable, mapvar, mapsel,
+               point_size, sync_variable)
 
-    print_args(make_chart, selection, lcoe)
+    trig = dash.callback_context.triggered[0]['prop_id']
+    if sync_variable % 2 == 1:
+        if "variable" in trig:
+            if trig == "map_variable_options.value":
+                yvariable = mapvar
+
+    # Reset any previous selections
+    if "reset" in trig:
+        mapsel = None
 
     # Only the 20MW plant for now
     files = [f for f in FILES if "20ps" in f]
     files.sort()
     paths = {os.path.splitext(os.path.basename(f))[0][:3]: f for f in files}
 
-    df = None
-    for key, path in paths.items():
-        if df is None:
-            df = pd.read_csv(path)[["capacity", lcoe]]
-            df = df.sort_values(lcoe)
-            df["ccap"] = df["capacity"].cumsum()
-            df["value"] = df[lcoe].expanding().mean()
-            df["hh"] = key
-            df = df[["ccap", "value", "hh"]]
-        else:
-            df2 = pd.read_csv(path)[["capacity", lcoe]]
-            df2 = df2.sort_values(lcoe)
-            df2["hh"] = key
-            df2["ccap"] = df2["capacity"].cumsum()
-            df2["value"] = df2[lcoe].expanding().mean()
-            df2["hh"] = key
-            df2 = df2[["ccap", "value", "hh"]]
-            df = pd.concat([df, df2])
-
-    df = df.sort_values("ccap")
-
-    fig = px.line(df,
-                  x="ccap",
-                  y="value",
-                  title=(TITLES[lcoe] + " by Cumulative Capacity"),
-                  labels={"ccap": UNITS["capacity"], "value": UNITS[lcoe]},
-                  color='hh')
-
-    fig.update_layout(uniformtext_minsize=35, uniformtext_mode='hide')
-
-
+    if chart == "cumsum":
+        fig = get_ccap(paths, yvariable, mapsel, int(point_size))
+    elif chart == "scatter":
+        fig = get_scatter(paths, xvariable, yvariable, mapsel, int(point_size))
 
     return fig
 
@@ -247,20 +593,3 @@ def make_chart(selection, lcoe):
 if __name__ == '__main__':
     app.run_server(debug=True)
     # app.run_server()
-
-
-
-# def cap(files):
-#     """How to convey capacity vs lcoe for all 6? Better start with just the
-#     three."""
-
-
-    
-
-
-# def main():
-
-#     # Cumulative Capacity vs LCOE
-#     files = DP.contents("*20ps*csv")
-
-    

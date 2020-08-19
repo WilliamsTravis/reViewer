@@ -614,7 +614,7 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
     title = (TITLES[variable]
              + " - "
              + get_label(DATAKEYS[plantsize], hubheight)
-             + " {} MW Plant".format(plantsize)
+             + " - {} MW Plant".format(plantsize)
              )
     layout_copy = copy.deepcopy(MAPLAYOUT)
     layout_copy['mapbox']['center'] = mapview['mapbox.center']
@@ -654,8 +654,8 @@ def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
                chartview, stored_variable, sync_variable, chartsel,
                ps_state):
     """Make one of a variety of charts."""
-    # print_args(make_chart, chart, ps, x, y, mapvar, state, mapsel,
-    #            point_size, sync_variable)
+    print_args(make_chart, chart, ps, x, y, mapvar, state, mapsel,
+                point_size, sync_variable)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     if sync_variable % 2 == 1:
@@ -703,7 +703,7 @@ def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
     elif chart == "box":
         fig = get_boxplot(paths, y, mapsel, int(point_size), state, reset,
                           trig)
-        title = (get_label(VARIABLES, y) + " Boxplots"
+        title = (get_label(VARIABLES, y) + " Boxplots - "
                  + " {} MW Plant".format(ps))
 
     # Update the layout and traces

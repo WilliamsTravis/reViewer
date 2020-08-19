@@ -262,7 +262,12 @@ app.layout = html.Div([
             ], className="row"),
 
             # The map
-            dcc.Graph(id="map", config={'showSendToCloud': True}),
+            dcc.Graph(id="map",
+                      config={
+                        "showSendToCloud": True,
+                        "plotlyServerURL": "https://chart-studio.plotly.com"
+                         }
+                      ),
 
             # Point Size
             html.Div(
@@ -349,7 +354,11 @@ app.layout = html.Div([
             ], className="row"),
 
             # The chart
-            dcc.Graph(id="chart", config={'showSendToCloud': True}),
+            dcc.Graph(id="chart",
+                      config={
+                        "showSendToCloud": True,
+                        "plotlyServerURL": "https://chart-studio.plotly.com"
+                      }),
 
             # Point Size
             html.Div(
@@ -655,7 +664,7 @@ def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
                ps_state):
     """Make one of a variety of charts."""
     print_args(make_chart, chart, ps, x, y, mapvar, state, mapsel,
-                point_size, sync_variable)
+               point_size, sync_variable)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     if sync_variable % 2 == 1:
@@ -741,5 +750,5 @@ def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
 
 
 if __name__ == '__main__':
-    # app.run_server(debug=True)
-    app.run_server()
+    app.run_server(debug=True)
+    # app.run_server()

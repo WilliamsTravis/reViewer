@@ -19,8 +19,8 @@ from dash.dependencies import Input, Output, State
 from reviewer import print_args
 from revruns import Data_Path
 from support import BASEMAPS, BUTTON_STYLES, CHARTOPTIONS, COLOR_OPTIONS
-from support import DATASETS, DEFAULT_MAPVIEW, MAPLAYOUT
-from support import STYLESHEET, TITLES, TAB_STYLE, TABLET_STYLE, UNITS
+from support import DATAKEYS, DATASETS, DEFAULT_MAPVIEW, MAPLAYOUT
+from support import STATES, STYLESHEET, TITLES, TAB_STYLE, TABLET_STYLE, UNITS
 from support import VARIABLES
 from support import chart_point_filter, fix_cfs, get_label, make_scales
 from support import get_boxplot, get_ccap, get_histogram, get_scatter
@@ -165,6 +165,10 @@ app.layout = html.Div([
                                 label='Variable',
                                 style=TABLET_STYLE,
                                 selected_style=TABLET_STYLE),
+                        dcc.Tab(value='state',
+                                label='State',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE),
                         dcc.Tab(value='basemap',
                                 label='Basemap',
                                 style=TABLET_STYLE,
@@ -182,9 +186,9 @@ app.layout = html.Div([
                         dcc.Dropdown(
                             id="hubheight_options",
                             clearable=False,
-                            options=DATASETS,
+                            options=DATAKEYS,
                             multi=False,
-                            value=DP.join("120hh_20ps.csv")
+                            value="120hh_20ps"
                         )
                     ]),
 
@@ -201,6 +205,18 @@ app.layout = html.Div([
                         )
                     ]),
 
+                # Variable options
+                html.Div(
+                    id="state_options_div",
+                    children=[
+                        dcc.Dropdown(
+                            id="state_options",
+                            clearable=True,
+                            options=STATES,
+                            multi=True,
+                            value=None
+                        )
+                    ]),
                 # Basmap options
                 html.Div(
                     id="basemap_options_div",
@@ -353,17 +369,18 @@ app.layout = html.Div([
 
 @app.callback([Output('hubheight_options_div', 'style'),
                Output('map_variable_options_div', 'style'),
+               Output("state_options", "style"),
                Output('basemap_options_div', 'style'),
                Output('color_options_div', 'style')],
               [Input('map_options_tab', 'value')])
 def map_tab_options(tab_choice):
     """Choose which map tab dropdown to display."""
-    styles = [{'display': 'none'}] * 4
-    order = ["hh", "variable", "basemap", "color"]
+    styles = [{'display': 'none'}] * 5
+    order = ["hh", "variable", "state", "basemap", "color"]
     idx = order.index(tab_choice)
     styles[idx] = {"width": "100%", "text-align": "center"}
 
-    return styles[0], styles[1], styles[2], styles[3]
+    return styles[0], styles[1], styles[2], styles[3], styles[4]
 
 
 @app.callback([Output('chart_options_tab', 'children'),
@@ -450,46 +467,29 @@ def toggle_rev_color_button(click):
     return children, style
 
 
-# @app.callback(Output("map_variable_options", "value"),
-#               [Input("chart_yvariable_options", "value"),
-#                Input("sync_variables", "n_clicks")])
-# def sync_map(chart_selection, sync):
-#     """If syncing is on, change the map value given chart input."""
-#     if sync % 2 == 1:
-#         return chart_selection
-
-
-# @app.callback(Output("chart_yvariable_options", "value"),
-#               [Input("map_variable_options", "value"),
-#                Input("sync_variables", "n_clicks")])
-# def sync_chart(map_selection, sync):
-#     """If syncing is on, change the chart value given map input."""
-#     if sync % 2 == 1:
-#         return map_selection
-
-
 @app.callback(
     [Output('map', 'figure'),
      Output("mapview_store", "children"),
      Output("map_selection_store", "children")],
     [Input("hubheight_options", "value"),
      Input("map_variable_options", "value"),
+     Input("state_options", "value"),
      Input("basemap_options", "value"),
      Input("color_options", "value"),
      Input("chart_yvariable_options", "value"),
      Input("chart", "selectedData"),
      Input("map_point_size", "value"),
      Input("rev_color", "n_clicks"),
-     Input("reset_chart", "n_clicks"),
-     Input("sync_variables", "n_clicks")],
+     Input("reset_chart", "n_clicks")],
     [State("map", "relayoutData"),
-     State("map_selection_store", "children")])
-def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
-             point_size, rev_color, reset, sync_variable, mapview,
-             stored_variable):
+     State("map_selection_store", "children"),
+     State("sync_variables", "n_clicks")])
+def make_map(hubheight, variable, state, basemap, color, chartvar, chartsel,
+             point_size, rev_color, reset, mapview, stored_variable,
+             sync_variable):
     """Make the scatterplot map."""
-    # print_args(make_map, hubheight, variable, basemap, color, chartvar,
-    #            chartsel, mapview, sync_variable, rev_color)
+    print_args(make_map, hubheight, variable, basemap, color, chartvar,
+               chartsel, mapview, sync_variable, rev_color)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     if sync_variable % 2 == 1:
@@ -508,7 +508,7 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
         mapview = DEFAULT_MAPVIEW
 
     # Build the scatter plot data object
-    df = pd.read_csv(hubheight)
+    df = DATASETS[hubheight].copy()
 
     # Reset any previous selections
     # if "reset" in trig:
@@ -523,14 +523,21 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
     if chartsel:
         df = chart_point_filter(df, chartsel, chartvar)
 
+    # Finally filter for states
+    if state:
+        df = df[df["state"].isin(state)]
+
     df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   " +
                   df[variable].round(2).astype(str) + " " + UNITS[variable])
     df = df[[variable, "latitude", "longitude", "text"]]
 
+    # Reverse color is from a button (number of clicks)
     if rev_color % 2 == 1:
         rev_color = False
     else:
         rev_color = True
+
+    # Create data object
     data = dict(type='scattermapbox',
                 lon=df['longitude'],
                 lat=df['latitude'],
@@ -560,7 +567,7 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
                 )
 
     # Set up layout
-    title = TITLES[variable] + " - " + get_label(DATASETS, hubheight)
+    title = TITLES[variable] + " - " + get_label(DATAKEYS, hubheight)
     layout_copy = copy.deepcopy(MAPLAYOUT)
     layout_copy['mapbox']['center'] = mapview['mapbox.center']
     layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
@@ -584,17 +591,18 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
      Input("chart_xvariable_options", "value"),
      Input("chart_yvariable_options", "value"),
      Input("map_variable_options", "value"),
+     Input("state_options", "value"),
      Input("map", "selectedData"),
      Input("chart_point_size", "value"),
-     Input("reset_chart", "n_clicks"),
-     Input("sync_variables", "n_clicks")],
+     Input("reset_chart", "n_clicks")],
     [State("map", "relayoutData"),
-     State("chart_selection_store", "children")])
-def make_chart(chart, x, y, mapvar, mapsel, point_size, reset, sync_variable,
-               chartview, stored_variable):
+     State("chart_selection_store", "children"),
+     State("sync_variables", "n_clicks")])
+def make_chart(chart, x, y, mapvar, state, mapsel, point_size, reset,
+               chartview, stored_variable, sync_variable):
     """Make one of a variety of charts."""
-    print_args(make_chart, chart, x, y, mapvar, mapsel, point_size,
-               sync_variable)
+    print_args(make_chart, chart, x, y, mapvar, state, mapsel, point_size,
+                sync_variable)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     if sync_variable % 2 == 1:
@@ -607,19 +615,17 @@ def make_chart(chart, x, y, mapvar, mapsel, point_size, reset, sync_variable,
                 y = stored_variable
 
     # Only the 20MW plant for now
-    files = [f for f in FILES if "20ps" in f]
-    files.sort()
-    paths = {os.path.splitext(os.path.basename(f))[0][:3]: f for f in files}
+    paths = {"120": "120hh_20ps", "140": "140hh_20ps", "160": "160hh_20ps"}
 
     # Get the initial figure
     if chart == "cumsum":
-        fig = get_ccap(paths, y, mapsel, int(point_size))
+        fig = get_ccap(paths, y, mapsel, int(point_size), state)
     elif chart == "scatter":
-        fig = get_scatter(paths, x, y, mapsel, int(point_size))
+        fig = get_scatter(paths, x, y, mapsel, int(point_size), state)
     elif chart == "histogram":
-        fig = get_histogram(paths, y, mapsel, int(point_size))
+        fig = get_histogram(paths, y, mapsel, int(point_size), state)
     elif chart == "box":
-        fig = get_boxplot(paths, y, mapsel, int(point_size))
+        fig = get_boxplot(paths, y, mapsel, int(point_size), state)
 
     # Update the layout and traces
     fig.update_layout(
@@ -655,5 +661,5 @@ def make_chart(chart, x, y, mapvar, mapsel, point_size, reset, sync_variable,
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
-    # app.run_server()
+    # app.run_server(debug=True)
+    app.run_server()

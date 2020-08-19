@@ -104,11 +104,17 @@ COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
 
 COLOR_OPTIONS = [{"label": k, "value": v} for k, v in COLORS.items()]
 
-DATASETS = [
-    {"label": "120m Hub Height", "value": DATAPATH.join("120hh_20ps.csv")},
-    {"label": "140m Hub Height", "value": DATAPATH.join("140hh_20ps.csv")},
-    {"label": "160m Hub Height", "value": DATAPATH.join("160hh_20ps.csv")}
+DATAKEYS = [
+    {"label": "120m Hub Height", "value": "120hh_20ps"},
+    {"label": "140m Hub Height", "value": "140hh_20ps"},
+    {"label": "160m Hub Height", "value": "160hh_20ps"}
     ]
+
+DATASETS = {
+    "120hh_20ps": pd.read_csv(DATAPATH.join("120hh_20ps.csv")),
+    "140hh_20ps": pd.read_csv(DATAPATH.join("140hh_20ps.csv")),
+    "160hh_20ps": pd.read_csv(DATAPATH.join("160hh_20ps.csv"))
+    }
 
 DEFAULT_MAPVIEW = {
     "mapbox.center": {
@@ -188,6 +194,10 @@ SCALES = {
     "lcot": {},
     "total_lcoe": {}
     }
+
+STATES = [{"label": "Alabama", "value": "Alabama"},
+          {"label": "Georgia", "value": "Georgia"},
+          {"label": "Mississippi", "value": "Mississippi"}]
 
 UNITS = {'mean_cf': 'CF %',
          'mean_lcoe': '$/MWh',
@@ -273,16 +283,16 @@ def make_scales(files, dst):
 
 
 # Chart functions
-def get_ccap(paths, y, mapsel, point_size):
+def get_ccap(paths, y, mapsel, point_size, state):
     """Return a cumulative capacity scatterplot."""
     df = None
     for key, path in paths.items():
         if df is None:
-            df = pd.read_csv(path)
+            df = DATASETS[path].copy()
             df["gid"] = df.index
-            df = df[["gid", "capacity", y]]
+            df = df[["gid", "state", "capacity", y]]
             if y == "capacity":
-                df.columns = ["gid", "capacity", "capacity2"]
+                df.columns = ["gid", "state",  "capacity", "capacity2"]
                 var = "capacity2"
             else:
                 var = y
@@ -290,13 +300,13 @@ def get_ccap(paths, y, mapsel, point_size):
             df["ccap"] = df["capacity"].cumsum()
             df["value"] = df[var]
             df["hh"] = key
-            df = df[["gid", "ccap", "value", "hh"]]
+            df = df[["gid", "state", "ccap", "value", "hh"]]
         else:
-            df2 = pd.read_csv(path)
+            df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
-            df2 = df2[["gid", "capacity", y]]
+            df2 = df2[["gid", "state", "capacity", y]]
             if y == "capacity":
-                df2.columns = ["gid", "capacity", "capacity2"]
+                df2.columns = ["gid", "state", "capacity", "capacity2"]
                 var = "capacity2"
             else:
                 var = y
@@ -305,7 +315,7 @@ def get_ccap(paths, y, mapsel, point_size):
             df2["ccap"] = df2["capacity"].cumsum()
             df2["value"] = df2[var]
             df2["hh"] = key
-            df2 = df2[["gid", "ccap", "value", "hh"]]
+            df2 = df2[["gid", "state", "ccap", "value", "hh"]]
             df = pd.concat([df, df2])
 
     df = df.sort_values("ccap")
@@ -313,6 +323,9 @@ def get_ccap(paths, y, mapsel, point_size):
     if mapsel:
         idx = [p["pointIndex"] for p in mapsel["points"]]
         df = df[df["gid"].isin(idx)]
+
+    if state:
+        df = df[df["state"].isin(state)]
 
     fig = px.scatter(df,
                      x="ccap",
@@ -339,16 +352,16 @@ def get_ccap(paths, y, mapsel, point_size):
     return fig
 
 
-def get_scatter(paths, x, y, mapsel, point_size):
+def get_scatter(paths, x, y, mapsel, point_size, state):
     """Return a regular scatterplot."""
     df = None
     for key, path in paths.items():
         if df is None:
-            df = pd.read_csv(path)
+            df = DATASETS[path].copy()
             df["gid"] = df.index
-            df = df[["gid", x, y]]
+            df = df[["gid", "state", x, y]]
             if x == y:
-                df.columns = ["gid", x, y + "2"]
+                df.columns = ["gid", "state", x, y + "2"]
                 var = y + "2"
             else:
                 var = y
@@ -356,13 +369,13 @@ def get_scatter(paths, x, y, mapsel, point_size):
             df["x"] = df[x]
             df["value"] = df[var]
             df["hh"] = key
-            df = df[["gid", "x", "value", "hh"]]
+            df = df[["gid", "state", "x", "value", "hh"]]
         else:
-            df2 = pd.read_csv(path)
+            df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
             df2 = df2[["gid", x, y]]
             if x == y:
-                df2.columns = ["gid",  x, y + "2"]
+                df2.columns = ["gid", "state",  x, y + "2"]
                 var = y + "2"
             else:
                 var = y
@@ -370,7 +383,7 @@ def get_scatter(paths, x, y, mapsel, point_size):
             df2["x"] = df2[x]
             df2["value"] = df2[var]
             df2["hh"] = key
-            df2 = df2[["gid", "x", "value", "hh"]]
+            df2 = df2[["gid", "state", "x", "value", "hh"]]
             df = pd.concat([df, df2])
 
     df = df.sort_values("x")
@@ -378,6 +391,9 @@ def get_scatter(paths, x, y, mapsel, point_size):
     if mapsel:
         idx = [p["pointIndex"] for p in mapsel["points"]]
         df = df[df["gid"].isin(idx)]
+
+    if state:
+        df = df[df["state"].isin(state)]
 
     fig = px.scatter(df,
                      x="x",
@@ -404,27 +420,30 @@ def get_scatter(paths, x, y, mapsel, point_size):
     return fig
 
 
-def get_histogram(paths, y, mapsel, point_size):
+def get_histogram(paths, y, mapsel, point_size, state):
     """Return a histogram."""
     df = None
     for key, path in paths.items():
         if df is None:
-            df = pd.read_csv(path)
+            df = DATASETS[path].copy()
             df["gid"] = df.index
-            df = df[["gid", y]]
+            df = df[["gid", "state", y]]
             df["hh"] = key
-            df = df[["gid", y, "hh"]]
+            df = df[["gid", "state", y, "hh"]]
         else:
-            df2 = pd.read_csv(path)
+            df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
-            df2 = df2[["gid", y]]
+            df2 = df2[["gid", "state", y]]
             df2["hh"] = key
-            df2 = df2[["gid", y, "hh"]]
+            df2 = df2[["gid", "state", y, "hh"]]
             df = pd.concat([df, df2])
 
     if mapsel:
         idx = [p["pointIndex"] for p in mapsel["points"]]
         df = df[df["gid"].isin(idx)]
+
+    if state:
+        df = df[df["state"].isin(state)]
 
     fig = px.histogram(df,
                        x=y,
@@ -447,27 +466,30 @@ def get_histogram(paths, y, mapsel, point_size):
     return fig
 
 
-def get_boxplot(paths, y, mapsel, point_size):
+def get_boxplot(paths, y, mapsel, point_size, state):
     """Return a set of boxplots."""
     df = None
     for key, path in paths.items():
         if df is None:
-            df = pd.read_csv(path)
+            df = DATASETS[path].copy()
             df["gid"] = df.index
-            df = df[["gid", y]]
+            df = df[["gid", "state", y]]
             df["hh"] = key
-            df = df[["gid", y, "hh"]]
+            df = df[["gid", "state", y, "hh"]]
         else:
-            df2 = pd.read_csv(path)
+            df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
-            df2 = df2[["gid", y]]
+            df2 = df2[["gid", "state", y]]
             df2["hh"] = key
-            df2 = df2[["gid", y, "hh"]]
+            df2 = df2[["gid", "state", y, "hh"]]
             df = pd.concat([df, df2])
 
     if mapsel:
         idx = [p["pointIndex"] for p in mapsel["points"]]
         df = df[df["gid"].isin(idx)]
+
+    if state:
+        df = df[df["state"].isin(state)]
 
     fig = px.box(df, x="hh", y=y, color="hh",
                  title=get_label(VARIABLES, y) + " Boxplots",

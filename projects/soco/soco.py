@@ -13,15 +13,14 @@ import dash
 import dash_auth
 import dash_core_components as dcc
 import dash_html_components as html
-import pandas as pd
 
 from dash.dependencies import Input, Output, State
 from reviewer import print_args
 from revruns import Data_Path
 from support import BASEMAPS, BUTTON_STYLES, CHARTOPTIONS, COLOR_OPTIONS
 from support import DATAKEYS, DATASETS, DEFAULT_MAPVIEW, MAPLAYOUT
-from support import STATES, STYLESHEET, TITLES, TAB_STYLE, TABLET_STYLE, UNITS
-from support import VARIABLES
+from support import PLANT_SIZES, STATES, STYLESHEET, TITLES, TAB_STYLE
+from support import TABLET_STYLE, UNITS, VARIABLES
 from support import chart_point_filter, fix_cfs, get_label, make_scales
 from support import get_boxplot, get_ccap, get_histogram, get_scatter
 
@@ -75,7 +74,7 @@ app.layout = html.Div([
                         'position': 'relative',
                         "color": "white",
                         'font-family': 'Times New Roman',
-                        'font-size': '36px',
+                        'font-size': '32px',
                         "margin-bottom": 5,
                         "margin-left": 15,
                         "margin-top": 10,
@@ -109,8 +108,8 @@ app.layout = html.Div([
                     id="reset_chart",
                     children="Reset Selections",
                     title="Clear Point Selection Filters.",
-                    # style=BUTTON_STYLES["on"]
-                    style={'display': 'none'}  # <----------------------------- Not ready yet, I have to cache the selections
+                    # style=BUTTON_STYLES["on"],
+                    style={"display": "none"}
                     ),
 
               html.A(
@@ -161,6 +160,11 @@ app.layout = html.Div([
                                 style=TABLET_STYLE,
                                 selected_style=TABLET_STYLE
                                 ),
+                        dcc.Tab(value='ps',
+                                label='Plant Size',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE
+                                ),
                         dcc.Tab(value='variable',
                                 label='Variable',
                                 style=TABLET_STYLE,
@@ -186,9 +190,22 @@ app.layout = html.Div([
                         dcc.Dropdown(
                             id="hubheight_options",
                             clearable=False,
-                            options=DATAKEYS,
+                            options=DATAKEYS[20],
                             multi=False,
                             value="120hh_20ps"
+                        )
+                    ]),
+
+                # Plant size options
+                html.Div(
+                    id="plant_size_options_div",
+                    children=[
+                        dcc.Dropdown(
+                            id="plant_size_options",
+                            clearable=False,
+                            options=PLANT_SIZES,
+                            multi=False,
+                            value=20
                         )
                     ]),
 
@@ -362,25 +379,12 @@ app.layout = html.Div([
     html.Div(id="map_selection_store",
              style={"display": "None"}),
     html.Div(id="chart_selection_store",
-             style={"display": "None"})
+             style={"display": "None"}),
+    html.Div(id="plantsize_store",
+             children="20",
+             style={"display": "none"})
 
 ], className="row")
-
-
-@app.callback([Output('hubheight_options_div', 'style'),
-               Output('map_variable_options_div', 'style'),
-               Output("state_options", "style"),
-               Output('basemap_options_div', 'style'),
-               Output('color_options_div', 'style')],
-              [Input('map_options_tab', 'value')])
-def map_tab_options(tab_choice):
-    """Choose which map tab dropdown to display."""
-    styles = [{'display': 'none'}] * 5
-    order = ["hh", "variable", "state", "basemap", "color"]
-    idx = order.index(tab_choice)
-    styles[idx] = {"width": "100%", "text-align": "center"}
-
-    return styles[0], styles[1], styles[2], styles[3], styles[4]
 
 
 @app.callback([Output('chart_options_tab', 'children'),
@@ -429,6 +433,52 @@ def chart_tab_options(tab_choice, chart_choice):
     return children, styles[0], styles[1], styles[2]
 
 
+@app.callback([Output('hubheight_options_div', 'style'),
+               Output("plant_size_options", "style"),
+               Output('map_variable_options_div', 'style'),
+               Output("state_options", "style"),
+               Output('basemap_options_div', 'style'),
+               Output('color_options_div', 'style')],
+              [Input('map_options_tab', 'value')])
+def map_tab_options(tab_choice):
+    """Choose which map tab dropdown to display."""
+    styles = [{'display': 'none'}] * 6
+    order = ["hh", "ps", "variable", "state", "basemap", "color"]
+    idx = order.index(tab_choice)
+    styles[idx] = {"width": "100%", "text-align": "center"}
+
+    return styles[0], styles[1], styles[2], styles[3], styles[4], styles[4]
+
+
+@app.callback([Output('rev_color', 'children'),
+               Output('rev_color', 'style')],
+              [Input('rev_color', 'n_clicks')])
+def toggle_rev_color_button(click):
+    """Toggle Reverse Color on/off."""
+    if not click:
+        click = 0
+    if click % 2 == 1:
+        children = 'Reverse Map Color: Off'
+        style = BUTTON_STYLES["off"]
+
+    else:
+        children = 'Reverse Map Color: On'
+        style = BUTTON_STYLES["on"]
+
+    return children, style
+
+
+@app.callback([Output("hubheight_options", "options"),
+               Output("hubheight_options", "value")],
+              [Input("plant_size_options", "value")],
+              [State("hubheight_options", "value")])
+def set_plant_size(ps, hh):
+    """Set the hubheight dataset options according to the plant size."""
+    hh = hh[:6] + str(ps) + hh[-2:]
+
+    return DATAKEYS[ps], hh
+
+
 @app.callback([Output('sync_variables', 'children'),
                Output('sync_variables', 'style')],
               [Input('sync_variables', 'n_clicks')])
@@ -447,31 +497,12 @@ def toggle_sync_button(click):
     return children, style,
 
 
-@app.callback([Output('rev_color', 'children'),
-               Output('rev_color', 'style')],
-              [Input('rev_color', 'n_clicks')])
-def toggle_rev_color_button(click):
-    """Toggle Reverse Color on/off."""
-    if not click:
-        click = 0
-    if click % 2 == 1:
-        children = 'Reverse Map Color: Off'
-        style = BUTTON_STYLES["off"]
-        # style["width"] = "250px",
-
-    else:
-        children = 'Reverse Map Color: On'
-        style = BUTTON_STYLES["on"]
-        # style["width"] = "250px",
-
-    return children, style
-
-
 @app.callback(
     [Output('map', 'figure'),
      Output("mapview_store", "children"),
      Output("map_selection_store", "children")],
     [Input("hubheight_options", "value"),
+     Input("plant_size_options", "value"),
      Input("map_variable_options", "value"),
      Input("state_options", "value"),
      Input("basemap_options", "value"),
@@ -483,17 +514,28 @@ def toggle_rev_color_button(click):
      Input("reset_chart", "n_clicks")],
     [State("map", "relayoutData"),
      State("map_selection_store", "children"),
-     State("sync_variables", "n_clicks")])
-def make_map(hubheight, variable, state, basemap, color, chartvar, chartsel,
-             point_size, rev_color, reset, mapview, stored_variable,
-             sync_variable):
-    """Make the scatterplot map."""
-    print_args(make_map, hubheight, variable, basemap, color, chartvar,
-               chartsel, mapview, sync_variable, rev_color)
+     State("sync_variables", "n_clicks"),
+     State("map", "selectedData"),
+     State("plantsize_store", "children")])
+def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
+             chartsel, point_size, rev_color, reset, mapview, stored_variable,
+             sync_variable, mapsel, ps_state):
+    """Make the scatterplot map.
+
+    To fix the point selection issue check this out:
+        https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
+    """
+    print_args(make_map, hubheight, plantsize, variable, state, basemap,
+               color, chartvar, chartsel,  point_size, rev_color, reset,
+               mapview, stored_variable, sync_variable, mapsel, ps_state)
 
     trig = dash.callback_context.triggered[0]['prop_id']
+    print(trig)
     if sync_variable % 2 == 1:
         if "variable" in trig:
+            # if plantsize != int(ps_state):
+            #     print("PS MISMATCH")
+            #     variable = chartvar
             if trig == "chart_yvariable_options.value":
                 variable = chartvar
             elif trig == "map_variable_options.value":
@@ -510,22 +552,24 @@ def make_map(hubheight, variable, state, basemap, color, chartvar, chartsel,
     # Build the scatter plot data object
     df = DATASETS[hubheight].copy()
 
-    # Reset any previous selections
-    # if "reset" in trig:
-    #     chartsel = None
-
     if rev_color % 2 == 1:
         rev_color = True
     else:
         rev_color = False
 
-    # If there is a selection in the chart filter these points
-    if chartsel:
-        df = chart_point_filter(df, chartsel, chartvar)
+    if "reset" not in trig:
+        # If there is a selection in the chart filter these points
+        if chartsel:
+            df = chart_point_filter(df, chartsel, chartvar)
 
-    # Finally filter for states
-    if state:
-        df = df[df["state"].isin(state)]
+        if "selectedData" not in trig:
+            if mapsel:
+                idx = [p["pointIndex"] for p in mapsel["points"]]
+                df = df.loc[idx]
+
+        # Finally filter for states
+        if state:
+            df = df[df["state"].isin(state)]
 
     df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   " +
                   df[variable].round(2).astype(str) + " " + UNITS[variable])
@@ -567,13 +611,17 @@ def make_map(hubheight, variable, state, basemap, color, chartvar, chartsel,
                 )
 
     # Set up layout
-    title = TITLES[variable] + " - " + get_label(DATAKEYS, hubheight)
+    title = (TITLES[variable]
+             + " - "
+             + get_label(DATAKEYS[plantsize], hubheight)
+             + " {} MW Plant".format(plantsize)
+             )
     layout_copy = copy.deepcopy(MAPLAYOUT)
     layout_copy['mapbox']['center'] = mapview['mapbox.center']
     layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
     layout_copy['mapbox']['bearing'] = mapview['mapbox.bearing']
     layout_copy['mapbox']['pitch'] = mapview['mapbox.pitch']
-    layout_copy['titlefont'] = dict(color='white', size=35,
+    layout_copy['titlefont'] = dict(color='white', size=25,
                                     family='Time New Roman',
                                     fontweight='bold')
     layout_copy["dragmode"] = "select"
@@ -586,8 +634,10 @@ def make_map(hubheight, variable, state, basemap, color, chartvar, chartsel,
 
 @app.callback(
     [Output('chart', 'figure'),
-     Output("chart_selection_store", "children")],
+     Output("chart_selection_store", "children"),
+     Output("plantsize_store", "children")],
     [Input("chart_options", "value"),
+     Input("plant_size_options", "value"),
      Input("chart_xvariable_options", "value"),
      Input("chart_yvariable_options", "value"),
      Input("map_variable_options", "value"),
@@ -597,16 +647,22 @@ def make_map(hubheight, variable, state, basemap, color, chartvar, chartsel,
      Input("reset_chart", "n_clicks")],
     [State("map", "relayoutData"),
      State("chart_selection_store", "children"),
-     State("sync_variables", "n_clicks")])
-def make_chart(chart, x, y, mapvar, state, mapsel, point_size, reset,
-               chartview, stored_variable, sync_variable):
+     State("sync_variables", "n_clicks"),
+     State("chart", "selectedData"),
+     State("plantsize_store", "children")])
+def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
+               chartview, stored_variable, sync_variable, chartsel,
+               ps_state):
     """Make one of a variety of charts."""
-    print_args(make_chart, chart, x, y, mapvar, state, mapsel, point_size,
-                sync_variable)
+    # print_args(make_chart, chart, ps, x, y, mapvar, state, mapsel,
+    #            point_size, sync_variable)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     if sync_variable % 2 == 1:
         if "variable" in trig:
+            # if ps != int(ps_state):
+            #     print("PS MISMATCH")
+            #     y = mapvar
             if trig == "map_variable_options.value":
                 y = mapvar
             elif trig == "chart_yvariable_options.value":
@@ -615,17 +671,37 @@ def make_chart(chart, x, y, mapvar, state, mapsel, point_size, reset,
                 y = stored_variable
 
     # Only the 20MW plant for now
-    paths = {"120": "120hh_20ps", "140": "140hh_20ps", "160": "160hh_20ps"}
+    paths = {"120": "120hh_{}ps".format(ps),
+             "140": "140hh_{}ps".format(ps),
+             "160": "160hh_{}ps".format(ps)}
 
     # Get the initial figure
     if chart == "cumsum":
-        fig = get_ccap(paths, y, mapsel, int(point_size), state)
+        fig = get_ccap(paths, y, mapsel, int(point_size), state, reset, trig)
+        title = (get_label(VARIABLES, y)
+                 + " by Cumulative Capacity - "
+                 + " {} MW Plant".format(ps))
+
     elif chart == "scatter":
-        fig = get_scatter(paths, x, y, mapsel, int(point_size), state)
+        fig = get_scatter(paths, x, y, mapsel, int(point_size), state, reset,
+                          trig)
+        title = (get_label(VARIABLES, y)
+                 + " by "
+                 + get_label(VARIABLES, x)
+                 + " - "
+                 + " {} MW Plant".format(ps))
+
     elif chart == "histogram":
-        fig = get_histogram(paths, y, mapsel, int(point_size), state)
+        fig = get_histogram(paths, y, mapsel, int(point_size), state, reset,
+                            trig)
+        title = (get_label(VARIABLES, y) + " Histogram - "
+                 + " {} MW Plant".format(ps))
+
     elif chart == "box":
-        fig = get_boxplot(paths, y, mapsel, int(point_size), state)
+        fig = get_boxplot(paths, y, mapsel, int(point_size), state, reset,
+                          trig)
+        title = (get_label(VARIABLES, y) + " Boxplots"
+                 + " {} MW Plant".format(ps))
 
     # Update the layout and traces
     fig.update_layout(
@@ -633,7 +709,7 @@ def make_chart(chart, x, y, mapvar, state, mapsel, point_size, reset,
         title_font_family="Times New Roman",
         legend_title_font_color="white",
         font_color="white",
-        title_font_size=35,
+        title_font_size=25,
         font_size=15,
         margin=dict(l=70, r=20, t=70, b=20),
         height=500,
@@ -641,6 +717,7 @@ def make_chart(chart, x, y, mapvar, state, mapsel, point_size, reset,
         legend_title_text='Hub Height',
         dragmode="select",
         title=dict(
+                text=title,
                 yref="paper",
                 y=1,
                 x=0.1,
@@ -657,7 +734,7 @@ def make_chart(chart, x, y, mapvar, state, mapsel, point_size, reset,
            )
         )
 
-    return fig, y
+    return fig, y, json.dumps(ps)
 
 
 if __name__ == '__main__':

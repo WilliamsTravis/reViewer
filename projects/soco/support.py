@@ -9,7 +9,7 @@ import os
 
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
+
 from revruns import Data_Path
 
 
@@ -101,19 +101,29 @@ COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
           #           [1.00, 'rgb(0, 73, 68)']]
           }
 
-
 COLOR_OPTIONS = [{"label": k, "value": v} for k, v in COLORS.items()]
 
-DATAKEYS = [
-    {"label": "120m Hub Height", "value": "120hh_20ps"},
-    {"label": "140m Hub Height", "value": "140hh_20ps"},
-    {"label": "160m Hub Height", "value": "160hh_20ps"}
-    ]
+DATAKEYS = {
+    20: [
+        {"label": "120m Hub Height", "value": "120hh_20ps"},
+        {"label": "140m Hub Height", "value": "140hh_20ps"},
+        {"label": "160m Hub Height", "value": "160hh_20ps"}
+        ],
+    150: [
+        {"label": "120m Hub Height", "value": "120hh_150ps"},
+        {"label": "140m Hub Height", "value": "140hh_150ps"},
+        {"label": "160m Hub Height", "value": "160hh_150ps"}
+        ]
+    }
 
 DATASETS = {
     "120hh_20ps": pd.read_csv(DATAPATH.join("120hh_20ps.csv")),
     "140hh_20ps": pd.read_csv(DATAPATH.join("140hh_20ps.csv")),
-    "160hh_20ps": pd.read_csv(DATAPATH.join("160hh_20ps.csv"))
+    "160hh_20ps": pd.read_csv(DATAPATH.join("160hh_20ps.csv")),
+    "120hh_150ps": pd.read_csv(DATAPATH.join("120hh_150ps.csv")),
+    "140hh_150ps": pd.read_csv(DATAPATH.join("140hh_150ps.csv")),
+    "160hh_150ps": pd.read_csv(DATAPATH.join("160hh_150ps.csv"))
+
     }
 
 DEFAULT_MAPVIEW = {
@@ -125,7 +135,6 @@ DEFAULT_MAPVIEW = {
     "mapbox.bearing": 0,
     "mapbox.pitch": 0
 }
-
 
 LCOEOPTIONS = [{"label": "Site-Based", "value": "mean_lcoe"},
                {"label": "Transmission", "value": "lcot"},
@@ -160,6 +169,11 @@ MAPLAYOUT = dict(
         center=dict(lon=-95.7, lat=37.1),
         zoom=2)
 )
+
+PLANT_SIZES = [
+    {"label": "20 MW", "value": 20},
+    {"label": "150 MW", "value": 150}
+    ]
 
 RESET_BUTTON_STYLE = {
         'height': '100%',
@@ -283,7 +297,7 @@ def make_scales(files, dst):
 
 
 # Chart functions
-def get_ccap(paths, y, mapsel, point_size, state):
+def get_ccap(paths, y, mapsel, point_size, state, reset, trig):
     """Return a cumulative capacity scatterplot."""
     df = None
     for key, path in paths.items():
@@ -320,18 +334,16 @@ def get_ccap(paths, y, mapsel, point_size, state):
 
     df = df.sort_values("ccap")
 
-    if mapsel:
-        idx = [p["pointIndex"] for p in mapsel["points"]]
-        df = df[df["gid"].isin(idx)]
-
-    if state:
-        df = df[df["state"].isin(state)]
+    if "reset" not in trig:
+        if mapsel:
+            idx = [p["pointIndex"] for p in mapsel["points"]]
+            df = df[df["gid"].isin(idx)]
+        if state:
+            df = df[df["state"].isin(state)]
 
     fig = px.scatter(df,
                      x="ccap",
                      y="value",
-                     title=(get_label(VARIABLES, y) +
-                            " by Cumulative Capacity"),
                      labels={"ccap": UNITS["capacity"],
                              "value": UNITS[y]},
                      color='hh')
@@ -352,7 +364,7 @@ def get_ccap(paths, y, mapsel, point_size, state):
     return fig
 
 
-def get_scatter(paths, x, y, mapsel, point_size, state):
+def get_scatter(paths, x, y, mapsel, point_size, state, reset, trig):
     """Return a regular scatterplot."""
     df = None
     for key, path in paths.items():
@@ -373,7 +385,7 @@ def get_scatter(paths, x, y, mapsel, point_size, state):
         else:
             df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
-            df2 = df2[["gid", "state", x, y]]
+            df2 = df2[["gid", x, y]]
             if x == y:
                 df2.columns = ["gid", "state",  x, y + "2"]
                 var = y + "2"
@@ -388,18 +400,16 @@ def get_scatter(paths, x, y, mapsel, point_size, state):
 
     df = df.sort_values("x")
 
-    if mapsel:
-        idx = [p["pointIndex"] for p in mapsel["points"]]
-        df = df[df["gid"].isin(idx)]
-
-    if state:
-        df = df[df["state"].isin(state)]
+    if "reset" not in trig:
+        if mapsel:
+            idx = [p["pointIndex"] for p in mapsel["points"]]
+            df = df[df["gid"].isin(idx)]
+        if state:
+            df = df[df["state"].isin(state)]
 
     fig = px.scatter(df,
                      x="x",
                      y="value",
-                     title=(get_label(VARIABLES, y) + " by " +
-                            get_label(VARIABLES, x)),
                      labels={"x": UNITS[x],
                              "value": UNITS[y]},
                      color='hh')
@@ -420,7 +430,7 @@ def get_scatter(paths, x, y, mapsel, point_size, state):
     return fig
 
 
-def get_histogram(paths, y, mapsel, point_size, state):
+def get_histogram(paths, y, mapsel, point_size, state, reset, trig):
     """Return a histogram."""
     df = None
     for key, path in paths.items():
@@ -438,17 +448,17 @@ def get_histogram(paths, y, mapsel, point_size, state):
             df2 = df2[["gid", "state", y, "hh"]]
             df = pd.concat([df, df2])
 
-    if mapsel:
-        idx = [p["pointIndex"] for p in mapsel["points"]]
-        df = df[df["gid"].isin(idx)]
+    if "reset" not in trig:
 
-    if state:
-        df = df[df["state"].isin(state)]
+        if mapsel:
+            idx = [p["pointIndex"] for p in mapsel["points"]]
+            df = df[df["gid"].isin(idx)]
+        if state:
+            df = df[df["state"].isin(state)]
 
     fig = px.histogram(df,
                        x=y,
                        color="hh",
-                       title=get_label(VARIABLES, y) + " Histogram",
                        labels={y: UNITS[y]})
 
     fig.update_traces(
@@ -466,7 +476,7 @@ def get_histogram(paths, y, mapsel, point_size, state):
     return fig
 
 
-def get_boxplot(paths, y, mapsel, point_size, state):
+def get_boxplot(paths, y, mapsel, point_size, state, reset, trig):
     """Return a set of boxplots."""
     df = None
     for key, path in paths.items():
@@ -484,16 +494,15 @@ def get_boxplot(paths, y, mapsel, point_size, state):
             df2 = df2[["gid", "state", y, "hh"]]
             df = pd.concat([df, df2])
 
-    if mapsel:
-        idx = [p["pointIndex"] for p in mapsel["points"]]
-        df = df[df["gid"].isin(idx)]
+    if "reset" not in trig:
 
-    if state:
-        df = df[df["state"].isin(state)]
+        if mapsel:
+            idx = [p["pointIndex"] for p in mapsel["points"]]
+            df = df[df["gid"].isin(idx)]
+        if state:
+            df = df[df["state"].isin(state)]
 
-    fig = px.box(df, x="hh", y=y, color="hh",
-                 title=get_label(VARIABLES, y) + " Boxplots",
-                 labels={y: UNITS[y]})
+    fig = px.box(df, x="hh", y=y, color="hh", labels={y: UNITS[y]})
 
     fig.update_traces(
         marker=dict(

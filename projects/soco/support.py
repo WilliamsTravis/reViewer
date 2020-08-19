@@ -373,7 +373,7 @@ def get_scatter(paths, x, y, mapsel, point_size, state):
         else:
             df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
-            df2 = df2[["gid", x, y]]
+            df2 = df2[["gid", "state", x, y]]
             if x == y:
                 df2.columns = ["gid", "state",  x, y + "2"]
                 var = y + "2"

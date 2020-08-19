@@ -447,7 +447,7 @@ def map_tab_options(tab_choice):
     idx = order.index(tab_choice)
     styles[idx] = {"width": "100%", "text-align": "center"}
 
-    return styles[0], styles[1], styles[2], styles[3], styles[4], styles[4]
+    return styles[0], styles[1], styles[2], styles[3], styles[4], styles[5]
 
 
 @app.callback([Output('rev_color', 'children'),
@@ -533,15 +533,15 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
     print(trig)
     if sync_variable % 2 == 1:
         if "variable" in trig:
-            # if plantsize != int(ps_state):
-            #     print("PS MISMATCH")
-            #     variable = chartvar
             if trig == "chart_yvariable_options.value":
                 variable = chartvar
             elif trig == "map_variable_options.value":
                 variable = variable
             else:
                 variable = stored_variable
+
+        elif plantsize != int(ps_state):
+            variable = stored_variable
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -669,6 +669,9 @@ def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
                 y = y
             else:
                 y = stored_variable
+
+        elif ps != int(ps_state):
+            y = stored_variable
 
     # Only the 20MW plant for now
     paths = {"120": "120hh_{}ps".format(ps),

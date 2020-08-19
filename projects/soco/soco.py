@@ -342,7 +342,12 @@ app.layout = html.Div([
              style={"display": "none"}),
     html.Div(id="chartview_store",
              children=json.dumps(DEFAULT_MAPVIEW),
-             style={"display": "none"})
+             style={"display": "none"}),
+    html.Div(id="map_selection_store",
+             style={"display": "None"}),
+    html.Div(id="chart_selection_store",
+             style={"display": "None"})
+
 ], className="row")
 
 
@@ -465,7 +470,8 @@ def toggle_rev_color_button(click):
 
 @app.callback(
     [Output('map', 'figure'),
-     Output("mapview_store", "children")],
+     Output("mapview_store", "children"),
+     Output("map_selection_store", "children")],
     [Input("hubheight_options", "value"),
      Input("map_variable_options", "value"),
      Input("basemap_options", "value"),
@@ -476,9 +482,11 @@ def toggle_rev_color_button(click):
      Input("rev_color", "n_clicks"),
      Input("reset_chart", "n_clicks"),
      Input("sync_variables", "n_clicks")],
-    [State("map", "relayoutData")])
+    [State("map", "relayoutData"),
+     State("map_selection_store", "children")])
 def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
-             point_size, rev_color, reset, sync_variable, mapview):
+             point_size, rev_color, reset, sync_variable, mapview,
+             stored_variable):
     """Make the scatterplot map."""
     # print_args(make_map, hubheight, variable, basemap, color, chartvar,
     #            chartsel, mapview, sync_variable, rev_color)
@@ -488,6 +496,10 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
         if "variable" in trig:
             if trig == "chart_yvariable_options.value":
                 variable = chartvar
+            elif trig == "map_variable_options.value":
+                variable = variable
+            else:
+                variable = stored_variable
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -502,7 +514,7 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
     # if "reset" in trig:
     #     chartsel = None
 
-    if rev_color % 2 == 0:
+    if rev_color % 2 == 1:
         rev_color = True
     else:
         rev_color = False
@@ -562,11 +574,12 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
     layout_copy['mapbox']['style'] = basemap
     figure = dict(data=[data], layout=layout_copy)
 
-    return figure, json.dumps(mapview)
+    return figure, json.dumps(mapview), variable
 
 
 @app.callback(
-    Output('chart', 'figure'),
+    [Output('chart', 'figure'),
+     Output("chart_selection_store", "children")],
     [Input("chart_options", "value"),
      Input("chart_xvariable_options", "value"),
      Input("chart_yvariable_options", "value"),
@@ -575,9 +588,10 @@ def make_map(hubheight, variable, basemap, color, chartvar, chartsel,
      Input("chart_point_size", "value"),
      Input("reset_chart", "n_clicks"),
      Input("sync_variables", "n_clicks")],
-    [State("map", "relayoutData")])
+    [State("map", "relayoutData"),
+     State("chart_selection_store", "children")])
 def make_chart(chart, x, y, mapvar, mapsel, point_size, reset, sync_variable,
-               chartview):
+               chartview, stored_variable):
     """Make one of a variety of charts."""
     print_args(make_chart, chart, x, y, mapvar, mapsel, point_size,
                sync_variable)
@@ -587,10 +601,10 @@ def make_chart(chart, x, y, mapvar, mapsel, point_size, reset, sync_variable,
         if "variable" in trig:
             if trig == "map_variable_options.value":
                 y = mapvar
-
-    # Reset any previous selections
-    # if "reset" in trig:
-    #     mapsel = None
+            elif trig == "chart_yvariable_options.value":
+                y = y
+            else:
+                y = stored_variable
 
     # Only the 20MW plant for now
     files = [f for f in FILES if "20ps" in f]
@@ -637,7 +651,7 @@ def make_chart(chart, x, y, mapvar, mapsel, point_size, reset, sync_variable,
            )
         )
 
-    return fig
+    return fig, y
 
 
 if __name__ == '__main__':

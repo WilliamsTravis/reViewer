@@ -1,2 +1,2 @@
-# reViewer
-A portal for viewing multidimensional gridded data sets. 
+# reView
+A portal for reviewing reV results.

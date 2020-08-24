@@ -10,390 +10,294 @@ import json
 import os
 
 import dash
-import dash_auth
 import dash_core_components as dcc
 import dash_html_components as html
 
+from app import app
 from dash.dependencies import Input, Output, State
 from reviewer import print_args
 from revruns import Data_Path
-from support import BASEMAPS, BUTTON_STYLES, CHARTOPTIONS, COLOR_OPTIONS
-from support import DATAKEYS, DATASETS, DEFAULT_MAPVIEW, MAPLAYOUT
-from support import PLANT_SIZES, STATES, STYLESHEET, TITLES, TAB_STYLE
-from support import TABLET_STYLE, UNITS, VARIABLES
-from support import chart_point_filter, fix_cfs, get_label, make_scales
-from support import get_boxplot, get_ccap, get_histogram, get_scatter
+from .support import (BASEMAPS, BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
+                      DATAKEYS, DATASETS, DEFAULT_MAPVIEW, MAP_LAYOUT,
+                      PLANT_SIZES, STATES, STYLESHEET, TITLES, TAB_STYLE,
+                      TABLET_STYLE, UNITS, VARIABLES)
+from .support import (chart_point_filter, fix_cfs, get_label, make_scales,
+                      get_boxplot, get_ccap, get_histogram, get_scatter)
 
 os.chdir(os.path.expanduser("~/github/reViewer/projects/soco"))
 
 
-DP = Data_Path("./data")
-
+DP = Data_Path("~/github/reViewer/projects/soco/data")  # <-------------------- Fix this
 FILES = DP.contents("*csv")
-
 SCALES = make_scales(FILES, DP.join("scales.csv"))
 
 fix_cfs(FILES)
 
+layout = html.Div(
+    children=[
 
-app = dash.Dash(__name__, external_stylesheets=[STYLESHEET])
-server = app.server
-valid_auth_pairs = {'soco': 'weivergnitset'}
-auth = dash_auth.BasicAuth(app, valid_auth_pairs)
-
-
-# Page Layout
-app.layout = html.Div([
-
-    # Navigation bar
-    html.Nav(
-        className="top-bar fixed",
-        children=[
-
-            html.Div([
-
-              html.Div([
-                  html.H1(
-                      "reView",
-                      style={
-                         'float': 'left',
-                         'position': 'relative',
-                         "color": "white",
-                         'font-family': 'Times New Roman',
-                         'font-size': '48px',
-                         "font-face": "bold",
-                         "margin-bottom": 5,
-                         "margin-left": 15,
-                         "margin-top": 0
-                         }
-                  ),
-                  html.H2(
-                      " | Southern Company Preliminary Results",
-                      style={
-                        'float': 'left',
-                        'position': 'relative',
-                        "color": "white",
-                        'font-family': 'Times New Roman',
-                        'font-size': '32px',
-                        "margin-bottom": 5,
-                        "margin-left": 15,
-                        "margin-top": 10,
-                        "margin-right": 55
-                        }
-                    ),
-
-                  ]),
-
-              html.Button(
-                    id='sync_variables',
-                    children='Sync Variables: On',
-                    n_clicks=1,
-                    type='button',
-                    title=('Click to sync the chosen variable between the map '
-                           'and y-axis of the chart.'),
-                    style=BUTTON_STYLES["on"]
-                    ),
-
-              html.Button(
-                    id='rev_color',
-                    children='Reverse Map Color: Off',
-                    n_clicks=1,
-                    type='button',
-                    title=('Click to render the map with the inverse of '
-                           'the chosen color ramp.'),
-                    style=BUTTON_STYLES["on"]
-                    ),
-
-              html.Button(
-                    id="reset_chart",
-                    children="Reset Selections",
-                    title="Clear Point Selection Filters.",
-                    # style=BUTTON_STYLES["on"],
-                    style={"display": "none"}
-                    ),
-
-              html.A(
-                html.Img(
-                  src=("static/nrel_logo.png"),
-                  className='twelve columns',
-                  style={
-                      'height': 70,
-                      'width': 180,
-                      "float": "right",
-                      'position': 'relative',
-                      "margin-left": "10",
-                      'border-bottom-right-radius': '3px'
-                      }
-                ),
-                href="https://www.nrel.gov/",
-                target="_blank"
-              )
-
-              ],
-                style={
-                    'background-color': '#1663B5',
-                    'width': '100%',
-                    "height": 70,
-                    'margin-right': '0px',
-                    'margin-top': '-15px',
-                    'margin-bottom': '35px',
-                    'border': '3px solid #FCCD34',
-                    'border-radius': '5px'
-                    },
-                className='row'),
-        ]),
-
-    html.Div([
-
-        # MAP DIV
         html.Div([
-            html.Div([
+            html.H4("Project"),
+            dcc.Dropdown(
+                id="project",
+                options=[{"label": "Southern Company", "value": "soco"}],
+                placeholder="Choose reV Project",
+                value="soco"
+                )
+            ], style={"width": "25%", "margin-bottom": "50px"}
+        ),        
 
-                # Map options
-                dcc.Tabs(
-                    id="map_options_tab",
-                    value="hh",
-                    style=TAB_STYLE,
-                    children=[
-                        dcc.Tab(value='hh',
-                                label='Hub Height',
-                                style=TABLET_STYLE,
-                                selected_style=TABLET_STYLE
-                                ),
-                        dcc.Tab(value='ps',
-                                label='Plant Size',
-                                style=TABLET_STYLE,
-                                selected_style=TABLET_STYLE
-                                ),
-                        dcc.Tab(value='variable',
-                                label='Variable',
-                                style=TABLET_STYLE,
-                                selected_style=TABLET_STYLE),
-                        dcc.Tab(value='state',
-                                label='State',
-                                style=TABLET_STYLE,
-                                selected_style=TABLET_STYLE),
-                        dcc.Tab(value='basemap',
-                                label='Basemap',
-                                style=TABLET_STYLE,
-                                selected_style=TABLET_STYLE),
-                        dcc.Tab(value='color',
-                                label='Color Ramp',
-                                style=TABLET_STYLE,
-                                selected_style=TABLET_STYLE)
-                    ]),
-
-                # Hub height dataset option
-                html.Div(
-                    id="hubheight_options_div",
-                    children=[
-                        dcc.Dropdown(
-                            id="hubheight_options",
-                            clearable=False,
-                            options=DATAKEYS[20],
-                            multi=False,
-                            value="120hh_20ps"
-                        )
-                    ]),
-
-                # Plant size options
-                html.Div(
-                    id="plant_size_options_div",
-                    children=[
-                        dcc.Dropdown(
-                            id="plant_size_options",
-                            clearable=False,
-                            options=PLANT_SIZES,
-                            multi=False,
-                            value=20
-                        )
-                    ]),
-
-                # Variable options
-                html.Div(
-                    id="map_variable_options_div",
-                    children=[
-                        dcc.Dropdown(
-                            id="map_variable_options",
-                            clearable=False,
-                            options=VARIABLES,
-                            multi=False,
-                            value="mean_cf"
-                        )
-                    ]),
-
-                # Variable options
-                html.Div(
-                    id="state_options_div",
-                    children=[
-                        dcc.Dropdown(
-                            id="state_options",
-                            clearable=True,
-                            options=STATES,
-                            multi=True,
-                            value=None
-                        )
-                    ]),
-                # Basmap options
-                html.Div(
-                    id="basemap_options_div",
-                    children=[
-                         dcc.Dropdown(
-                            id="basemap_options",
-                            clearable=False,
-                            options=BASEMAPS,
-                            multi=False,
-                            value="light"
-                         )
-                    ]),
-
-                # Color scale options
-                html.Div(
-                    id="color_options_div",
-                    children=[
-                          dcc.Dropdown(
-                            id="color_options",
-                            clearable=False,
-                            options=COLOR_OPTIONS,
-                            multi=False,
-                            value="Viridis"
-                          )
-                    ]),
-            ], className="row"),
-
-            # The map
-            dcc.Graph(id="map",
-                      config={
-                        "showSendToCloud": True,
-                        "plotlyServerURL": "https://chart-studio.plotly.com"
-                         }
-                      ),
-
-            # Point Size
-            html.Div(
-                id="map_point_size_div",
-                children=[
-                    html.H6("Point Size:",
-                            className="two columns"),
-                    dcc.Input(
-                        id="map_point_size",
-                        value=5,
-                        type="number",
-                        className="two columns",
-                        style={"margin-left": -5, "width": "7%"}
-                    ),
-                ], className="row"),
-            ], className="six columns"),
-
-        # Chart of cumulative cpacity vs LCOE
         html.Div([
+
+            # MAP DIV
             html.Div([
                 html.Div([
-
-                    # Chart options
+    
+                    # Map options
                     dcc.Tabs(
-                        id="chart_options_tab",
-                        value="chart",
+                        id="map_options_tab",
+                        value="hh",
                         style=TAB_STYLE,
                         children=[
-                            dcc.Tab(value='chart',
-                                    label='Chart Type',
+                            dcc.Tab(value='hh',
+                                    label='Hub Height',
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE
                                     ),
-                            dcc.Tab(value='xvariable',
-                                    label='X Variable',
+                            dcc.Tab(value='ps',
+                                    label='Plant Size',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE
+                                    ),
+                            dcc.Tab(value='variable',
+                                    label='Variable',
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE),
-                            dcc.Tab(value='yvariable',
-                                    label='Y Variable',
+                            dcc.Tab(value='state',
+                                    label='State',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE),
+                            dcc.Tab(value='basemap',
+                                    label='Basemap',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE),
+                            dcc.Tab(value='color',
+                                    label='Color Ramp',
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE)
-                            ]),
-
-                    # Type of chart
-                    html.Div(
-                        id="chart_options_div",
-                        children=[
-                            dcc.Dropdown(
-                                id="chart_options",
-                                clearable=False,
-                                options=CHARTOPTIONS,
-                                multi=False,
-                                value="cumsum"
-                            ),
                         ]),
-
-                    # X-axis Variable
+    
+                    # Hub height dataset option
                     html.Div(
-                        id="chart_xvariable_options_div",
+                        id="hubheight_options_div",
                         children=[
                             dcc.Dropdown(
-                                id="chart_xvariable_options",
+                                id="hubheight_options",
+                                clearable=False,
+                                options=DATAKEYS[20],
+                                multi=False,
+                                value="120hh_20ps"
+                            )
+                        ]),
+    
+                    # Plant size options
+                    html.Div(
+                        id="plant_size_options_div",
+                        children=[
+                            dcc.Dropdown(
+                                id="plant_size_options",
+                                clearable=False,
+                                options=PLANT_SIZES,
+                                multi=False,
+                                value=20
+                            )
+                        ]),
+    
+                    # Variable options
+                    html.Div(
+                        id="map_variable_options_div",
+                        children=[
+                            dcc.Dropdown(
+                                id="map_variable_options",
                                 clearable=False,
                                 options=VARIABLES,
                                 multi=False,
                                 value="mean_cf"
-                            ),
+                            )
                         ]),
-
-                    # Y-axis Variable
+    
+                    # Variable options
                     html.Div(
-                        id="chart_yvariable_options_div",
+                        id="state_options_div",
                         children=[
                             dcc.Dropdown(
-                                id="chart_yvariable_options",
-                                clearable=False,
-                                options=VARIABLES,
-                                multi=False,
-                                value="mean_cf"
-                            ),
+                                id="state_options",
+                                clearable=True,
+                                options=STATES,
+                                multi=True,
+                                value=None
+                            )
                         ]),
-                    ]),
 
-            ], className="row"),
-
-            # The chart
-            dcc.Graph(id="chart",
-                      config={
-                        "showSendToCloud": True,
-                        "plotlyServerURL": "https://chart-studio.plotly.com"
-                      }),
-
-            # Point Size
-            html.Div(
-                id="chart_point_size_div",
-                children=[
-                    html.H6("Point Size:",
-                            className="two columns"),
-                    dcc.Input(
-                        id="chart_point_size",
-                        value=5,
-                        type="number",
-                        className="two columns",
-                        style={"margin-left": -5, "width": "7%"}
-                    ),
+                    # Basmap options
+                    html.Div(
+                        id="basemap_options_div",
+                        children=[
+                             dcc.Dropdown(
+                                id="basemap_options",
+                                clearable=False,
+                                options=BASEMAPS,
+                                multi=False,
+                                value="light"
+                             )
+                        ]),
+    
+                    # Color scale options
+                    html.Div(
+                        id="color_options_div",
+                        children=[
+                              dcc.Dropdown(
+                                id="color_options",
+                                clearable=False,
+                                options=COLOR_OPTIONS,
+                                multi=False,
+                                value="Viridis"
+                              )
+                        ]),
                 ], className="row"),
-            ], className="six columns"),
-
-    ], className="row"),
-
+    
+                # The map
+                dcc.Graph(id="map",
+                          config={
+                            "showSendToCloud": True,
+                            "plotlyServerURL": "https://chart-studio.plotly.com"
+                             }
+                          ),
+    
+                # Point Size
+                html.Div(
+                    id="map_point_size_div",
+                    children=[
+                        html.H6("Point Size:",
+                                className="two columns"),
+                        dcc.Input(
+                            id="map_point_size",
+                            value=5,
+                            type="number",
+                            className="two columns",
+                            style={"margin-left": -5, "width": "7%"}
+                        ),
+                    ], className="row"),
+                ], className="six columns"),
+    
+            # Chart of cumulative cpacity vs LCOE
+            html.Div([
+                html.Div([
+                    html.Div([
+    
+                        # Chart options
+                        dcc.Tabs(
+                            id="chart_options_tab",
+                            value="chart",
+                            style=TAB_STYLE,
+                            children=[
+                                dcc.Tab(value='chart',
+                                        label='Chart Type',
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE
+                                        ),
+                                dcc.Tab(value='xvariable',
+                                        label='X Variable',
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE),
+                                dcc.Tab(value='yvariable',
+                                        label='Y Variable',
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE)
+                                ]),
+    
+                        # Type of chart
+                        html.Div(
+                            id="chart_options_div",
+                            children=[
+                                dcc.Dropdown(
+                                    id="chart_options",
+                                    clearable=False,
+                                    options=CHART_OPTIONS,
+                                    multi=False,
+                                    value="cumsum"
+                                ),
+                            ]),
+    
+                        # X-axis Variable
+                        html.Div(
+                            id="chart_xvariable_options_div",
+                            children=[
+                                dcc.Dropdown(
+                                    id="chart_xvariable_options",
+                                    clearable=False,
+                                    options=VARIABLES,
+                                    multi=False,
+                                    value="mean_cf"
+                                ),
+                            ]),
+    
+                        # Y-axis Variable
+                        html.Div(
+                            id="chart_yvariable_options_div",
+                            children=[
+                                dcc.Dropdown(
+                                    id="chart_yvariable_options",
+                                    clearable=False,
+                                    options=VARIABLES,
+                                    multi=False,
+                                    value="mean_cf"
+                                ),
+                            ]),
+                        ]),
+    
+                ], className="row"),
+    
+                # The chart
+                dcc.Graph(id="chart",
+                          config={
+                            "showSendToCloud": True,
+                            "plotlyServerURL": "https://chart-studio.plotly.com"
+                          }),
+    
+                # Point Size
+                html.Div(
+                    id="chart_point_size_div",
+                    children=[
+                        html.H6("Point Size:",
+                                className="two columns"),
+                        dcc.Input(
+                            id="chart_point_size",
+                            value=5,
+                            type="number",
+                            className="two columns",
+                            style={"margin-left": -5, "width": "7%"}
+                        ),
+                    ], className="row"),
+                ], className="six columns"),
+            ], className="row"),
+    
     # To maintain the view after updating the map
     html.Div(id="mapview_store",
-             children=json.dumps(DEFAULT_MAPVIEW),
-             style={"display": "none"}),
+              children=json.dumps(DEFAULT_MAPVIEW),
+              style={"display": "none"}),
     html.Div(id="chartview_store",
-             children=json.dumps(DEFAULT_MAPVIEW),
-             style={"display": "none"}),
+              children=json.dumps(DEFAULT_MAPVIEW),
+              style={"display": "none"}),
     html.Div(id="map_selection_store",
-             style={"display": "None"}),
+              style={"display": "None"}),
     html.Div(id="chart_selection_store",
-             style={"display": "None"}),
+              style={"display": "None"}),
     html.Div(id="plantsize_store",
-             children="20",
-             style={"display": "none"})
+              children="20",
+              style={"display": "none"})
 
-], className="row")
+    ], className="twelve columns")
 
 
 @app.callback([Output('chart_options_tab', 'children'),
@@ -534,9 +438,9 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    print_args(make_map, hubheight, plantsize, variable, state, basemap,
-               color, chartvar, chartsel,  point_size, rev_color, reset,
-               mapview, stored_variable, sync_variable, mapsel, ps_state)
+    # print_args(make_map, hubheight, plantsize, variable, state, basemap,
+    #            color, chartvar, chartsel,  point_size, rev_color, reset,
+    #            mapview, stored_variable, sync_variable, mapsel, ps_state)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     print(trig)
@@ -625,7 +529,7 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
              + get_label(DATAKEYS[plantsize], hubheight)
              + " - {} MW Plant".format(plantsize)
              )
-    layout_copy = copy.deepcopy(MAPLAYOUT)
+    layout_copy = copy.deepcopy(MAP_LAYOUT)
     layout_copy['mapbox']['center'] = mapview['mapbox.center']
     layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
     layout_copy['mapbox']['bearing'] = mapview['mapbox.bearing']
@@ -663,8 +567,8 @@ def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
                chartview, stored_variable, sync_variable, chartsel,
                ps_state):
     """Make one of a variety of charts."""
-    print_args(make_chart, chart, ps, x, y, mapvar, state, mapsel,
-               point_size, sync_variable)
+    # print_args(make_chart, chart, ps, x, y, mapvar, state, mapsel,
+    #            point_size, sync_variable)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     if sync_variable % 2 == 1:
@@ -747,8 +651,3 @@ def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
         )
 
     return fig, y, json.dumps(ps)
-
-
-if __name__ == '__main__':
-    app.run_server(debug=True)
-    # app.run_server()

@@ -26,30 +26,30 @@ BASEMAPS = [{'label': 'Light', 'value': 'light'},
 BUTTON_STYLES = {
     "on": {
         'height': '45px',
-        "width": "225px",
+        "width": "200px",
         'padding': '4px',
         'background-color': '#FCCD34',
         'border-radius': '4px',
         'font-family': 'Times New Roman',
-        'font-size': '13px',
+        'font-size': '12px',
         'margin-top': '-2px'
         },
     "off": {
         'height': '45px',
-        "width": "225px",
+        "width": "200px",
         'padding': '4px',
         'background-color': '#b89627',
         'border-radius': '4px',
         'font-family': 'Times New Roman',
-        'font-size': '13px',
+        'font-size': '12px',
         'margin-top': '-2px'
         }
     }
 
-CHARTOPTIONS = [{"label": "Cumulative Capacity", "value": "cumsum"},
-                {"label": "Scatterplot", "value": "scatter"},
-                {"label": "Histogram", "value": "histogram"},
-                {"label": "Boxplot", "value": "box"}]
+CHART_OPTIONS = [{"label": "Cumulative Capacity", "value": "cumsum"},
+                 {"label": "Scatterplot", "value": "scatter"},
+                 {"label": "Histogram", "value": "histogram"},
+                 {"label": "Boxplot", "value": "box"}]
 
 COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
           'Default': 'Default', 'Earth': 'Earth', 'Electric': 'Electric',
@@ -140,10 +140,7 @@ LCOEOPTIONS = [{"label": "Site-Based", "value": "mean_lcoe"},
                {"label": "Transmission", "value": "lcot"},
                {"label": "Total", "value": "total_lcoe"}]
 
-MAPTOKEN = ('pk.eyJ1IjoidHJhdmlzc2l1cyIsImEiOiJjamZiaHh4b28waXNkMnptaWlwcHZvd'
-            'zdoIn0.9pxpgXxyyhM6qEF_dcyjIQ')
-
-MAPLAYOUT = dict(
+MAP_LAYOUT = dict(
     height=500,
     font=dict(color='white',
               fontweight='bold'),
@@ -164,11 +161,14 @@ MAPLAYOUT = dict(
         pad=dict(b=10)
     ),
     mapbox=dict(
-        accesstoken=MAPTOKEN,
+        accesstoken=("pk.eyJ1IjoidHJhdmlzc2l1cyIsImEiOiJjamZiaHh4b28waXNkMnpt"
+                     "aWlwcHZvdzdoIn0.9pxpgXxyyhM6qEF_dcyjIQ"),
         style="satellite-streets",
         center=dict(lon=-95.7, lat=37.1),
         zoom=2)
 )
+
+
 
 PLANT_SIZES = [
     {"label": "20 MW", "value": 20},
@@ -274,7 +274,8 @@ def make_scales(files, dst):
         dfs = []
         for f in files:
             df = pd.read_csv(f)
-            df["mean_cf"] = round(df["mean_cf"] * 100, 2)
+            if df["mean_cf"].max() < 1:
+                df["mean_cf"] = round(df["mean_cf"] * 100, 2)
             dfs.append(df)
 
         ranges = {}

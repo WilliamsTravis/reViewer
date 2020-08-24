@@ -41,7 +41,6 @@ def change_page(pathname):
     return page, app_style, config_style
 
 
-
 if __name__ == '__main__':
-    app.run_server(debug=True)
-    # app.run_server()
+    # app.run_server(debug=True)
+    app.run_server()

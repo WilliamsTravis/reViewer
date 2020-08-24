@@ -33,9 +33,17 @@ layout = html.Div([
 
     html.H3("Configure Datasets"),
 
-    html.H5("Find Project Directory"),
+    # Project name
+    html.H5("Project Name"),
+    dcc.Input(
+        id="project_name",
+        debounce=True,
+        style={"margin-left": "50px", "margin-bottom": "15px"}
+    ),
+
+    # Project directory
+    html.H5("Find Project Directory", style={"margin-top": "50px"}),
     html.Div([
-        
         dcc.Input(
             id="proj_input",
             placeholder="/",
@@ -56,13 +64,14 @@ layout = html.Div([
     ),
 
 
+    # Groups
     html.H5("Create Groups", style={"margin-top": "50px"}),
     html.Div([
         dcc.Input(
             id="group_input"
         ),
         html.Button(
-            children="submit",
+            children="Add Group",
             id="submit_group"
         )
     ], className="row",
@@ -70,10 +79,10 @@ layout = html.Div([
     ),
 
     html.Div(
-        id="group_options",
-        style={"margin-left": "50px", "margin-bottom": "15px"}
+        id="top_groups"
     ),
 
+    # Dataset paths
     html.H5("Add Data Set(s)", style={"margin-top": "50px"}),
     html.Div([
 
@@ -92,12 +101,12 @@ layout = html.Div([
         style={"margin-bottom": "50px", "margin-left": "50px"}
     ),
 
+    # Storage Units
     html.Div(id="proj_dir", style={"display": "none"}, children="/"),
     html.Div(id="groups",  style={"display": "none"}),
     html.Div(id="files", style={"display": "none"})
     
 ], className= "twelve columns")
-
 
 
 def navigate(which, initialdir="/"):
@@ -147,44 +156,92 @@ def find_dir(n_clicks, path):
     else:
         path = "/"
 
-    print("FIND_DIR PATH: " + str(path))
-
     return path, path
 
 
-@app.callback([Output("group_options", "children"),
+@app.callback([Output("top_groups", "children"),
                Output("groups", "children")],
               [Input("submit_group", "n_clicks")],
               [State("group_input", "value"),
                State("groups", "children")])
 def set_group(submit, group_input, groups):
-
+    
     if groups:
         groups = json.loads(groups)
+        if groups:
+            key = max([int(k) for k in groups.keys()]) + 1
+        else:
+            key = 0
     else:
         groups = {}
+        key = 0
 
     if group_input:
-        key = group_input.lower().replace(" ", "_")
         groups[key] = group_input
 
     children = []
     for key, group in groups.items():
         if group:
-            sdiv = html.Div([
-                html.P(group, className="two columns"),
-                dcc.Input(
-                    id=group_input,
-                    debounce=True,
-                    type="text",
-                    placeholder="Description? Units?",
-                    className="two columns",
-                    style={"height": "100%", "margin-left": -5}
-                    )                
-            ], className="row")
+            sdiv = html.Div(
+                    id="{}_options".format(key),
+                    children=[
+                        html.P(group),
+                        dcc.Input(
+                            id="{}_input".format(key)
+                        ),
+                        html.Button(
+                            children="Add Subgroup",
+                            id="submit_{}".format(key)
+                        )
+                ], className="row",
+                    style={"margin-left": "100px", "margin-bottom": "15px"}
+                )
+
             children.append(sdiv)
 
+    with open("current_groups.json", "w") as file:
+        file.write(json.dumps(groups))
+
     return children, json.dumps(groups)
+
+
+
+
+# @app.callback([Output("{}_options".format(i), "children"),
+#                Output("groups", "children")],
+#               [Input("submit_{}".format(i), "n_clicks")],
+#               [State("{}_input".format(i), "value"),
+#                 State("groups", "children")])
+# def set_subgroup(submit, group_input, groups):
+#     """
+#     Review https://community.plotly.com/t/dynamic-controls-and-dynamic-output-components/5519
+#     """
+    # if groups:
+    #     groups = json.loads(groups)
+    # else:
+    #     groups = {}
+    
+    # if group_input:
+    #     key = group_input.lower().replace(" ", "_")
+    #     groups[key] = group_input
+    
+    # children = []
+    # for key, group in groups.items():
+    #     if group:
+    #         sdiv = html.Div([
+    #             html.P(group, className="two columns"),
+    #             dcc.Input(
+    #                 id=group_input,
+    #                 debounce=True,
+    #                 type="text",
+    #                 placeholder="Description? Units?",
+    #                 className="two columns",
+    #                 style={"height": "100%", "margin-left": -5}
+    #                 )                
+    #         ], className="row")
+    #         children.append(sdiv)
+    
+    # return children, json.dumps(groups)
 
 
 @app.callback(Output("files", "children"),

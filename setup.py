@@ -16,8 +16,8 @@ def check_deps():
 
 
 setup(
-    name="reviewer",
-    packages=["reviewer"],
+    name="review",
+    packages=["review"],
     version="0.0.1",
     author="Travis Williams",
     author_email="Travis.Williams@nrel.gov",

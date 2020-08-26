@@ -12,6 +12,7 @@ import os
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import pandas as pd
 
 from app import app
 from dash.dependencies import Input, Output, State
@@ -19,15 +20,15 @@ from review import print_args
 from revruns import Data_Path
 from .support import (BASEMAPS, BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
                       DATAKEYS, DATASETS, DEFAULT_MAPVIEW, MAP_LAYOUT,
-                      PLANT_SIZES, STATES, STYLESHEET, TITLES, TAB_STYLE,
+                      STYLESHEET, TITLES, TAB_STYLE,
                       TABLET_STYLE, UNITS, VARIABLES)
 from .support import (chart_point_filter, fix_cfs, get_label, make_scales,
                       get_boxplot, get_ccap, get_histogram, get_scatter)
 
-os.chdir(os.path.expanduser("~/github/reView/projects/soco"))
+os.chdir(os.path.expanduser("~/github/reView/projects/xcel"))
 
 
-DP = Data_Path("~/github/reView/projects/soco/data")  # <-------------------- Fix this
+DP = Data_Path("~/github/reView/projects/xcel/data")  # <-------------------- Fix this
 FILES = DP.contents("*csv")
 SCALES = make_scales(FILES, DP.join("scales.csv"))
 
@@ -37,44 +38,24 @@ layout = html.Div(
     children=[
 
         html.Div([
-            html.H4("Project"),
-            dcc.Dropdown(
-                id="project",
-                options=[{"label": "Southern Company", "value": "soco"}],
-                placeholder="Choose reV Project",
-                value="soco"
-                )
-            ], style={"width": "25%", "margin-bottom": "50px"}
-        ),        
-
-        html.Div([
 
             # MAP DIV
             html.Div([
                 html.Div([
-    
+
                     # Map options
                     dcc.Tabs(
                         id="map_options_tab",
-                        value="hh",
+                        value="land_use",
                         style=TAB_STYLE,
                         children=[
-                            dcc.Tab(value='hh',
-                                    label='Hub Height',
-                                    style=TABLET_STYLE,
-                                    selected_style=TABLET_STYLE
-                                    ),
-                            dcc.Tab(value='ps',
-                                    label='Plant Size',
+                            dcc.Tab(value='land_use',
+                                    label='Land Use Scenario',
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE
                                     ),
                             dcc.Tab(value='variable',
                                     label='Variable',
-                                    style=TABLET_STYLE,
-                                    selected_style=TABLET_STYLE),
-                            dcc.Tab(value='state',
-                                    label='State',
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE),
                             dcc.Tab(value='basemap',
@@ -86,33 +67,20 @@ layout = html.Div(
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE)
                         ]),
-    
+
                     # Hub height dataset option
                     html.Div(
-                        id="hubheight_options_div",
+                        id="land_use_options_div",
                         children=[
                             dcc.Dropdown(
-                                id="hubheight_options",
+                                id="land_use_options",
                                 clearable=False,
-                                options=DATAKEYS[20],
+                                options=DATAKEYS,
                                 multi=False,
-                                value="120hh_20ps"
+                                value="liberal"
                             )
                         ]),
-    
-                    # Plant size options
-                    html.Div(
-                        id="plant_size_options_div",
-                        children=[
-                            dcc.Dropdown(
-                                id="plant_size_options",
-                                clearable=False,
-                                options=PLANT_SIZES,
-                                multi=False,
-                                value=20
-                            )
-                        ]),
-    
+
                     # Variable options
                     html.Div(
                         id="map_variable_options_div",
@@ -123,19 +91,6 @@ layout = html.Div(
                                 options=VARIABLES,
                                 multi=False,
                                 value="mean_cf"
-                            )
-                        ]),
-    
-                    # Variable options
-                    html.Div(
-                        id="state_options_div",
-                        children=[
-                            dcc.Dropdown(
-                                id="state_options",
-                                clearable=True,
-                                options=STATES,
-                                multi=True,
-                                value=None
                             )
                         ]),
 
@@ -151,7 +106,7 @@ layout = html.Div(
                                 value="light"
                              )
                         ]),
-    
+
                     # Color scale options
                     html.Div(
                         id="color_options_div",
@@ -165,15 +120,16 @@ layout = html.Div(
                               )
                         ]),
                 ], className="row"),
-    
+
                 # The map
                 dcc.Graph(id="map",
                           config={
                             "showSendToCloud": True,
-                            "plotlyServerURL": "https://chart-studio.plotly.com"
+                            "plotlyServerURL":
+                                "https://chart-studio.plotly.com"
                              }
                           ),
-    
+
                 # Point Size
                 html.Div(
                     id="map_point_size_div",
@@ -189,12 +145,12 @@ layout = html.Div(
                         ),
                     ], className="row"),
                 ], className="six columns"),
-    
+
             # Chart of cumulative cpacity vs LCOE
             html.Div([
                 html.Div([
                     html.Div([
-    
+
                         # Chart options
                         dcc.Tabs(
                             id="chart_options_tab",
@@ -215,7 +171,7 @@ layout = html.Div(
                                         style=TABLET_STYLE,
                                         selected_style=TABLET_STYLE)
                                 ]),
-    
+
                         # Type of chart
                         html.Div(
                             id="chart_options_div",
@@ -228,7 +184,7 @@ layout = html.Div(
                                     value="cumsum"
                                 ),
                             ]),
-    
+
                         # X-axis Variable
                         html.Div(
                             id="chart_xvariable_options_div",
@@ -241,7 +197,7 @@ layout = html.Div(
                                     value="mean_cf"
                                 ),
                             ]),
-    
+
                         # Y-axis Variable
                         html.Div(
                             id="chart_yvariable_options_div",
@@ -255,16 +211,16 @@ layout = html.Div(
                                 ),
                             ]),
                         ]),
-    
+
                 ], className="row"),
-    
+
                 # The chart
                 dcc.Graph(id="chart",
                           config={
                             "showSendToCloud": True,
                             "plotlyServerURL": "https://chart-studio.plotly.com"
                           }),
-    
+
                 # Point Size
                 html.Div(
                     id="chart_point_size_div",
@@ -281,21 +237,21 @@ layout = html.Div(
                     ], className="row"),
                 ], className="six columns"),
             ], className="row"),
-    
+
     # To maintain the view after updating the map
     html.Div(id="mapview_store",
-              children=json.dumps(DEFAULT_MAPVIEW),
-              style={"display": "none"}),
+             children=json.dumps(DEFAULT_MAPVIEW),
+             style={"display": "none"}),
+
     html.Div(id="chartview_store",
-              children=json.dumps(DEFAULT_MAPVIEW),
-              style={"display": "none"}),
+             children=json.dumps(DEFAULT_MAPVIEW),
+             style={"display": "none"}),
+
     html.Div(id="map_selection_store",
-              style={"display": "None"}),
+             style={"display": "None"}),
+
     html.Div(id="chart_selection_store",
-              style={"display": "None"}),
-    html.Div(id="plantsize_store",
-              children="20",
-              style={"display": "none"})
+             style={"display": "None"})
 
     ], className="twelve columns")
 
@@ -346,21 +302,19 @@ def chart_tab_options(tab_choice, chart_choice):
     return children, styles[0], styles[1], styles[2]
 
 
-@app.callback([Output('hubheight_options_div', 'style'),
-               Output("plant_size_options", "style"),
+@app.callback([Output('land_use_options_div', 'style'),
                Output('map_variable_options_div', 'style'),
-               Output("state_options", "style"),
                Output('basemap_options_div', 'style'),
                Output('color_options_div', 'style')],
               [Input('map_options_tab', 'value')])
 def map_tab_options(tab_choice):
     """Choose which map tab dropdown to display."""
-    styles = [{'display': 'none'}] * 6
-    order = ["hh", "ps", "variable", "state", "basemap", "color"]
+    styles = [{'display': 'none'}] * 4
+    order = ["land_use", "variable", "basemap", "color"]
     idx = order.index(tab_choice)
     styles[idx] = {"width": "100%", "text-align": "center"}
 
-    return styles[0], styles[1], styles[2], styles[3], styles[4], styles[5]
+    return styles[0], styles[1], styles[2], styles[3]
 
 
 @app.callback([Output('rev_color', 'children'),
@@ -379,17 +333,6 @@ def toggle_rev_color_button(click):
         style = BUTTON_STYLES["on"]
 
     return children, style
-
-
-@app.callback([Output("hubheight_options", "options"),
-               Output("hubheight_options", "value")],
-              [Input("plant_size_options", "value")],
-              [State("hubheight_options", "value")])
-def set_plant_size(ps, hh):
-    """Set the hubheight dataset options according to the plant size."""
-    hh = hh[:6] + str(ps) + hh[-2:]
-
-    return DATAKEYS[ps], hh
 
 
 @app.callback([Output('sync_variables', 'children'),
@@ -414,10 +357,8 @@ def toggle_sync_button(click):
     [Output('map', 'figure'),
      Output("mapview_store", "children"),
      Output("map_selection_store", "children")],
-    [Input("hubheight_options", "value"),
-     Input("plant_size_options", "value"),
+    [Input("land_use_options", "value"),
      Input("map_variable_options", "value"),
-     Input("state_options", "value"),
      Input("basemap_options", "value"),
      Input("color_options", "value"),
      Input("chart_yvariable_options", "value"),
@@ -428,11 +369,10 @@ def toggle_sync_button(click):
     [State("map", "relayoutData"),
      State("map_selection_store", "children"),
      State("sync_variables", "n_clicks"),
-     State("map", "selectedData"),
-     State("plantsize_store", "children")])
-def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
+     State("map", "selectedData")])
+def make_map(land_use, variable, basemap, color, chartvar,
              chartsel, point_size, rev_color, reset, mapview, stored_variable,
-             sync_variable, mapsel, ps_state):
+             sync_variable, mapsel):
     """Make the scatterplot map.
 
     To fix the point selection issue check this out:
@@ -453,9 +393,6 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
             else:
                 variable = stored_variable
 
-        elif plantsize != int(ps_state):
-            variable = stored_variable
-
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
         mapview = DEFAULT_MAPVIEW
@@ -463,7 +400,7 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
         mapview = DEFAULT_MAPVIEW
 
     # Build the scatter plot data object
-    df = DATASETS[hubheight].copy()
+    df = DATASETS[land_use].copy()
 
     if rev_color % 2 == 1:
         rev_color = True
@@ -479,10 +416,6 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
             if mapsel:
                 idx = [p["pointIndex"] for p in mapsel["points"]]
                 df = df.loc[idx]
-
-        # Finally filter for states
-        if state:
-            df = df[df["state"].isin(state)]
 
     df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   " +
                   df[variable].round(2).astype(str) + " " + UNITS[variable])
@@ -524,11 +457,8 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
                 )
 
     # Set up layout
-    title = (TITLES[variable]
-             + " - "
-             + get_label(DATAKEYS[plantsize], hubheight)
-             + " - {} MW Plant".format(plantsize)
-             )
+    title = (TITLES[variable] + " - "
+             + get_label(DATAKEYS, land_use))
     layout_copy = copy.deepcopy(MAP_LAYOUT)
     layout_copy['mapbox']['center'] = mapview['mapbox.center']
     layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
@@ -547,25 +477,20 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartvar,
 
 @app.callback(
     [Output('chart', 'figure'),
-     Output("chart_selection_store", "children"),
-     Output("plantsize_store", "children")],
+     Output("chart_selection_store", "children")],
     [Input("chart_options", "value"),
-     Input("plant_size_options", "value"),
      Input("chart_xvariable_options", "value"),
      Input("chart_yvariable_options", "value"),
      Input("map_variable_options", "value"),
-     Input("state_options", "value"),
      Input("map", "selectedData"),
      Input("chart_point_size", "value"),
      Input("reset_chart", "n_clicks")],
     [State("map", "relayoutData"),
      State("chart_selection_store", "children"),
      State("sync_variables", "n_clicks"),
-     State("chart", "selectedData"),
-     State("plantsize_store", "children")])
-def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
-               chartview, stored_variable, sync_variable, chartsel,
-               ps_state):
+     State("chart", "selectedData")])
+def make_chart(chart, x, y, mapvar, mapsel, point_size, reset,
+               chartview, stored_variable, sync_variable, chartsel):
     """Make one of a variety of charts."""
     # print_args(make_chart, chart, ps, x, y, mapvar, state, mapsel,
     #            point_size, sync_variable)
@@ -583,41 +508,34 @@ def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
             else:
                 y = stored_variable
 
-        elif ps != int(ps_state):
-            y = stored_variable
-
     # Only the 20MW plant for now
-    paths = {"120": "120hh_{}ps".format(ps),
-             "140": "140hh_{}ps".format(ps),
-             "160": "160hh_{}ps".format(ps)}
+    paths = {"liberal": "liberal",
+             "moderate": "moderate",
+             "conservative": "conservative"
+             }
 
     # Get the initial figure
     if chart == "cumsum":
-        fig = get_ccap(paths, y, mapsel, int(point_size), state, reset, trig)
+        fig = get_ccap(paths, y, mapsel, int(point_size), reset, trig)
         title = (get_label(VARIABLES, y)
-                 + " by Cumulative Capacity - "
-                 + " {} MW Plant".format(ps))
+                 + " by Cumulative Capacity ")
 
     elif chart == "scatter":
-        fig = get_scatter(paths, x, y, mapsel, int(point_size), state, reset,
+        fig = get_scatter(paths, x, y, mapsel, int(point_size), reset,
                           trig)
         title = (get_label(VARIABLES, y)
                  + " by "
-                 + get_label(VARIABLES, x)
-                 + " - "
-                 + " {} MW Plant".format(ps))
+                 + get_label(VARIABLES, x))
 
     elif chart == "histogram":
-        fig = get_histogram(paths, y, mapsel, int(point_size), state, reset,
+        fig = get_histogram(paths, y, mapsel, int(point_size), reset,
                             trig)
-        title = (get_label(VARIABLES, y) + " Histogram - "
-                 + " {} MW Plant".format(ps))
+        title = (get_label(VARIABLES, y) + " Histogram")
 
     elif chart == "box":
-        fig = get_boxplot(paths, y, mapsel, int(point_size), state, reset,
+        fig = get_boxplot(paths, y, mapsel, int(point_size), reset,
                           trig)
-        title = (get_label(VARIABLES, y) + " Boxplots - "
-                 + " {} MW Plant".format(ps))
+        title = (get_label(VARIABLES, y) + " Boxplots")
 
     # Update the layout and traces
     fig.update_layout(
@@ -650,4 +568,4 @@ def make_chart(chart, ps, x, y, mapvar, state, mapsel, point_size, reset,
            )
         )
 
-    return fig, y, json.dumps(ps)
+    return fig, y

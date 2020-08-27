@@ -172,7 +172,7 @@ TABLET_STYLE = {'line-height': '25px', 'padding': '0'}
 
 TITLES = {'mean_cf': 'Mean Capacity Factor',
           'mean_lcoe': 'Mean Site-Based LCOE',
-          'mean_res': 'Mean Windspeed',
+          'mean_res': 'Mean GHI',
           'capacity': 'Total Generation Capacity',
           'area_sq_km': 'Supply Curve Point Area',
           'trans_cap_cost': 'Transmission Capital Costs',
@@ -181,7 +181,7 @@ TITLES = {'mean_cf': 'Mean Capacity Factor',
 
 UNITS = {'mean_cf': 'CF %',
          'mean_lcoe': '$/MWh',
-         'mean_res': 'm/s',
+         'mean_res': 'W/m2',
          'capacity': 'MW',
          'area_sq_km': 'square km',
          'trans_cap_cost': '$/MW',
@@ -190,7 +190,7 @@ UNITS = {'mean_cf': 'CF %',
 
 VARIABLES = [
     {"label": "Mean Capacity Factor", "value": "mean_cf"},
-    {"label": "Mean Windspeed", "value": "mean_res"},
+    {"label": "Mean GHI", "value": "mean_res"},
     {"label": "Total Generation Capacity", "value": "capacity"},
     {"label": "Supply Curve Point Area", "value": "area_sq_km"},
     {"label": 'Transmission Capital Costs', "value": 'trans_cap_cost'},
@@ -278,8 +278,8 @@ def get_ccap(paths, y, mapsel, point_size, reset, trig):
             df = df.sort_values(var)
             df["ccap"] = df["capacity"].cumsum()
             df["value"] = df[var]
-            df["hh"] = key
-            df = df[["gid", "ccap", "value", "hh"]]
+            df["land_use"] = key
+            df = df[["gid", "ccap", "value", "land_use"]]
         else:
             df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
@@ -290,11 +290,11 @@ def get_ccap(paths, y, mapsel, point_size, reset, trig):
             else:
                 var = y
             df2 = df2.sort_values(var)
-            df2["hh"] = key
+            df2["land_use"] = key
             df2["ccap"] = df2["capacity"].cumsum()
             df2["value"] = df2[var]
-            df2["hh"] = key
-            df2 = df2[["gid", "ccap", "value", "hh"]]
+            df2["land_use"] = key
+            df2 = df2[["gid", "ccap", "value", "land_use"]]
             df = pd.concat([df, df2])
 
     df = df.sort_values("ccap")
@@ -309,7 +309,7 @@ def get_ccap(paths, y, mapsel, point_size, reset, trig):
                      y="value",
                      labels={"ccap": UNITS["capacity"],
                              "value": UNITS[y]},
-                     color='hh')
+                     color='land_use')
 
     fig.update_traces(
         marker=dict(

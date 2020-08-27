@@ -10,7 +10,7 @@ import dash_html_components as html
 
 from dash.dependencies import Input, Output
 
-from app import app
+from app import app, server
 from apps import main_page, config_page
 from apps.support import BUTTON_STYLES
 from navbar import NAVBAR

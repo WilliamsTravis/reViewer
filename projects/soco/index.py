@@ -28,10 +28,7 @@ app.layout = html.Div([
                Output("config_link_button", "style")],
               [Input("url", "pathname")])
 def change_page(pathname):
-    """
-    Take the path name from the navbar links and output the chosen layout
-    and callbacks.
-    """
+    """Output chosen layout from the navigation bar links."""
     config_style = BUTTON_STYLES["on"]
     app_style = BUTTON_STYLES["on"]
     if pathname == "/apps/main_page":

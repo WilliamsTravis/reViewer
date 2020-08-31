@@ -13,19 +13,20 @@ import os
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import matplotlib
 import tkinter as tk
 
 from dash.dependencies import Input, Output, State
 
 from app import app
-from revruns import Data_Path
+from review import print_args
 from tkinter import filedialog
 # from tkinter import ttk
 
+matplotlib.use("Qt5Agg")
 
-DP = Data_Path("/")
 
-DIRS = [{"label": f, "value": f} for f in DP.folders()]
+CONFIG_PATH = "/projects/rev/.review-config"
 
 
 layout = html.Div([
@@ -104,14 +105,16 @@ layout = html.Div([
     html.Div(id="proj_dir", style={"display": "none"}, children="/"),
     html.Div(id="groups",  style={"display": "none"}),
     html.Div(id="files", style={"display": "none"})
-    
-], className= "twelve columns")
+
+], className="twelve columns")
 
 
 def navigate(which, initialdir="/"):
-    
-    # font = ('courier', 10, 'bold')
-    filetypes=[('ALL', '*'), ('CSV', '*.csv')]
+    """Browse directory for file or folder paths."""
+    # Print variables
+    print_args(navigate, which, initialdir)
+
+    filetypes = [('ALL', '*'), ('CSV', '*.csv')]
 
     root = tk.Tk()
     root.withdraw()
@@ -128,7 +131,7 @@ def navigate(which, initialdir="/"):
 
     if which == "files":
         paths = filedialog.askopenfilenames(master=root, filetypes=filetypes,
-                                           initialdir=initialdir)
+                                            initialdir=initialdir)
     else:
         paths = filedialog.askdirectory(master=root)
 
@@ -142,8 +145,10 @@ def navigate(which, initialdir="/"):
               [Input("proj_nav", "n_clicks"),
                Input("proj_input", "value")])
 def find_dir(n_clicks, path):
-
+    """Find the root project directory containing data files."""
+    # Print variables
     trig = dash.callback_context.triggered[0]['prop_id']
+    print_args(find_dir, n_clicks, path, trig)
 
     if "proj_nav" in trig:
         if n_clicks > 0:
@@ -164,7 +169,10 @@ def find_dir(n_clicks, path):
               [State("group_input", "value"),
                State("groups", "children")])
 def set_group(submit, group_input, groups):
-    
+    """Set a group with which to categorize datasets."""
+    # Print variables
+    print_args(set_group, submit, group_input, groups)
+
     if groups:
         groups = json.loads(groups)
         if groups:
@@ -192,7 +200,8 @@ def set_group(submit, group_input, groups):
                             children="Add Subgroup",
                             id="submit_{}".format(key)
                         )
-                ], className="row",
+                    ],
+                    className="row",
                     style={"margin-left": "100px", "margin-bottom": "15px"}
                 )
 
@@ -204,8 +213,6 @@ def set_group(submit, group_input, groups):
     return children, json.dumps(groups)
 
 
-
-
 # @app.callback([Output("{}_options".format(i), "children"),
 #                Output("groups", "children")],
 #               [Input("submit_{}".format(i), "n_clicks")],
@@ -213,17 +220,18 @@ def set_group(submit, group_input, groups):
 #                 State("groups", "children")])
 # def set_subgroup(submit, group_input, groups):
 #     """
-#     Review https://community.plotly.com/t/dynamic-controls-and-dynamic-output-components/5519
+#     Review https://community.plotly.com/t/dynamic-controls-and-dynamic-output
+#            -components/5519
 #     """
     # if groups:
     #     groups = json.loads(groups)
     # else:
     #     groups = {}
-    
+
     # if group_input:
     #     key = group_input.lower().replace(" ", "_")
     #     groups[key] = group_input
-    
+
     # children = []
     # for key, group in groups.items():
     #     if group:
@@ -236,10 +244,10 @@ def set_group(submit, group_input, groups):
     #                 placeholder="Description? Units?",
     #                 className="two columns",
     #                 style={"height": "100%", "margin-left": -5}
-    #                 )                
+    #                 )
     #         ], className="row")
     #         children.append(sdiv)
-    
+
     # return children, json.dumps(groups)
 
 
@@ -248,10 +256,9 @@ def set_group(submit, group_input, groups):
                Input("proj_dir", "children")],
               [State("files", "children")])
 def find_files(n_clicks, initialdir, files):
-
+    """Browse the file system for a list of file paths."""
     trig = dash.callback_context.triggered[0]['prop_id']
-
-    print("INITIALDIR: " + initialdir)
+    print_args(find_files, n_clicks, initialdir, files, trig)
 
     if "file_nav" in trig:
         if n_clicks > 0:
@@ -264,17 +271,17 @@ def find_files(n_clicks, initialdir, files):
             else:
                 files = {}
                 key = 0
-    
+
             for path in paths:
-    
+
                 files[key] = os.path.join(initialdir, path)
                 key += 1
-    
+
                 if not os.path.exists(path):
                     print("Chosen path does not exist.")  # How to warn?
-    
+
             print("FIND_FILES PATH: " + str(paths))
-    
+
             return json.dumps(files)
 
 
@@ -283,7 +290,7 @@ def find_files(n_clicks, initialdir, files):
                Input("proj_dir", "children")],
               [State("groups", "children")])
 def file_groups(files, proj_dir, groups):
-
+    """For each file, set a group from the user specifications above."""
     if files:
         files = json.loads(files)
         groups = json.loads(groups)
@@ -305,7 +312,7 @@ def file_groups(files, proj_dir, groups):
                             options=group_options,
                             className="two columns",
                             style={"height": "100%"}
-                            )                
+                            )
                     ], className="row")
             children.append(sdiv)
 

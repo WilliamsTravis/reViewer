@@ -4,23 +4,15 @@ channels:
   - anaconda
   - defaults
 dependencies:
-  - python=3.8
+  - python=3.7.0
   - dash
-  - dash_auth
   - dask
   - flask-caching
-  - gdal
   - geopandas
   - gunicorn
-  - esmpy
   - h5py
-  - netcdf4
-  - postgresql
-  - psycopg2
+  - matplotlib
   - rasterio
-  - rioxarray
-  - scipy
   - spyder
   - tqdm
-  - xarray
-  - xesmf
+  - tk

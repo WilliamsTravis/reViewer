@@ -5,6 +5,7 @@ Created on Sat Aug 15 15:47:40 2020
 @author: travis
 """
 
+import json
 import os
 
 import pandas as pd
@@ -13,8 +14,7 @@ import plotly.express as px
 from revruns import Data_Path
 
 
-DATAPATH = Data_Path("./data")
-
+DATAPATH = Data_Path("~/github/reView/projects/soco/data")
 
 BASEMAPS = [{'label': 'Light', 'value': 'light'},
             {'label': 'Dark', 'value': 'dark'},
@@ -123,7 +123,6 @@ DATASETS = {
     "120hh_150ps": pd.read_csv(DATAPATH.join("120hh_150ps.csv")),
     "140hh_150ps": pd.read_csv(DATAPATH.join("140hh_150ps.csv")),
     "160hh_150ps": pd.read_csv(DATAPATH.join("160hh_150ps.csv"))
-
     }
 
 DEFAULT_MAPVIEW = {
@@ -167,7 +166,6 @@ MAP_LAYOUT = dict(
         center=dict(lon=-95.7, lat=37.1),
         zoom=2)
 )
-
 
 
 PLANT_SIZES = [
@@ -234,6 +232,15 @@ VARIABLES = [
     {"label": "LCOT", "value": "lcot"},
     {"label": "Total LCOE", "value": "total_lcoe"}
 ]
+
+
+
+def make_datasets():
+    """Use the configuration dictionary to render the right project."""
+    with open(os.path.expanduser("~/.review_config"), "r") as file:
+        config = json.load(file)
+
+
 
 
 def chart_point_filter(df, chartsel, chartvar):

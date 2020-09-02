@@ -5,6 +5,7 @@ Created on Sat Aug 15 15:47:40 2020
 @author: travis
 """
 
+import json
 import os
 
 import numpy as np
@@ -14,8 +15,13 @@ import plotly.express as px
 from review import Data_Path
 from tqdm import tqdm
 
+<<<<<<< HEAD
 DATAPATH = Data_Path("~/github/reView/projects/soco/data")
 
+=======
+
+DATAPATH = Data_Path("~/github/reView/projects/soco/data")
+>>>>>>> 2e4e715827a35b4cee83fe20ef56abfe46433333
 
 BASEMAPS = [{'label': 'Light', 'value': 'light'},
             {'label': 'Dark', 'value': 'dark'},
@@ -126,8 +132,12 @@ DATASETS = {
     "lcoe_winner_20ps": pd.read_csv(DATAPATH.join("lcoe_winner_20ps.csv")),
     "120hh_150ps": pd.read_csv(DATAPATH.join("120hh_150ps.csv")),
     "140hh_150ps": pd.read_csv(DATAPATH.join("140hh_150ps.csv")),
+<<<<<<< HEAD
     "160hh_150ps": pd.read_csv(DATAPATH.join("160hh_150ps.csv")),
     "lcoe_winner_150ps": pd.read_csv(DATAPATH.join("lcoe_winner_150ps.csv"))
+=======
+    "160hh_150ps": pd.read_csv(DATAPATH.join("160hh_150ps.csv"))
+>>>>>>> 2e4e715827a35b4cee83fe20ef56abfe46433333
     }
 
 DEFAULT_MAPVIEW = {
@@ -236,6 +246,15 @@ VARIABLES = [
     {"label": "Relative Spacing", "value": "rs"}
 
 ]
+
+
+
+def make_datasets():
+    """Use the configuration dictionary to render the right project."""
+    with open(os.path.expanduser("~/.review_config"), "r") as file:
+        config = json.load(file)
+
+
 
 
 def chart_point_filter(df, chartsel, chartvar):

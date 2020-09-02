@@ -28,8 +28,13 @@ from .support import (chart_point_filter, fix_cfs, get_label, make_scales,
 os.chdir(os.path.expanduser("~/github/reView/projects/soco"))
 
 
+<<<<<<< HEAD
 DP = Data_Path("~/github/reView/projects/soco/data")  # <-------------------- Fix this
 FILES = glob(DP.join("*csv"))
+=======
+DP = Data_Path("~/github/reView/projects/soco/data")  # <---------------------- Fix these paths
+FILES = DP.contents("*csv")
+>>>>>>> 2e4e715827a35b4cee83fe20ef56abfe46433333
 SCALES = make_scales(FILES, DP.join("scales.csv"))
 fix_cfs(FILES)
 

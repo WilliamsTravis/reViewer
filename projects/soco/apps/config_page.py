@@ -66,7 +66,13 @@ layout = html.Div([
     html.H5("Create Groups", style={"margin-top": "50px"}),
     html.Div([
         dcc.Input(
-            id="group_input"
+            id="group_input",
+            placeholder="Input group name."
+        ),
+        dcc.Input(
+            id="group_value_input",
+            placeholder="Input possible values for this group.",
+            style={"width": "45%"}
         ),
         html.Button(
             children="Add Group",
@@ -165,39 +171,28 @@ def find_dir(n_clicks, path):
                Output("groups", "children")],
               [Input("submit_group", "n_clicks")],
               [State("group_input", "value"),
+               State("group_value_input", "value"),
                State("groups", "children")])
-def set_group(submit, group_input, groups):
+def set_group(submit, group_input, group_values, groups):
     """Set a group with which to categorize datasets."""
-    # Print variables
-    print_args(set_group, submit, group_input, groups)
+    print_args(set_group, submit, group_input, group_values, groups)
 
     if groups:
         groups = json.loads(groups)
-        if groups:
-            key = max([int(k) for k in groups.keys()]) + 1
-        else:
-            key = 0
     else:
         groups = {}
-        key = 0
 
     if group_input:
-        groups[key] = group_input
+        groups[group_input] = group_values
 
     children = []
-    for key, group in groups.items():
+    for group, values in groups.items():
         if group:
+            reminder = "{}: {}".format(group, values)
             sdiv = html.Div(
-                    id="{}_options".format(key),
+                    id="{}_options".format(group),
                     children=[
-                        html.P(group),
-                        dcc.Input(
-                            id="{}_input".format(key)
-                        ),
-                        html.Button(
-                            children="Add Subgroup",
-                            id="submit_{}".format(key)
-                        )
+                        html.P(reminder),
                     ],
                     className="row",
                     style={"margin-left": "100px", "margin-bottom": "15px"}
@@ -205,54 +200,13 @@ def set_group(submit, group_input, groups):
 
             children.append(sdiv)
 
-    with open("current_groups.json", "w") as file:
-        file.write(json.dumps(groups))
-
     return children, json.dumps(groups)
 
 
-# @app.callback([Output("{}_options".format(i), "children"),
-#                Output("groups", "children")],
-#               [Input("submit_{}".format(i), "n_clicks")],
-#               [State("{}_input".format(i), "value"),
-#                 State("groups", "children")])
-# def set_subgroup(submit, group_input, groups):
-#     """
-#     Review https://community.plotly.com/t/dynamic-controls-and-dynamic-output
-#            -components/5519
-#     """
-    # if groups:
-    #     groups = json.loads(groups)
-    # else:
-    #     groups = {}
-
-    # if group_input:
-    #     key = group_input.lower().replace(" ", "_")
-    #     groups[key] = group_input
-
-    # children = []
-    # for key, group in groups.items():
-    #     if group:
-    #         sdiv = html.Div([
-    #             html.P(group, className="two columns"),
-    #             dcc.Input(
-    #                 id=group_input,
-    #                 debounce=True,
-    #                 type="text",
-    #                 placeholder="Description? Units?",
-    #                 className="two columns",
-    #                 style={"height": "100%", "margin-left": -5}
-    #                 )
-    #         ], className="row")
-    #         children.append(sdiv)
-
-    # return children, json.dumps(groups)
-
-
 @app.callback(Output("files", "children"),
-              [Input("file_nav", "n_clicks"),
-               Input("proj_dir", "children")],
-              [State("files", "children")])
+              [Input("file_nav", "n_clicks")],
+              [State("proj_dir", "children"),
+               State("files", "children")])
 def find_files(n_clicks, initialdir, files):
     """Browse the file system for a list of file paths."""
     trig = dash.callback_context.triggered[0]['prop_id']
@@ -264,8 +218,12 @@ def find_files(n_clicks, initialdir, files):
 
             if files:
                 files = json.loads(files)
-                keys = [int(k) for k in files.keys()]
-                key = max(keys) + 1
+                if len(files) > 0:
+                    keys = [int(k) for k in files.keys()]
+                    key = max(keys) + 1
+                else:
+                    files = {}
+                    key = 0
             else:
                 files = {}
                 key = 0
@@ -288,16 +246,15 @@ def find_files(n_clicks, initialdir, files):
                Input("proj_dir", "children")],
               [State("groups", "children")])
 def file_groups(files, proj_dir, groups):
-    """For each file, set a group from the user specifications above."""
+    """For each file, set a group and value from the user inputs above."""
     if files:
         files = json.loads(files)
         groups = json.loads(groups)
         children = []
         group_options = []
-        for key, group in groups.items():
-            option = {"label": group, "value": key}
-            group_options.append(option)
-
+        for group, values in groups.items():
+            goption = {"label": group, "value": group}
+            group_options.append(goption)
         for key, file in files.items():
             file = file.replace(proj_dir, "")
             if file[:1] == "/":
@@ -310,7 +267,14 @@ def file_groups(files, proj_dir, groups):
                             options=group_options,
                             className="two columns",
                             style={"height": "100%"}
-                            )
+                            ),
+                        # dcc.Input(
+                        #     id="{}_values".format(key),
+                        #     placeholder="Value",
+                        #     options=value_options,
+                        #     className="two columns",
+                        #     style={"height": "100%"}
+                        #     )
                     ], className="row")
             children.append(sdiv)
 

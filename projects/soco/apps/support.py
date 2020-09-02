@@ -7,13 +7,14 @@ Created on Sat Aug 15 15:47:40 2020
 
 import os
 
+import numpy as np
 import pandas as pd
 import plotly.express as px
 
-from revruns import Data_Path
+from review import Data_Path
+from tqdm import tqdm
 
-
-DATAPATH = Data_Path("./data")
+DATAPATH = Data_Path("~/github/reView/projects/soco/data")
 
 
 BASEMAPS = [{'label': 'Light', 'value': 'light'},
@@ -107,12 +108,14 @@ DATAKEYS = {
     20: [
         {"label": "120m Hub Height", "value": "120hh_20ps"},
         {"label": "140m Hub Height", "value": "140hh_20ps"},
-        {"label": "160m Hub Height", "value": "160hh_20ps"}
+        {"label": "160m Hub Height", "value": "160hh_20ps"},
+        {"label": "LCOE Winner", "value": "lcoe_winner_20ps"}
         ],
     150: [
         {"label": "120m Hub Height", "value": "120hh_150ps"},
         {"label": "140m Hub Height", "value": "140hh_150ps"},
-        {"label": "160m Hub Height", "value": "160hh_150ps"}
+        {"label": "160m Hub Height", "value": "160hh_150ps"},
+        {"label": "LCOE Winner", "value": "lcoe_winner_150ps"}
         ]
     }
 
@@ -120,10 +123,11 @@ DATASETS = {
     "120hh_20ps": pd.read_csv(DATAPATH.join("120hh_20ps.csv")),
     "140hh_20ps": pd.read_csv(DATAPATH.join("140hh_20ps.csv")),
     "160hh_20ps": pd.read_csv(DATAPATH.join("160hh_20ps.csv")),
+    "lcoe_winner_20ps": pd.read_csv(DATAPATH.join("lcoe_winner_20ps.csv")),
     "120hh_150ps": pd.read_csv(DATAPATH.join("120hh_150ps.csv")),
     "140hh_150ps": pd.read_csv(DATAPATH.join("140hh_150ps.csv")),
-    "160hh_150ps": pd.read_csv(DATAPATH.join("160hh_150ps.csv"))
-
+    "160hh_150ps": pd.read_csv(DATAPATH.join("160hh_150ps.csv")),
+    "lcoe_winner_150ps": pd.read_csv(DATAPATH.join("lcoe_winner_150ps.csv"))
     }
 
 DEFAULT_MAPVIEW = {
@@ -169,7 +173,6 @@ MAP_LAYOUT = dict(
 )
 
 
-
 PLANT_SIZES = [
     {"label": "20 MW", "value": 20},
     {"label": "150 MW", "value": 150}
@@ -195,19 +198,11 @@ TITLES = {'mean_cf': 'Mean Capacity Factor',
           'trans_capacity': 'Total Transmission Capacity',
           'trans_cap_cost': 'Transmission Capital Costs',
           'lcot': 'LCOT',
-          'total_lcoe': 'Total LCOE'}
+          'total_lcoe': 'Total LCOE',
+          'hh': 'Hub Height',
+          'rd': 'Rotor Diameter',
+          'rs': 'Relative Spacing'}
 
-SCALES = {
-    "mean_cf": {},
-    "mean_lcoe": {},
-    "mean_res": {},
-    "capacity": {},
-    "area_sq_km": {},
-    "trans_capacity": {},
-    "trans_cap_cost": {},
-    "lcot": {},
-    "total_lcoe": {}
-    }
 
 STATES = [{"label": "Alabama", "value": "Alabama"},
           {"label": "Georgia", "value": "Georgia"},
@@ -221,7 +216,10 @@ UNITS = {'mean_cf': 'CF %',
          'trans_capacity': 'MW',
          'trans_cap_cost': '$/MW',
          'lcot': '$/MWh',
-         'total_lcoe': '$/MWh'}
+         'total_lcoe': '$/MWh',
+         'hh': 'm',
+         'rd': 'm',
+         'rs': 'unitless'}
 
 VARIABLES = [
     {"label": "Mean Capacity Factor", "value": "mean_cf"},
@@ -232,7 +230,11 @@ VARIABLES = [
     {"label": 'Transmission Capital Costs', "value": 'trans_cap_cost'},
     {"label": "Mean Site-Based LCOE", "value": "mean_lcoe"},
     {"label": "LCOT", "value": "lcot"},
-    {"label": "Total LCOE", "value": "total_lcoe"}
+    {"label": "Total LCOE", "value": "total_lcoe"},
+    {"label": "Hub Height", "value": "hh"},
+    {"label": "Rotor Diameter", "value": "rd"},
+    {"label": "Relative Spacing", "value": "rs"}
+
 ]
 
 
@@ -297,6 +299,24 @@ def make_scales(files, dst):
     return ranges
 
 
+def lcoe_winner(files):
+    """Return the LCOE winning row from a set of sc tables.
+
+    This currently has to be run in advance of this script.
+    """
+    for ps in [20, 150]:
+        dst = DATAPATH.join("lcoe_winner_{}ps.csv".format(ps))
+        if not os.path.exists(dst):
+            dfs = [pd.read_csv(f) for f in files if "_{}ps".format(ps) in f]
+            rows = []
+            for i in tqdm(range(dfs[0].shape[0])):
+                lcoes = [df.loc[i]["total_lcoe"] for df in dfs]
+                idx = np.where(lcoes == np.min(lcoes))[0][0]
+                rows.append(dfs[idx].loc[i])
+            df = pd.DataFrame(rows)
+            df.to_csv(dst, index=False)
+
+
 # Chart functions
 def get_ccap(paths, y, mapsel, point_size, state, reset, trig):
     """Return a cumulative capacity scatterplot."""
@@ -314,8 +334,11 @@ def get_ccap(paths, y, mapsel, point_size, state, reset, trig):
             df = df.sort_values(var)
             df["ccap"] = df["capacity"].cumsum()
             df["value"] = df[var]
-            df["hh"] = key
-            df = df[["gid", "state", "ccap", "value", "hh"]]
+            if "Winner" not in key:
+                df["HH"] = key + " m"
+            else:
+                df["HH"] = key
+                df = df[["gid", "state", "ccap", "value", "HH"]]
         else:
             df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
@@ -326,14 +349,16 @@ def get_ccap(paths, y, mapsel, point_size, state, reset, trig):
             else:
                 var = y
             df2 = df2.sort_values(var)
-            df2["hh"] = key
+            if "Winner" not in key:
+                df2["HH"] = key + " m"
+            else:
+                df2["HH"] = key
             df2["ccap"] = df2["capacity"].cumsum()
             df2["value"] = df2[var]
-            df2["hh"] = key
-            df2 = df2[["gid", "state", "ccap", "value", "hh"]]
+            df2 = df2[["gid", "state", "ccap", "value", "HH"]]
             df = pd.concat([df, df2])
 
-    df = df.sort_values("ccap")
+    # df = df.sort_values("ccap")
 
     if "reset" not in trig:
         if mapsel:
@@ -342,12 +367,16 @@ def get_ccap(paths, y, mapsel, point_size, state, reset, trig):
         if state:
             df = df[df["state"].isin(state)]
 
+    # Sort consistently
+    df = df.sort_values("HH")
+
     fig = px.scatter(df,
                      x="ccap",
                      y="value",
                      labels={"ccap": UNITS["capacity"],
                              "value": UNITS[y]},
-                     color='hh')
+                     color='HH',
+                     color_discrete_sequence=px.colors.qualitative.Safe)
 
     fig.update_traces(
         marker=dict(
@@ -381,8 +410,11 @@ def get_scatter(paths, x, y, mapsel, point_size, state, reset, trig):
             df = df.sort_values(var)
             df["x"] = df[x]
             df["value"] = df[var]
-            df["hh"] = key
-            df = df[["gid", "state", "x", "value", "hh"]]
+            if "Winner" not in key:
+                df["HH"] = key + " m"
+            else:
+                df["HH"] = key
+                df = df[["gid", "state", "x", "value", "HH"]]
         else:
             df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
@@ -395,8 +427,11 @@ def get_scatter(paths, x, y, mapsel, point_size, state, reset, trig):
             df2 = df2.sort_values(var)
             df2["x"] = df2[x]
             df2["value"] = df2[var]
-            df2["hh"] = key
-            df2 = df2[["gid", "state", "x", "value", "hh"]]
+            if "Winner" not in key:
+                df2["HH"] = key + " m"
+            else:
+                df2["HH"] = key
+            df2 = df2[["gid", "state", "x", "value", "HH"]]
             df = pd.concat([df, df2])
 
     df = df.sort_values("x")
@@ -408,12 +443,16 @@ def get_scatter(paths, x, y, mapsel, point_size, state, reset, trig):
         if state:
             df = df[df["state"].isin(state)]
 
+    # Sort consistently
+    df = df.sort_values("HH")
+
     fig = px.scatter(df,
                      x="x",
                      y="value",
                      labels={"x": UNITS[x],
                              "value": UNITS[y]},
-                     color='hh')
+                     color='HH',
+                     color_discrete_sequence=px.colors.qualitative.Safe)
 
     fig.update_traces(
         marker=dict(
@@ -439,14 +478,20 @@ def get_histogram(paths, y, mapsel, point_size, state, reset, trig):
             df = DATASETS[path].copy()
             df["gid"] = df.index
             df = df[["gid", "state", y]]
-            df["hh"] = key
-            df = df[["gid", "state", y, "hh"]]
+            if "Winner" not in key:
+                df["HH"] = key + " m"
+            else:
+                df["HH"] = key
+            df = df[["gid", "state", y, "HH"]]
         else:
             df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
             df2 = df2[["gid", "state", y]]
-            df2["hh"] = key
-            df2 = df2[["gid", "state", y, "hh"]]
+            if "Winner" not in key:
+                df2["HH"] = key + " m"
+            else:
+                df2["HH"] = key
+            df2 = df2[["gid", "state", y, "HH"]]
             df = pd.concat([df, df2])
 
     if "reset" not in trig:
@@ -457,10 +502,14 @@ def get_histogram(paths, y, mapsel, point_size, state, reset, trig):
         if state:
             df = df[df["state"].isin(state)]
 
+    # Sort consistently
+    df = df.sort_values("HH")
+
     fig = px.histogram(df,
                        x=y,
-                       color="hh",
-                       labels={y: UNITS[y]})
+                       labels={y: UNITS[y]},
+                       color="HH",
+                       color_discrete_sequence=px.colors.qualitative.Safe)
 
     fig.update_traces(
         marker=dict(
@@ -485,15 +534,24 @@ def get_boxplot(paths, y, mapsel, point_size, state, reset, trig):
             df = DATASETS[path].copy()
             df["gid"] = df.index
             df = df[["gid", "state", y]]
-            df["hh"] = key
-            df = df[["gid", "state", y, "hh"]]
+            if "Winner" not in key:
+                df["HH"] = key + " m"
+            else:
+                df["HH"] = key
+            df = df[["gid", "state", y, "HH"]]
         else:
             df2 = DATASETS[path].copy()
             df2["gid"] = df2.index
             df2 = df2[["gid", "state", y]]
-            df2["hh"] = key
-            df2 = df2[["gid", "state", y, "hh"]]
+            if "Winner" not in key:
+                df2["HH"] = key + " m"
+            else:
+                df2["HH"] = key
+            df2 = df2[["gid", "state", y, "HH"]]
             df = pd.concat([df, df2])
+
+    # Sort consistently
+    df = df.sort_values("HH")
 
     if "reset" not in trig:
 
@@ -503,7 +561,12 @@ def get_boxplot(paths, y, mapsel, point_size, state, reset, trig):
         if state:
             df = df[df["state"].isin(state)]
 
-    fig = px.box(df, x="hh", y=y, color="hh", labels={y: UNITS[y]})
+    fig = px.box(df,
+                 x="HH",
+                 y=y,
+                 labels={y: UNITS[y]},
+                 color="HH",
+                 color_discrete_sequence=px.colors.qualitative.Safe)
 
     fig.update_traces(
         marker=dict(

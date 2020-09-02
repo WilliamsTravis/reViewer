@@ -10,7 +10,7 @@ import dash_html_components as html
 
 from dash.dependencies import Input, Output
 
-from app import app, server
+from app import app
 from apps import main_page, config_page
 from apps.support import BUTTON_STYLES
 from navbar import NAVBAR
@@ -21,6 +21,8 @@ app.layout = html.Div([
     dcc.Location(id="url", pathname="/apps/main_page", refresh=False),
     html.Div(id="page-content")
 ])
+
+server = app.server
 
 
 @app.callback([Output("page-content", "children"),
@@ -42,5 +44,5 @@ def change_page(pathname):
 
 
 if __name__ == '__main__':
-    # app.run_server(debug=True)
-    app.run_server()
+    app.run_server(debug=True)
+    # app.run_server()

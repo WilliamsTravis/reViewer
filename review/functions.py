@@ -13,16 +13,11 @@ import os
 
 from glob import glob
 
-import numpy as np
-import pandas as pd
-import xarray as xr
-
 
 # FUNCTIONS
 def h5_to_df(file, dataset):
-    """Read in an hdf5 rev output file and render a data framefor use as a
-    scattermapbox plot.
-    """
+    """Convert h5 dataset to dataframe."""
+
 
 def print_args(func, *args):
     """Print a functions key word argument inputs for easy assignment."""
@@ -37,22 +32,21 @@ def print_args(func, *args):
     print("\n")
 
 
-def value_map(data_path, agg="mean"):
-    """Convert a 2 or 3D NetCDF file to a 2D pandas data frame of points.
-    
-    This will need to select a particular dataset, maybe aggregate by a
-    function, and filter and mask given a set of spatial and/or temporal
-    indices. We'll also need a scale factor and a nodata number.
-    """
+# def value_map(data_path, agg="mean"):
+#     """Convert a 2 or 3D NetCDF file to a 2D pandas data frame of points.
 
-    with xr.open_dataset(data_path) as ds:
-        data = ds["value_" + agg]
+#     This will need to select a particular dataset, maybe aggregate by a
+#     function, and filter and mask given a set of spatial and/or temporal
+#     indices. We'll also need a scale factor and a nodata number.
+#     """
+#     with xr.open_dataset(data_path) as ds:
+#         data = ds["value_" + agg]
 
-    df = data.to_dataframe()
-    df.reset_index(inplace=True)
-    df = df[~pd.isnull(df["value_" + agg])]
+#     df = data.to_dataframe()
+#     df.reset_index(inplace=True)
+#     df = df[~pd.isnull(df["value_" + agg])]
 
-    return df
+#     return df
 
 
 # CLASSES
@@ -61,33 +55,29 @@ class Data_Path:
 
     def __init__(self, data_path):
         """Initialize Data_Path."""
-
         self.data_path = data_path
         self._expand_check()
         self._exist_check()
 
     def __repr__(self):
-
+        """Print object representation string."""
         items = ["=".join([str(k), str(v)]) for k, v in self.__dict__.items()]
         arguments = " ".join(items)
         msg = "".join(["<Data_Path " + arguments + ">"])
         return msg
 
     def join(self, *args):
-        """Join a file path to the root directory path"""
-
+        """Join a file path to the root directory path."""
         return os.path.join(self.data_path, *args)
 
     def contents(self, *args):
         """List all content in the data_path or in sub directories."""
-
         items = glob(self.join(*args, "*"))
 
         return items
 
     def folders(self, *args):
         """List folders in the data_path or in sub directories."""
-
         items = self.contents(*args)
         folders = [i for i in items if os.path.isdir(i)]
 
@@ -95,7 +85,6 @@ class Data_Path:
 
     def files(self, *args):
         """List files in the data_path or in sub directories."""
-
         items = self.contents(*args)
         folders = [i for i in items if os.path.isfile(i)]
 
@@ -111,47 +100,6 @@ class Data_Path:
 
         # Make sure path exists
         os.makedirs(self.data_path, exist_ok=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 # class To_Tiledb:
@@ -284,6 +232,3 @@ class Data_Path:
 #         profile["blocks"]["y"] = math.ceil(h / tile_size)
 
 #         return profile
-    
-
-

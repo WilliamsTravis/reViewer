@@ -23,8 +23,6 @@ from review import print_args
 from tkinter import filedialog
 # from tkinter import ttk
 
-matplotlib.use("Qt5Agg")
-
 
 CONFIG_PATH = "/projects/rev/.review-config"
 

@@ -52,16 +52,6 @@ NAVBAR = html.Nav(
               ]),
 
           html.Button(
-                id='sync_variables',
-                children='Sync Variables: On',
-                n_clicks=1,
-                type='button',
-                title=('Click to sync the chosen variable between the map '
-                       'and y-axis of the chart.'),
-                style=BUTTON_STYLES["on"]
-                ),
-
-          html.Button(
                 id='rev_color',
                 children='Reverse Map Color: Off',
                 n_clicks=1,
@@ -78,7 +68,7 @@ NAVBAR = html.Nav(
                 # style=BUTTON_STYLES["on"],
                 style={"display": "none"}
                 ),
-        
+
           dcc.Link(
               html.Button(
                 id="app_link_button",

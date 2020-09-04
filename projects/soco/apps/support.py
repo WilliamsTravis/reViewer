@@ -15,13 +15,8 @@ import plotly.express as px
 from review import Data_Path
 from tqdm import tqdm
 
-<<<<<<< HEAD
-DATAPATH = Data_Path("~/github/reView/projects/soco/data")
-
-=======
 
 DATAPATH = Data_Path("~/github/reView/projects/soco/data")
->>>>>>> 2e4e715827a35b4cee83fe20ef56abfe46433333
 
 BASEMAPS = [{'label': 'Light', 'value': 'light'},
             {'label': 'Dark', 'value': 'dark'},
@@ -64,17 +59,17 @@ COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
           'Picnic': 'Picnic', 'Portland': 'Portland', 'Rainbow': 'Rainbow',
           'RdBu': 'RdBu',  'Viridis': 'Viridis', 'Reds': 'Reds',
           # 'RdWhBu': [[0.00, 'rgb(115,0,0)'],
-          #             [0.10, 'rgb(230,0,0)'],
-          #             [0.20, 'rgb(255,170,0)'],
-          #             [0.30, 'rgb(252,211,127)'],
-          #             [0.40, 'rgb(255, 255, 0)'],
-          #             [0.45, 'rgb(255, 255, 255)'],
-          #             [0.55, 'rgb(255, 255, 255)'],
-          #             [0.60, 'rgb(143, 238, 252)'],
-          #             [0.70, 'rgb(12,164,235)'],
-          #             [0.80, 'rgb(0,125,255)'],
-          #             [0.90, 'rgb(10,55,166)'],
-          #             [1.00, 'rgb(5,16,110)']],
+          #            [0.10, 'rgb(230,0,0)'],
+          #            [0.20, 'rgb(255,170,0)'],
+          #            [0.30, 'rgb(252,211,127)'],
+          #            [0.40, 'rgb(255, 255, 0)'],
+          #            [0.45, 'rgb(255, 255, 255)'],
+          #            [0.55, 'rgb(255, 255, 255)'],
+          #            [0.60, 'rgb(143, 238, 252)'],
+          #            [0.70, 'rgb(12,164,235)'],
+          #            [0.80, 'rgb(0,125,255)'],
+          #            [0.90, 'rgb(10,55,166)'],
+          #            [1.00, 'rgb(5,16,110)']],
           # 'RdWhBu (Extreme Scale)':  [[0.00, 'rgb(115,0,0)'],
           #                             [0.02, 'rgb(230,0,0)'],
           #                             [0.05, 'rgb(255,170,0)'],
@@ -117,27 +112,47 @@ DATAKEYS = {
         {"label": "160m Hub Height", "value": "160hh_20ps"},
         {"label": "LCOE Winner", "value": "lcoe_winner_20ps"}
         ],
+    50: [
+        {"label": "120m Hub Height", "value": "120hh_50ps"},
+        {"label": "140m Hub Height", "value": "140hh_50ps"},
+        {"label": "160m Hub Height", "value": "160hh_50ps"},
+        {"label": "LCOE Winner", "value": "lcoe_winner_50ps"}
+        ],
     150: [
         {"label": "120m Hub Height", "value": "120hh_150ps"},
         {"label": "140m Hub Height", "value": "140hh_150ps"},
         {"label": "160m Hub Height", "value": "160hh_150ps"},
         {"label": "LCOE Winner", "value": "lcoe_winner_150ps"}
-        ]
+        ],
+    400: [
+        {"label": "120m Hub Height", "value": "120hh_400ps"},
+        {"label": "140m Hub Height", "value": "140hh_400ps"},
+        {"label": "160m Hub Height", "value": "160hh_400ps"},
+        {"label": "LCOE Winner", "value": "lcoe_winner_400ps"}
+        ],
     }
 
 DATASETS = {
-    "120hh_20ps": pd.read_csv(DATAPATH.join("120hh_20ps.csv")),
-    "140hh_20ps": pd.read_csv(DATAPATH.join("140hh_20ps.csv")),
-    "160hh_20ps": pd.read_csv(DATAPATH.join("160hh_20ps.csv")),
-    "lcoe_winner_20ps": pd.read_csv(DATAPATH.join("lcoe_winner_20ps.csv")),
-    "120hh_150ps": pd.read_csv(DATAPATH.join("120hh_150ps.csv")),
-    "140hh_150ps": pd.read_csv(DATAPATH.join("140hh_150ps.csv")),
-<<<<<<< HEAD
-    "160hh_150ps": pd.read_csv(DATAPATH.join("160hh_150ps.csv")),
-    "lcoe_winner_150ps": pd.read_csv(DATAPATH.join("lcoe_winner_150ps.csv"))
-=======
-    "160hh_150ps": pd.read_csv(DATAPATH.join("160hh_150ps.csv"))
->>>>>>> 2e4e715827a35b4cee83fe20ef56abfe46433333
+    "120hh_20ps": pd.read_csv(DATAPATH.join("120hh_20ps_sc.csv")),
+    "140hh_20ps": pd.read_csv(DATAPATH.join("140hh_20ps_sc.csv")),
+    "160hh_20ps": pd.read_csv(DATAPATH.join("160hh_20ps_sc.csv")),
+    "lcoe_winner_20ps": pd.read_csv(DATAPATH.join("lcoe_winner_20ps_sc.csv")),
+    "120hh_50ps": pd.read_csv(DATAPATH.join("120hh_50ps_sc.csv")),
+    "140hh_50ps": pd.read_csv(DATAPATH.join("140hh_50ps_sc.csv")),
+    "160hh_50ps": pd.read_csv(DATAPATH.join("160hh_50ps_sc.csv")),
+    "lcoe_winner_50ps": pd.read_csv(DATAPATH.join("lcoe_winner_50ps_sc.csv")),
+    "120hh_150ps": pd.read_csv(DATAPATH.join("120hh_150ps_sc.csv")),
+    "140hh_150ps": pd.read_csv(DATAPATH.join("140hh_150ps_sc.csv")),
+    "160hh_150ps": pd.read_csv(DATAPATH.join("160hh_150ps_sc.csv")),
+    "lcoe_winner_150ps": pd.read_csv(
+        DATAPATH.join("lcoe_winner_150ps_sc.csv")
+        ),
+    "120hh_400ps": pd.read_csv(DATAPATH.join("120hh_400ps_sc.csv")),
+    "140hh_400ps": pd.read_csv(DATAPATH.join("140hh_400ps_sc.csv")),
+    "160hh_400ps": pd.read_csv(DATAPATH.join("160hh_400ps_sc.csv")),
+    "lcoe_winner_400ps": pd.read_csv(
+        DATAPATH.join("lcoe_winner_400ps_sc.csv")
+        ),
     }
 
 DEFAULT_MAPVIEW = {
@@ -182,11 +197,9 @@ MAP_LAYOUT = dict(
         zoom=2)
 )
 
+PLANT_SIZE = [20, 50, 150, 400]
 
-PLANT_SIZES = [
-    {"label": "20 MW", "value": 20},
-    {"label": "150 MW", "value": 150}
-    ]
+PLANT_SIZES = [{"label": "{} MW".format(ps), "value": ps} for ps in PLANT_SIZE]
 
 RESET_BUTTON_STYLE = {
         'height': '100%',
@@ -248,13 +261,10 @@ VARIABLES = [
 ]
 
 
-
 def make_datasets():
     """Use the configuration dictionary to render the right project."""
     with open(os.path.expanduser("~/.review_config"), "r") as file:
         config = json.load(file)
-
-
 
 
 def chart_point_filter(df, chartsel, chartvar):
@@ -323,7 +333,7 @@ def lcoe_winner(files):
 
     This currently has to be run in advance of this script.
     """
-    for ps in [20, 150]:
+    for ps in PLANT_SIZE:
         dst = DATAPATH.join("lcoe_winner_{}ps.csv".format(ps))
         if not os.path.exists(dst):
             dfs = [pd.read_csv(f) for f in files if "_{}ps".format(ps) in f]

@@ -72,32 +72,30 @@ class Data_Path:
 
     def contents(self, *args):
         """List all content in the data_path or in sub directories."""
-        items = glob(self.join(*args, "*"))
-
+        if not any(["*" in a for a in args]):
+            items = glob(self.join(*args, "*"))
+        else:
+            items = glob(self.join(*args))
         return items
 
     def folders(self, *args):
         """List folders in the data_path or in sub directories."""
         items = self.contents(*args)
         folders = [i for i in items if os.path.isdir(i)]
-
         return folders
 
     def files(self, *args):
         """List files in the data_path or in sub directories."""
         items = self.contents(*args)
         folders = [i for i in items if os.path.isfile(i)]
-
         return folders
 
     def _expand_check(self):
-
         # Expand the user path if a tilda is present in the root folder path.
         if "~" in self.data_path:
             self.data_path = os.path.expanduser(self.data_path)
 
     def _exist_check(self):
-
         # Make sure path exists
         os.makedirs(self.data_path, exist_ok=True)
 

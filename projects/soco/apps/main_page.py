@@ -28,13 +28,8 @@ from .support import (chart_point_filter, fix_cfs, get_label, make_scales,
 os.chdir(os.path.expanduser("~/github/reView/projects/soco"))
 
 
-<<<<<<< HEAD
-DP = Data_Path("~/github/reView/projects/soco/data")  # <-------------------- Fix this
-FILES = glob(DP.join("*csv"))
-=======
 DP = Data_Path("~/github/reView/projects/soco/data")  # <---------------------- Fix these paths
-FILES = DP.contents("*csv")
->>>>>>> 2e4e715827a35b4cee83fe20ef56abfe46433333
+FILES = DP.contents("*.csv")
 SCALES = make_scales(FILES, DP.join("scales.csv"))
 fix_cfs(FILES)
 
@@ -94,7 +89,7 @@ layout = html.Div(
                         clearable=False,
                         options=PLANT_SIZES,
                         multi=False,
-                        value=150
+                        value=20
                     )
                 ], className="three columns"
             ),
@@ -186,7 +181,7 @@ layout = html.Div(
                                 className="two columns"),
                         dcc.Input(
                             id="map_point_size",
-                            value=6,
+                            value=3,
                             type="number",
                             className="two columns",
                             style={"margin-left": -5, "width": "7%"}

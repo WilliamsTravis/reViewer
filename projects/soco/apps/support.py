@@ -18,6 +18,8 @@ from tqdm import tqdm
 
 DATAPATH = Data_Path("~/github/reView/projects/soco/data")
 
+PLANT_SIZES = [20, 50, 100, 150, 400, 700]
+
 BASEMAPS = [{'label': 'Light', 'value': 'light'},
             {'label': 'Dark', 'value': 'dark'},
             {'label': 'Basic', 'value': 'basic'},
@@ -105,55 +107,24 @@ COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
 
 COLOR_OPTIONS = [{"label": k, "value": v} for k, v in COLORS.items()]
 
-DATAKEYS = {
-    20: [
-        {"label": "120m Hub Height", "value": "120hh_20ps"},
-        {"label": "140m Hub Height", "value": "140hh_20ps"},
-        {"label": "160m Hub Height", "value": "160hh_20ps"},
-        {"label": "LCOE Winner", "value": "lcoe_winner_20ps"}
-        ],
-    50: [
-        {"label": "120m Hub Height", "value": "120hh_50ps"},
-        {"label": "140m Hub Height", "value": "140hh_50ps"},
-        {"label": "160m Hub Height", "value": "160hh_50ps"},
-        {"label": "LCOE Winner", "value": "lcoe_winner_50ps"}
-        ],
-    150: [
-        {"label": "120m Hub Height", "value": "120hh_150ps"},
-        {"label": "140m Hub Height", "value": "140hh_150ps"},
-        {"label": "160m Hub Height", "value": "160hh_150ps"},
-        {"label": "LCOE Winner", "value": "lcoe_winner_150ps"}
-        ],
-    400: [
-        {"label": "120m Hub Height", "value": "120hh_400ps"},
-        {"label": "140m Hub Height", "value": "140hh_400ps"},
-        {"label": "160m Hub Height", "value": "160hh_400ps"},
-        {"label": "LCOE Winner", "value": "lcoe_winner_400ps"}
-        ],
-    }
-
-DATASETS = {
-    "120hh_20ps": pd.read_csv(DATAPATH.join("120hh_20ps_sc.csv")),
-    "140hh_20ps": pd.read_csv(DATAPATH.join("140hh_20ps_sc.csv")),
-    "160hh_20ps": pd.read_csv(DATAPATH.join("160hh_20ps_sc.csv")),
-    "lcoe_winner_20ps": pd.read_csv(DATAPATH.join("lcoe_winner_20ps_sc.csv")),
-    "120hh_50ps": pd.read_csv(DATAPATH.join("120hh_50ps_sc.csv")),
-    "140hh_50ps": pd.read_csv(DATAPATH.join("140hh_50ps_sc.csv")),
-    "160hh_50ps": pd.read_csv(DATAPATH.join("160hh_50ps_sc.csv")),
-    "lcoe_winner_50ps": pd.read_csv(DATAPATH.join("lcoe_winner_50ps_sc.csv")),
-    "120hh_150ps": pd.read_csv(DATAPATH.join("120hh_150ps_sc.csv")),
-    "140hh_150ps": pd.read_csv(DATAPATH.join("140hh_150ps_sc.csv")),
-    "160hh_150ps": pd.read_csv(DATAPATH.join("160hh_150ps_sc.csv")),
-    "lcoe_winner_150ps": pd.read_csv(
-        DATAPATH.join("lcoe_winner_150ps_sc.csv")
-        ),
-    "120hh_400ps": pd.read_csv(DATAPATH.join("120hh_400ps_sc.csv")),
-    "140hh_400ps": pd.read_csv(DATAPATH.join("140hh_400ps_sc.csv")),
-    "160hh_400ps": pd.read_csv(DATAPATH.join("160hh_400ps_sc.csv")),
-    "lcoe_winner_400ps": pd.read_csv(
-        DATAPATH.join("lcoe_winner_400ps_sc.csv")
-        ),
-    }
+DATAKEYS = {}
+DATASETS = {}
+for ps in PLANT_SIZES:
+    for hh in ["120hh", "140hh", "160hh", "lcoe_winner"]:
+        key = hh + "_{}ps".format(ps)
+        path = DATAPATH.join(key + "_sc.csv")
+        if os.path.exists(path):
+            DATASETS[key] = pd.read_csv(path)
+            if not ps in DATAKEYS:
+                DATAKEYS[ps] = [
+                    {"label": "120m Hub Height",
+                     "value": "120hh_{}ps".format(ps)},
+                    {"label": "140m Hub Height",
+                     "value": "140hh_{}ps".format(ps)},
+                    {"label": "160m Hub Height",
+                     "value": "160hh_{}ps".format(ps)},
+                    {"label": "LCOE Winner",
+                     "value": "lcoe_winner_{}ps".format(ps)}]
 
 DEFAULT_MAPVIEW = {
     "mapbox.center": {
@@ -197,9 +168,7 @@ MAP_LAYOUT = dict(
         zoom=2)
 )
 
-PLANT_SIZE = [20, 50, 150, 400]
-
-PLANT_SIZES = [{"label": "{} MW".format(ps), "value": ps} for ps in PLANT_SIZE]
+PS_OPTIONS = [{"label": "{} MW".format(ps), "value": ps} for ps in PLANT_SIZES]
 
 RESET_BUTTON_STYLE = {
         'height': '100%',

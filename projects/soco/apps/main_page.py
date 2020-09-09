@@ -20,7 +20,7 @@ from dash.dependencies import Input, Output, State
 from review import print_args, Data_Path
 from .support import (BASEMAPS, BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
                       DATAKEYS, DATASETS, DEFAULT_MAPVIEW, MAP_LAYOUT,
-                      PLANT_SIZES, STATES, STYLESHEET, TITLES, TAB_STYLE,
+                      PS_OPTIONS, STATES, STYLESHEET, TITLES, TAB_STYLE,
                       TABLET_STYLE, UNITS, VARIABLES)
 from .support import (chart_point_filter, fix_cfs, get_label, make_scales,
                       get_boxplot, get_ccap, get_histogram, get_scatter)
@@ -87,7 +87,7 @@ layout = html.Div(
                     dcc.Dropdown(
                         id="plant_size_options",
                         clearable=False,
-                        options=PLANT_SIZES,
+                        options=PS_OPTIONS,
                         multi=False,
                         value=20
                     )

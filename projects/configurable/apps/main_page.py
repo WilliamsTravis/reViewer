@@ -1,8 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Spyder Editor
+View reV results using a configuration file.
 
-This is a temporary script file.
+Things to do:
+    - Fix charts when the same x- and y-axis variables are selected
+    - Add graph titles
+    - Add more configurations
+    - Fix custom color ramp format
+    - Fix ordering of number boxplot groups
+    - Fix variable axis ranges in charts
+    - Add point selection reset button
+    - Add link to GDS page
+    - Customize CSS, remove internal styling
 """
 
 import copy
@@ -302,7 +311,7 @@ def cache_chart_tables(project, group, x, y, state, idx, *options):
         path = os.path.join(directory, file)
         df = pd.read_csv(path, usecols=[x, y, "state"])
         if state:
-            df = df[df["state"] == state]
+            df = df[df["state"].isin(state)]
         if idx:
             df = df.iloc[idx, :]
         df = df[[x, y]]
@@ -524,7 +533,8 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
     if "reset" not in trig:
         # If there is a selection in the chart filter these points
         if chartsel:
-            df = chart_point_filter(df, chartsel, variable)
+            if len(chartsel["points"]) > 0:
+                df = chart_point_filter(df, chartsel, variable)
 
         if "selectedData" not in trig:
             if mapsel:

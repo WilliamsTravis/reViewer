@@ -11,7 +11,6 @@ import os
 
 import dash_core_components as dcc
 import dash_html_components as html
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import us
@@ -415,7 +414,7 @@ class Plots:
         for key, df in self.data.items():
             if main_df is None:
                 main_df = df.copy()
-                y = main_df.columns[1]
+                y = main_df.columns[1]  # <------------------------------------ Fix case where y =="capacity"
                 main_df = main_df.sort_values(y)
                 main_df["ccap"] = main_df["capacity"].cumsum()
                 main_df[self.group] = key
@@ -568,62 +567,3 @@ class Plots:
             )
     
         return fig
-
-
-def get_boxplot(paths, y, mapsel, point_size, state, reset, trig):
-    """Return a set of boxplots."""
-    df = None
-    for key, path in paths.items():
-        if df is None:
-            df = DATASETS[path].copy()
-            df["gid"] = df.index
-            df = df[["gid", "state", y]]
-            if "Winner" not in key:
-                df["HH"] = key + " m"
-            else:
-                df["HH"] = key
-            df = df[["gid", "state", y, "HH"]]
-        else:
-            df2 = DATASETS[path].copy()
-            df2["gid"] = df2.index
-            df2 = df2[["gid", "state", y]]
-            if "Winner" not in key:
-                df2["HH"] = key + " m"
-            else:
-                df2["HH"] = key
-            df2 = df2[["gid", "state", y, "HH"]]
-            df = pd.concat([df, df2])
-
-    # Sort consistently
-    df = df.sort_values("HH")
-
-    if "reset" not in trig:
-
-        if mapsel:
-            idx = [p["pointIndex"] for p in mapsel["points"]]
-            df = df[df["gid"].isin(idx)]
-        if state:
-            df = df[df["state"].isin(state)]
-
-    fig = px.box(df,
-                 x="HH",
-                 y=y,
-                 labels={y: UNITS[y]},
-                 color="HH",
-                 color_discrete_sequence=px.colors.qualitative.Safe)
-
-    fig.update_traces(
-        marker=dict(
-            size=point_size,
-            opacity=1,
-            line=dict(
-                width=0,
-                )
-            ),
-        unselected=dict(
-            marker=dict(
-                color="grey")
-            )
-        )
-
-    return fig

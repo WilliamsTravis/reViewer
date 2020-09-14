@@ -4,7 +4,6 @@ View reV results using a configuration file.
 
 Things to do:
     - Fix charts when the same x- and y-axis variables are selected
-    - Add graph titles
     - Add more configurations
     - Fix custom color ramp format
     - Fix ordering of number boxplot groups
@@ -32,7 +31,7 @@ from .support import (BASEMAPS, BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
                       TITLES, TAB_STYLE, TABLET_STYLE, UNITS, VARIABLES)
 from .support import (chart_point_filter, config_div, get_dataframe_path,
                       get_scales, get_variables, setup_options, sort_mixed,
-                      Plots)
+                      Config, Plots)
 
 NOPTIONS = 5
 OPTION_INPUTS, OPTION_PLACEHOLDER = setup_options(NOPTIONS)
@@ -250,6 +249,18 @@ layout = html.Div(
             id="testing"
             ),
 
+        # To store option names for the map title
+        html.Div(
+            id="chosen_map_options",
+            style={"display": "none"}
+            ),
+
+        # To store option names for the chart title
+        html.Div(
+            id="chosen_chart_options",
+            style={"display": "none"}
+            ),
+
         # To maintain the view after updating the map
         html.Div(id="mapview_store",
                  children=json.dumps(DEFAULT_MAPVIEW),
@@ -367,12 +378,25 @@ def chart_tab_options(tab_choice, chart_choice, project):
     return children, styles[0], styles[1], styles[2]
 
 
-@app.callback(Output("map_data_path", "children"),
-              [Input("project", "value")] + OPTION_INPUTS)
-def get_map_table(project, *options):
+@app.callback([Output("map_data_path", "children"),
+               Output("chosen_map_options", "children")],
+              [Input("option_div", "children"), 
+               Input("project", "value")] + OPTION_INPUTS)
+def get_map_table(option_div, project, *options):
+    """Get the data path from a list of map options and store those optons."""
+    options = [o for o in options if o]
+    op_names = []
+    for o in option_div:
+        entry = o["props"]["children"][0]["props"]
+        if "children" in entry:
+            op_name = entry["children"]
+            if "option_" not in op_name and op_name != "Variable":
+                op_names.append(op_name)
+    op_values = dict(zip(op_names, options))
+
     if any(options):
         path = get_dataframe_path(project, *options)
-        return path
+        return path, json.dumps(op_values)
 
 
 @app.callback(Output("chart_data_signal", "children"),
@@ -491,15 +515,16 @@ def map_tab_options(tab_choice):
      Input("state_options", "value"),
      Input("basemap_options", "value"),
      Input("color_options", "value"),
-      Input("chart", "selectedData"),
+     Input("chart", "selectedData"),
      Input("map_point_size", "value"),
-      Input("rev_color", "n_clicks"),
-      Input("reset_chart", "n_clicks")],
-    [State("project", "value"),
-     State("map", "relayoutData"),
-     State("map", "selectedData")])
+     Input("rev_color", "n_clicks"),
+     Input("reset_chart", "n_clicks"),
+     Input("project", "value")],
+    [State("map", "relayoutData"),
+     State("map", "selectedData"),
+     State("chosen_map_options", "children")])
 def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
-             rev_color, reset, project, mapview, mapsel):
+             rev_color, reset, project, mapview, mapsel, op_values):
     """Make the scatterplot map.
 
     To fix the point selection issue check this out:
@@ -509,6 +534,8 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
                 rev_color, reset, mapview, mapsel)
 
     trig = dash.callback_context.triggered[0]['prop_id']
+    config = Config(project)
+    op_values = json.loads(op_values)
 
     if not data_path:
         raise PreventUpdate
@@ -545,8 +572,9 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
         if state:
             df = df[df["state"].isin(state)]
 
-    df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   " +
-                  df[variable].round(2).astype(str) + " " + UNITS[variable])
+    df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
+                  + df[variable].round(2).astype(str) + " "
+                  + config.units[variable])
     df = df[[variable, "latitude", "longitude", "text"]]
 
     # Reverse color is from a button (number of clicks)
@@ -573,7 +601,7 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
                     opacity=1.0,
                     size=point_size,
                     colorbar=dict(
-                        title=UNITS[variable],
+                        title=config.units[variable],
                         dtickrange=scales[variable],
                         textposition="auto",
                         orientation="h",
@@ -585,7 +613,7 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
                 )
 
     # Set up layout
-    title = TITLES[variable]
+    title = config.map_title(variable, op_values)
     layout_copy = copy.deepcopy(MAP_LAYOUT)
     layout_copy['mapbox']['center'] = mapview['mapbox.center']
     layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
@@ -610,8 +638,10 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
      Input("chart_point_size", "value"),
      Input("reset_chart", "n_clicks")],
     [State("chart", "relayoutData"),
-     State("chart", "selectedData")])
-def make_chart(chart, signal, mapsel, point_size, reset, chartview, chartsel):
+     State("chart", "selectedData"),
+     State("chosen_map_options", "children")])
+def make_chart(chart, signal, mapsel, point_size, reset, chartview, chartsel,
+               op_values):
     """Make one of a variety of charts."""
     signal = json.loads(signal)
     print_args(make_chart, chart, signal, mapsel, point_size, reset,
@@ -619,6 +649,8 @@ def make_chart(chart, signal, mapsel, point_size, reset, chartview, chartsel):
 
     # Get the set of data frame using the stored signal
     project, group, y, x, state, *options = signal
+    config = Config(project)
+    op_values = json.loads(op_values)
 
     # Turn the map selection object into indices
     if mapsel:
@@ -632,30 +664,32 @@ def make_chart(chart, signal, mapsel, point_size, reset, chartview, chartsel):
         dfs = cache_chart_tables(project, group, x, y, state, idx, *options)
         plotter = Plots(dfs, project, group, point_size)
         fig = plotter.ccap()
+        ytitle = config.titles[y]
+        var_title = ytitle + " by Cumulative Capacity"
+        title = config.chart_title(var_title, op_values, group)
 
     elif chart == "scatter":
         dfs = cache_chart_tables(project, group, x, y, state, idx, *options)
         plotter = Plots(dfs, project, group, point_size)
         fig = plotter.scatter()
-        # title = (get_label(VARIABLES, y)
-        #           + " by "
-        #           + get_label(VARIABLES, x)
-        #           + " - "
-        #           + " {} MW Plant".format(ps))
+        ytitle = config.titles[y]
+        xtitle = config.titles[x]
+        var_title = ytitle + " by " + xtitle
+        title = config.chart_title(var_title, op_values, group)
 
     elif chart == "histogram":
         dfs = cache_chart_tables(project, group, x, y, state, idx, *options)
         plotter = Plots(dfs, project, group, point_size)
         fig = plotter.histogram()
-    #     title = (get_label(VARIABLES, y) + " Histogram - "
-    #              + " {} MW Plant".format(ps))
+        var_title = config.titles[y]
+        title = config.chart_title(var_title, op_values, group)
 
     elif chart == "box":
         dfs = cache_chart_tables(project, group, x, y, state, idx, *options)
         plotter = Plots(dfs, project, group, point_size)
         fig = plotter.box()
-    #     title = (get_label(VARIABLES, y) + " Boxplots - "
-    #              + " {} MW Plant".format(ps))
+        var_title = config.titles[y]
+        title = config.chart_title(var_title, op_values, group)
 
     # Update the layout and traces
     fig.update_layout(
@@ -671,14 +705,14 @@ def make_chart(chart, signal, mapsel, point_size, reset, chartview, chartsel):
         paper_bgcolor="#1663B5",
         legend_title_text=group,
         dragmode="select",
-        # title=dict(
-        #         text=title,
-        #         yref="paper",
-        #         y=1,
-        #         x=0.1,
-        #         yanchor="bottom",
-        #         pad=dict(b=10)
-        #         ),
+        title=dict(
+                text=title,
+                yref="paper",
+                y=1,
+                x=0.1,
+                yanchor="bottom",
+                pad=dict(b=10)
+                ),
         legend=dict(
             title_font_family="Times New Roman",
             bgcolor="#E4ECF6",

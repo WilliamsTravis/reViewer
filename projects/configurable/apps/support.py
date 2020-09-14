@@ -397,6 +397,52 @@ def sort_mixed(values):
     return sorted_values
 
 
+class Config:
+    def __init__(self, project):
+        """Initialize plotting object for a reV project."""
+        self.project_config = CONFIG[project]
+
+    def map_title(self, variable, op_values):
+        """Make a title for the map given a variable name and option values."""
+        var_title = self.titles[variable]
+        for op, val in op_values.items():
+            units = self.project_config["units"][op]
+            op_title = str(val) + units + " " + op
+            var_title = var_title + " - " + op_title
+        return var_title
+
+    def chart_title(self, var_title, op_values, group):
+        """Make a title for the chart with variable/group name and options."""
+        del op_values[group]
+        for op, val in op_values.items():
+            units = self.project_config["units"][op]
+            op_title = str(val) + units + " " + op
+            var_title = var_title + " - " + op_title
+        var_title = var_title + ", All " + group + "s"
+        return var_title
+
+    @property
+    def data(self):
+        """Return a pandas data frame with fuill file paths."""
+        data = pd.DataFrame(self.project_config["data"])
+        directory = self.project_config["directory"]
+        data["file"] = data["file"].apply(lambda x: os.path.join(directory, x))
+        return data
+
+    @property
+    def titles(self):
+        """Return a titles dictionary with extra fields."""
+        extras = self.project_config["extra_fields"]
+        titles = {**TITLES, **extras["titles"]}
+        return titles
+
+    @property
+    def units(self):
+        """Return a units dictionary with extra fields."""
+        extras = self.project_config["extra_fields"]
+        units = {**UNITS, **extras["units"]}
+        return units
+
 
 class Plots:
     def __init__(self, data, project, group, point_size):

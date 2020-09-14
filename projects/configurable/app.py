@@ -8,8 +8,22 @@ Created on Sun Aug 23 16:39:45 2020
 import dash
 
 from apps.support import STYLESHEET
+from flask_caching import Cache
 
 app = dash.Dash(__name__,
                 suppress_callback_exceptions=True,
                 external_stylesheets=[STYLESHEET])
 server = app.server
+
+# Create simple cache for storing updated supply curve tables
+cache = Cache(config={'CACHE_TYPE': 'filesystem',
+                      'CACHE_DIR': 'data/cache',
+                      'CACHE_THRESHOLD': 5})
+
+# Create another cache for storing filtered supply curve tables
+cache2 = Cache(config={'CACHE_TYPE': 'filesystem',
+                       'CACHE_DIR': 'data/cache2',
+                       'CACHE_THRESHOLD': 5})
+
+cache.init_app(server)
+cache2.init_app(server)

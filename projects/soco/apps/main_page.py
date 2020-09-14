@@ -64,37 +64,6 @@ layout = html.Div(
                 ], className="three columns"
             ),
 
-            # Hub height dataset option
-            html.Div(
-                id="hubheight_options_div",
-                children=[
-                    html.H4("Hub Height"),
-                    dcc.Dropdown(
-                        id="hubheight_options",
-                        clearable=False,
-                        options=DATAKEYS[20],
-                        multi=False,
-                        value="120hh_20ps"
-                    )
-                ], className="three columns"
-            ),
-
-            # Plant size options
-            html.Div(
-                id="plant_size_options_div",
-                children=[
-                    html.H4("Plant Size"),
-                    dcc.Dropdown(
-                        id="plant_size_options",
-                        clearable=False,
-                        options=PS_OPTIONS,
-                        multi=False,
-                        value=20
-                    )
-                ], className="three columns"
-            ),
-
-
         ], className="row", style={"width": "75%",
                                    "margin-bottom": "50px"}),
 
@@ -484,9 +453,8 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartsel,
     [Output('chart', 'figure'),
      Output("plantsize_store", "children")],
     [Input("chart_options", "value"),
-     Input("plant_size_options", "value"),
      Input("chart_xvariable_options", "value"),
-     Input("variable_options", "value"),
+     Input("variable", "value"),
      Input("state_options", "value"),
      Input("map", "selectedData"),
      Input("chart_point_size", "value"),
@@ -494,77 +462,73 @@ def make_map(hubheight, plantsize, variable, state, basemap, color, chartsel,
     [State("map", "relayoutData"),
      State("chart", "selectedData"),
      State("plantsize_store", "children")])
-def make_chart(chart, ps, x, y, state, mapsel, point_size, reset, chartview,
+def make_chart(chart, x, y, state, mapsel, point_size, reset, chartview,
                chartsel, ps_state):
     """Make one of a variety of charts."""
-    print_args(make_chart, chart, ps, x, y, state, mapsel, point_size)
+    print_args(make_chart, chart, x, y, state, mapsel, point_size)
 
     trig = dash.callback_context.triggered[0]['prop_id']
 
     # Only the 20MW plant for now
-    paths = {"120": "120hh_{}ps".format(ps),
-             "140": "140hh_{}ps".format(ps),
-             "160": "160hh_{}ps".format(ps),
-             "LCOE Winner": "lcoe_winner_{}ps".format(ps)}
 
-    # Get the initial figure
-    if chart == "cumsum":
-        fig = get_ccap(paths, y, mapsel, int(point_size), state, reset, trig)
-        title = (get_label(VARIABLES, y)
-                 + " by Cumulative Capacity - "
-                 + " {} MW Plant".format(ps))
+    # # Get the initial figure
+    # if chart == "cumsum":
+    #     fig = get_ccap(paths, y, mapsel, int(point_size), state, reset, trig)
+    #     title = (get_label(VARIABLES, y)
+    #              + " by Cumulative Capacity - "
+    #              + " {} MW Plant".format(ps))
 
-    elif chart == "scatter":
-        fig = get_scatter(paths, x, y, mapsel, int(point_size), state, reset,
-                          trig)
-        title = (get_label(VARIABLES, y)
-                 + " by "
-                 + get_label(VARIABLES, x)
-                 + " - "
-                 + " {} MW Plant".format(ps))
+    # elif chart == "scatter":
+    #     fig = get_scatter(paths, x, y, mapsel, int(point_size), state, reset,
+    #                       trig)
+    #     title = (get_label(VARIABLES, y)
+    #              + " by "
+    #              + get_label(VARIABLES, x)
+    #              + " - "
+    #              + " {} MW Plant".format(ps))
 
-    elif chart == "histogram":
-        fig = get_histogram(paths, y, mapsel, int(point_size), state, reset,
-                            trig)
-        title = (get_label(VARIABLES, y) + " Histogram - "
-                 + " {} MW Plant".format(ps))
+    # elif chart == "histogram":
+    #     fig = get_histogram(paths, y, mapsel, int(point_size), state, reset,
+    #                         trig)
+    #     title = (get_label(VARIABLES, y) + " Histogram - "
+    #              + " {} MW Plant".format(ps))
 
-    elif chart == "box":
-        fig = get_boxplot(paths, y, mapsel, int(point_size), state, reset,
-                          trig)
-        title = (get_label(VARIABLES, y) + " Boxplots - "
-                 + " {} MW Plant".format(ps))
+    # elif chart == "box":
+    #     fig = get_boxplot(paths, y, mapsel, int(point_size), state, reset,
+    #                       trig)
+    #     title = (get_label(VARIABLES, y) + " Boxplots - "
+    #              + " {} MW Plant".format(ps))
 
-    # Update the layout and traces
-    fig.update_layout(
-        font_family="Time New Roman",
-        title_font_family="Times New Roman",
-        legend_title_font_color="black",
-        font_color="white",
-        title_font_size=25,
-        font_size=15,
-        margin=dict(l=70, r=20, t=70, b=20),
-        height=500,
-        paper_bgcolor="#1663B5",
-        legend_title_text='Hub Height',
-        dragmode="select",
-        title=dict(
-                text=title,
-                yref="paper",
-                y=1,
-                x=0.1,
-                yanchor="bottom",
-                pad=dict(b=10)
-                ),
-        legend=dict(
-            title_font_family="Times New Roman",
-            bgcolor="#E4ECF6",
-            font=dict(
-               family="Times New Roman",
-               size=15,
-               color="black"
-               )
-           )
-        )
+    # # Update the layout and traces
+    # fig.update_layout(
+    #     font_family="Time New Roman",
+    #     title_font_family="Times New Roman",
+    #     legend_title_font_color="black",
+    #     font_color="white",
+    #     title_font_size=25,
+    #     font_size=15,
+    #     margin=dict(l=70, r=20, t=70, b=20),
+    #     height=500,
+    #     paper_bgcolor="#1663B5",
+    #     legend_title_text='Hub Height',
+    #     dragmode="select",
+    #     title=dict(
+    #             text=title,
+    #             yref="paper",
+    #             y=1,
+    #             x=0.1,
+    #             yanchor="bottom",
+    #             pad=dict(b=10)
+    #             ),
+    #     legend=dict(
+    #         title_font_family="Times New Roman",
+    #         bgcolor="#E4ECF6",
+    #         font=dict(
+    #            family="Times New Roman",
+    #            size=15,
+    #            color="black"
+    #            )
+    #        )
+    #     )
 
-    return fig, json.dumps(ps)
+    # return fig, json.dumps(ps)

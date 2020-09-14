@@ -117,7 +117,7 @@ NAVBAR = html.Nav(
                 "height": 70,
                 'margin-right': '0px',
                 'margin-top': '-15px',
-                'margin-bottom': '35px',
+                'margin-bottom': '15px',
                 'border': '3px solid #FCCD34',
                 'border-radius': '5px'
                 },

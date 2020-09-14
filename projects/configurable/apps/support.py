@@ -5,20 +5,27 @@ Created on Sat Aug 15 15:47:40 2020
 @author: travis
 """
 
+from glob import glob
 import json
 import os
 
+import dash_core_components as dcc
+import dash_html_components as html
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import us
 
+from dash.dependencies import Input
 from review import Data_Path
 from tqdm import tqdm
 
 
-DATAPATH = Data_Path("~/github/reView/projects/soco/data")
+CONFIG_PATH = os.path.expanduser("~/.review_config")
+NOPTIONS = 10
+with open(CONFIG_PATH, "r") as file:
+    CONFIG = json.load(file)
 
-PLANT_SIZES = [20, 50, 100, 150, 400, 700]
 
 BASEMAPS = [{'label': 'Light', 'value': 'light'},
             {'label': 'Dark', 'value': 'dark'},
@@ -107,25 +114,6 @@ COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
 
 COLOR_OPTIONS = [{"label": k, "value": v} for k, v in COLORS.items()]
 
-DATAKEYS = {}
-DATASETS = {}
-for ps in PLANT_SIZES:
-    for hh in ["120hh", "140hh", "160hh", "lcoe_winner"]:
-        key = hh + "_{}ps".format(ps)
-        path = DATAPATH.join(key + "_sc.csv")
-        if os.path.exists(path):
-            DATASETS[key] = pd.read_csv(path)
-            if not ps in DATAKEYS:
-                DATAKEYS[ps] = [
-                    {"label": "120m Hub Height",
-                     "value": "120hh_{}ps".format(ps)},
-                    {"label": "140m Hub Height",
-                     "value": "140hh_{}ps".format(ps)},
-                    {"label": "160m Hub Height",
-                     "value": "160hh_{}ps".format(ps)},
-                    {"label": "LCOE Winner",
-                     "value": "lcoe_winner_{}ps".format(ps)}]
-
 DEFAULT_MAPVIEW = {
     "mapbox.center": {
         "lon": -85,
@@ -168,14 +156,6 @@ MAP_LAYOUT = dict(
         zoom=2)
 )
 
-PS_OPTIONS = [{"label": "{} MW".format(ps), "value": ps} for ps in PLANT_SIZES]
-
-RESET_BUTTON_STYLE = {
-        'height': '100%',
-        'background-color': '#FCCD34',
-        "display": "table-cell"
-        }
-
 STYLESHEET = 'https://codepen.io/chriddyp/pen/bWLwgP.css'
 
 TAB_STYLE = {'height': '25px', 'padding': '0'}
@@ -190,15 +170,9 @@ TITLES = {'mean_cf': 'Mean Capacity Factor',
           'trans_capacity': 'Total Transmission Capacity',
           'trans_cap_cost': 'Transmission Capital Costs',
           'lcot': 'LCOT',
-          'total_lcoe': 'Total LCOE',
-          'hh': 'Hub Height',
-          'rd': 'Rotor Diameter',
-          'rs': 'Relative Spacing'}
+          'total_lcoe': 'Total LCOE'}
 
-
-STATES = [{"label": "Alabama", "value": "Alabama"},
-          {"label": "Georgia", "value": "Georgia"},
-          {"label": "Mississippi", "value": "Mississippi"}]
+STATES = [{"label": s.name, "value": s.name} for s in us.STATES]
 
 UNITS = {'mean_cf': 'CF %',
          'mean_lcoe': '$/MWh',
@@ -208,10 +182,7 @@ UNITS = {'mean_cf': 'CF %',
          'trans_capacity': 'MW',
          'trans_cap_cost': '$/MW',
          'lcot': '$/MWh',
-         'total_lcoe': '$/MWh',
-         'hh': 'm',
-         'rd': 'm',
-         'rs': 'unitless'}
+         'total_lcoe': '$/MWh'}
 
 VARIABLES = [
     {"label": "Mean Capacity Factor", "value": "mean_cf"},
@@ -222,18 +193,33 @@ VARIABLES = [
     {"label": 'Transmission Capital Costs', "value": 'trans_cap_cost'},
     {"label": "Mean Site-Based LCOE", "value": "mean_lcoe"},
     {"label": "LCOT", "value": "lcot"},
-    {"label": "Total LCOE", "value": "total_lcoe"},
-    {"label": "Hub Height", "value": "hh"},
-    {"label": "Rotor Diameter", "value": "rd"},
-    {"label": "Relative Spacing", "value": "rs"}
+    {"label": "Total LCOE", "value": "total_lcoe"}
 
 ]
 
 
-def make_datasets():
-    """Use the configuration dictionary to render the right project."""
-    with open(os.path.expanduser("~/.review_config"), "r") as file:
+def config_div(config_path):
+    """Build the project html div using the review configuration json."""
+    with open(config_path, "r") as file:
         config = json.load(file)
+
+    keys = list(config.keys())
+    options = []
+    for key in keys:
+        option = {"label": key, "value": key}
+        options.append(option)
+
+    div = html.Div([
+        html.H3("Project"),
+        dcc.Dropdown(
+            id="project",
+            options=options,
+            value=keys[0]
+            )
+        ], className="three columns"
+    )
+
+    return div
 
 
 def chart_point_filter(df, chartsel, chartvar):
@@ -252,276 +238,336 @@ def chart_point_filter(df, chartsel, chartvar):
     return df
 
 
-def fix_cfs(files):
-    """Convert capacity factors to percents if needed."""
-    for f in files:
-        df = pd.read_csv(f)
-        if "ps" in f and "mean_cf" in df.columns:
-            if df["mean_cf"].max() < 1:
-                df["mean_cf"] = round(df["mean_cf"] * 100, 2)
-                df.to_csv(f, index=False)
+def get_dataframe_path(project, *options):
+    """Get the table for a set of options."""
+    # There will be Nones
+    options = [str(o) for o in options if o]
+    if options:
+        # Extract the project config and its data frame
+        project_config = CONFIG[project]
+        directory = project_config["directory"]
+        data = pd.DataFrame(project_config["data"])
+        cols = data.columns
+    
+        # Find the matching path
+        for i, option in enumerate(options):
+            data = data[data[cols[i + 1]] == option]
+        try:
+            assert data.shape[0] == 1
+            path = os.path.join(directory, data["file"].values[0])
+        except:
+            raise AssertionError(
+                "The options did not result in a single selection."
+                )
+        return path
 
 
-def get_label(options, value):
-    """Get the label of a DASH list of options, given the value."""
-    option = [d for d in options if d["value"] == value]
-    return option[0]["label"]
-
-
-def make_scales(files, dst):
-    """Find the minimum and maximum values for each variable in all files."""
+def get_scales(project):
+    """Read or create a value scale data frame for each variable."""
+    project_config = CONFIG[project]
+    dst = os.path.join(project_config["directory"], "review_scale.csv")
     if not os.path.exists(dst):
-        dfs = []
-        for f in files:
-            df = pd.read_csv(f)
-            if df["mean_cf"].max() < 1:
-                df["mean_cf"] = round(df["mean_cf"] * 100, 2)
-            dfs.append(df)
-
-        ranges = {}
-        for variable in TITLES.keys():
-            mins = []
+        variables = get_variables(project_config)
+        data = pd.DataFrame(project_config["data"])
+        scales = {}
+        print("Calculating value scales for setting color ranges...")
+        for variable in tqdm(variables):
             maxes = []
-            for df in dfs:
-                var = df[variable]
-                mins.append(var.min())
-                maxes.append(var.max())
-            ranges[variable] = [min(mins), max(maxes)]
+            mins = []
+            for file in data["file"]:
+                path = os.path.join(project_config["directory"], file)
+                df = pd.read_csv(path)
+                maxes.append(df[variable].max())
+                mins.append(df[variable].min())
+            scales[variable] = {}
+            scales[variable]["max"] = max(maxes)
+            scales[variable]["min"] = max(mins)    
+        scales = pd.DataFrame(scales)
+        scales.to_csv(dst, index=False)
+    else:
+        scales = pd.read_csv(dst)
+        scales.index = ["min", "max"]
+    return scales
 
-        ranges = pd.DataFrame(ranges)
-        ranges.to_csv(dst, index=False)
 
-    ranges = pd.read_csv(dst)
-    ranges.index = ["min", "max"]
+def get_variables(project_config):
+    """Create a dictionary of variables given the extras in the config."""
+    extra_fields = project_config["extra_fields"]["titles"]
+    variables = {**TITLES, **extra_fields}
+    return variables
 
-    return ranges
+
+def is_number(x):
+    """check if a string is a number."""
+    try:
+        int(x)
+        check = True
+    except ValueError:
+        check = False
+    return check       
 
 
-def lcoe_winner(files):
-    """Return the LCOE winning row from a set of sc tables.
-
-    This currently has to be run in advance of this script.
+def sample_config(directory, config=None):
+    """Build a sample configuration file that can be used as template to
+    build custom ones and around which to structure configurable reView.
+    
+    directory = "/home/travis/github/reView/projects/configurable/data"
     """
-    for ps in PLANT_SIZE:
-        dst = DATAPATH.join("lcoe_winner_{}ps.csv".format(ps))
-        if not os.path.exists(dst):
-            dfs = [pd.read_csv(f) for f in files if "_{}ps".format(ps) in f]
-            rows = []
-            for i in tqdm(range(dfs[0].shape[0])):
-                lcoes = [df.loc[i]["total_lcoe"] for df in dfs]
-                idx = np.where(lcoes == np.min(lcoes))[0][0]
-                rows.append(dfs[idx].loc[i])
-            df = pd.DataFrame(rows)
-            df.to_csv(dst, index=False)
 
+    dp = Data_Path(directory)
 
-# Chart functions
-def get_ccap(paths, y, mapsel, point_size, state, reset, trig):
-    """Return a cumulative capacity scatterplot."""
-    df = None
-    for key, path in paths.items():
-        if df is None:
-            df = DATASETS[path].copy()
-            df["gid"] = df.index
-            df = df[["gid", "state", "capacity", y]]
-            if y == "capacity":
-                df.columns = ["gid", "state",  "capacity", "capacity2"]
-                var = "capacity2"
-            else:
-                var = y
-            df = df.sort_values(var)
-            df["ccap"] = df["capacity"].cumsum()
-            df["value"] = df[var]
-            if "Winner" not in key:
-                df["HH"] = key + " m"
-            else:
-                df["HH"] = key
-                df = df[["gid", "state", "ccap", "value", "HH"]]
+    if not config:
+        config = {}
+
+    template = {}
+    files = [os.path.basename(f) for f in glob(dp.join(directory, "*csv"))]
+    files.sort()
+    files.remove("scales.csv")
+    template["file"] = files
+
+    fdf = pd.DataFrame(template)
+
+    def hh(x):
+        if not "lcoe" in x:
+            return x[:3]
         else:
-            df2 = DATASETS[path].copy()
-            df2["gid"] = df2.index
-            df2 = df2[["gid", "state", "capacity", y]]
-            if y == "capacity":
-                df2.columns = ["gid", "state", "capacity", "capacity2"]
-                var = "capacity2"
+            return x[:11]
+
+    def ps(x):
+        if not "lcoe" in x:
+            ps = x.split("_")[1].replace("ps", "")
+        else:
+            ps = x.split("_")[2].replace("ps", "")
+        return ps
+
+    fdf["Hub Height"] = fdf["file"].apply(hh)
+    fdf["Plant Size"] = fdf["file"].apply(ps)
+
+    entry = {}
+    entry["data"] = fdf.to_dict()
+    entry["units"] = {"Hub Height": "m", "Plant Size": "MW"}
+    entry["directory"] = directory
+    entry["extra_fields"] = {
+        "titles": {
+            "hh": "Hub Height",
+            "rd": "Rotor Diameter",
+            "mw": "Plant Size",
+            "rs": "Relative Spacing"
+            },
+        "units": {
+            "hh": "m",
+            "rd": "m",
+            "mw": "MW",
+            "rs": "unitless"
+            }
+        }
+
+    config["Southern Company"] = entry
+    with open(os.path.expanduser("~/.review_config"), "w") as file:
+        file.write(json.dumps(config, indent=4))
+
+    return entry
+
+
+def setup_options(n):
+    """Setup option inputs and placeholder options."""
+    opt_inputs = [Input("option_{}".format(i), "value") for i in range(n)]
+    option_placeholders = []
+    for i in range(n):
+        op = html.Div(dcc.Dropdown(id="option_{}".format(i)),
+                      style={"display": "none"})
+        option_placeholders.append(op)
+    var = html.Div(dcc.Dropdown(id="variable", value="placeholder"),
+                   style={"display": "none"})
+    option_placeholders = option_placeholders + [var]
+    return opt_inputs, option_placeholders
+
+
+def sort_mixed(values):
+    """Sort a list of values accounting for possible mixed types."""
+    numbers = []
+    strings = []
+    for v in values:
+        if is_number(v):
+            numbers.append(float(v))
+        else:
+            strings.append(v)
+    numbers.sort(key=float)
+    strings.sort()
+    sorted_values = numbers + strings
+    return sorted_values
+
+
+
+class Plots:
+    def __init__(self, data, project, group, point_size):
+        """Initialize plotting object for a reV project."""
+        self.data = data
+        self.group = group
+        self.point_size = point_size
+        self.project = project
+        self.project_config = CONFIG[project]
+        self.units = self.project_config["units"]
+
+    def ccap(self):
+        """Return a cumulative capacity scatterplot."""
+        main_df = None
+        for key, df in self.data.items():
+            if main_df is None:
+                main_df = df.copy()
+                y = main_df.columns[1]
+                main_df = main_df.sort_values(y)
+                main_df["ccap"] = main_df["capacity"].cumsum()
+                main_df[self.group] = key
             else:
-                var = y
-            df2 = df2.sort_values(var)
-            if "Winner" not in key:
-                df2["HH"] = key + " m"
+                y = df.columns[1]
+                df = df.sort_values(y)
+                df["ccap"] = df["capacity"].cumsum()
+                df[self.group] = key
+                main_df = pd.concat([main_df, df])
+
+        main_df = main_df.sort_values(self.group)
+        fig = px.scatter(main_df,
+                         x="ccap",
+                         y=y,
+                         labels={"ccap": UNITS["capacity"], y: UNITS[y]},
+                         color=self.group,
+                         color_discrete_sequence=px.colors.qualitative.Safe)
+    
+        fig.update_traces(
+            marker=dict(
+                size=self.point_size,
+                line=dict(
+                    width=0
+                    )
+                ),
+            unselected=dict(
+                marker=dict(
+                    color="grey")
+                )
+            )
+    
+        return fig
+
+
+    def scatter(self):
+        """Return a regular scatterplot."""
+        main_df = None
+        for key, df in self.data.items():
+            if main_df is None:
+                x = df.columns[0]
+                y = df.columns[1]
+                main_df = df.copy()
+                main_df[self.group] = key
             else:
-                df2["HH"] = key
-            df2["ccap"] = df2["capacity"].cumsum()
-            df2["value"] = df2[var]
-            df2 = df2[["gid", "state", "ccap", "value", "HH"]]
-            df = pd.concat([df, df2])
+                df[self.group] = key
+                main_df = pd.concat([main_df, df])
 
-    # df = df.sort_values("ccap")
+        main_df = main_df.sort_values(self.group)
+        fig = px.scatter(main_df,
+                         x=x,
+                         y=y,
+                         labels={x: UNITS[x], y: UNITS[y]},
+                         color=self.group,
+                         color_discrete_sequence=px.colors.qualitative.Safe)
+    
+        fig.update_traces(
+            marker=dict(
+                size=self.point_size,
+                line=dict(
+                    width=0
+                    )
+                ),
+            unselected=dict(
+                marker=dict(
+                    color="grey")
+                )
+            )
+    
+        return fig
 
-    if "reset" not in trig:
-        if mapsel:
-            idx = [p["pointIndex"] for p in mapsel["points"]]
-            df = df[df["gid"].isin(idx)]
-        if state:
-            df = df[df["state"].isin(state)]
+    def histogram(self):
+        """Return a histogram."""
+        main_df = None
+        for key, df in self.data.items():
+            if main_df is None:
+                y = df.columns[1]
+                main_df = df.copy()
+                main_df[self.group] = key
+            else:
+                df[self.group] = key
+                main_df = pd.concat([main_df, df])
 
-    # Sort consistently
-    df = df.sort_values("HH")
+        main_df = main_df.sort_values(self.group)
 
-    fig = px.scatter(df,
-                     x="ccap",
-                     y="value",
-                     labels={"ccap": UNITS["capacity"],
-                             "value": UNITS[y]},
-                     color='HH',
+        fig = px.histogram(main_df,
+                           x=y,
+                           labels={y: UNITS[y]},
+                           color=self.group,
+                           color_discrete_sequence=px.colors.qualitative.Safe)
+
+        fig.update_traces(
+            marker=dict(
+                line=dict(
+                    width=0
+                    )
+                ),
+            unselected=dict(
+                marker=dict(
+                    color="grey")
+                )
+            )
+
+        return fig
+
+    def box(self):
+        """Return a boxplot."""
+
+        units = self.project_config["units"][self.group]
+        def fix_key(key, units):
+            """It can't display numbers and strings together."""
+            if is_number(key):
+                key = str(key) + units
+            return key
+
+        main_df = None
+        data = self.data.copy()
+        for key, df in data.items():
+            if main_df is None:
+                y = df.columns[1]
+                main_df = df.copy()
+                main_df[self.group] = key
+            else:
+                df[self.group] = key
+                main_df = pd.concat([main_df, df])
+
+        if all(main_df[self.group].apply(lambda x: is_number(x))):
+            main_df[self.group] = main_df[self.group].astype(int)
+        main_df = main_df.sort_values(self.group)
+        main_df[self.group] = main_df[self.group].apply(fix_key, units=units)
+
+        fig = px.box(main_df,
+                     x=self.group,
+                     y=y,
+                     labels={y: UNITS[y]},
+                     color=self.group,
                      color_discrete_sequence=px.colors.qualitative.Safe)
-
-    fig.update_traces(
-        marker=dict(
-            size=point_size,
-            line=dict(
-                width=0
-                )
-            ),
-        unselected=dict(
+    
+        fig.update_traces(
             marker=dict(
-                color="grey")
-            )
-        )
-
-    return fig
-
-
-def get_scatter(paths, x, y, mapsel, point_size, state, reset, trig):
-    """Return a regular scatterplot."""
-    df = None
-    for key, path in paths.items():
-        if df is None:
-            df = DATASETS[path].copy()
-            df["gid"] = df.index
-            df = df[["gid", "state", x, y]]
-            if x == y:
-                df.columns = ["gid", "state", x, y + "2"]
-                var = y + "2"
-            else:
-                var = y
-            df = df.sort_values(var)
-            df["x"] = df[x]
-            df["value"] = df[var]
-            if "Winner" not in key:
-                df["HH"] = key + " m"
-            else:
-                df["HH"] = key
-                df = df[["gid", "state", "x", "value", "HH"]]
-        else:
-            df2 = DATASETS[path].copy()
-            df2["gid"] = df2.index
-            df2 = df2[["gid", "state", x, y]]
-            if x == y:
-                df2.columns = ["gid", "state",  x, y + "2"]
-                var = y + "2"
-            else:
-                var = y
-            df2 = df2.sort_values(var)
-            df2["x"] = df2[x]
-            df2["value"] = df2[var]
-            if "Winner" not in key:
-                df2["HH"] = key + " m"
-            else:
-                df2["HH"] = key
-            df2 = df2[["gid", "state", "x", "value", "HH"]]
-            df = pd.concat([df, df2])
-
-    df = df.sort_values("x")
-
-    if "reset" not in trig:
-        if mapsel:
-            idx = [p["pointIndex"] for p in mapsel["points"]]
-            df = df[df["gid"].isin(idx)]
-        if state:
-            df = df[df["state"].isin(state)]
-
-    # Sort consistently
-    df = df.sort_values("HH")
-
-    fig = px.scatter(df,
-                     x="x",
-                     y="value",
-                     labels={"x": UNITS[x],
-                             "value": UNITS[y]},
-                     color='HH',
-                     color_discrete_sequence=px.colors.qualitative.Safe)
-
-    fig.update_traces(
-        marker=dict(
-            size=point_size,
-            line=dict(
-                width=0
+                size=self.point_size,
+                opacity=1,
+                line=dict(
+                    width=0,
+                    )
+                ),
+            unselected=dict(
+                marker=dict(
+                    color="grey")
                 )
-            ),
-        unselected=dict(
-            marker=dict(
-                color="grey")
             )
-        )
-
-    return fig
-
-
-def get_histogram(paths, y, mapsel, point_size, state, reset, trig):
-    """Return a histogram."""
-    df = None
-    for key, path in paths.items():
-        if df is None:
-            df = DATASETS[path].copy()
-            df["gid"] = df.index
-            df = df[["gid", "state", y]]
-            if "Winner" not in key:
-                df["HH"] = key + " m"
-            else:
-                df["HH"] = key
-            df = df[["gid", "state", y, "HH"]]
-        else:
-            df2 = DATASETS[path].copy()
-            df2["gid"] = df2.index
-            df2 = df2[["gid", "state", y]]
-            if "Winner" not in key:
-                df2["HH"] = key + " m"
-            else:
-                df2["HH"] = key
-            df2 = df2[["gid", "state", y, "HH"]]
-            df = pd.concat([df, df2])
-
-    if "reset" not in trig:
-
-        if mapsel:
-            idx = [p["pointIndex"] for p in mapsel["points"]]
-            df = df[df["gid"].isin(idx)]
-        if state:
-            df = df[df["state"].isin(state)]
-
-    # Sort consistently
-    df = df.sort_values("HH")
-
-    fig = px.histogram(df,
-                       x=y,
-                       labels={y: UNITS[y]},
-                       color="HH",
-                       color_discrete_sequence=px.colors.qualitative.Safe)
-
-    fig.update_traces(
-        marker=dict(
-            line=dict(
-                width=0
-                )
-            ),
-        unselected=dict(
-            marker=dict(
-                color="grey")
-            )
-        )
-
-    return fig
+    
+        return fig
 
 
 def get_boxplot(paths, y, mapsel, point_size, state, reset, trig):

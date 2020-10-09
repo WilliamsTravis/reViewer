@@ -394,7 +394,7 @@ def soco_config(directory, config=None):
     """Build a sample configuration file that can be used as template to
     build custom ones and around which to structure configurable reView.
 
-    directory = "/shared-projects/rev/projects/soco/rev/runs/aggregation"
+    directory = "/shared-projects/rev/projects/soco/rev/final/wind/aggregation"
     """
 
     dp = Data_Path(directory)
@@ -403,42 +403,43 @@ def soco_config(directory, config=None):
         config = {}
 
     template = {}
-    files = glob(dp.join(directory, "*/*_sc.csv"))
+    files = glob(dp.join(directory, "*/*lcoe*_sc.csv"))
     files.sort()
     template["file"] = files
 
     fdf = pd.DataFrame(template)
 
     def land(x):
-        return os.path.basename(x).split("_")[0]        
-
-    def hh(x):
-        return os.path.basename(x).split("_")[1].replace("hh", "")
+        return os.path.basename(x).split("_")[0]  
 
     def ps(x):
         return os.path.basename(x).split("_")[2].replace("ps", "")
 
-    def coast(x):
-        if "nocoast" in os.path.basename(x):
-            return "Yes"
-        else:
-            return "No"
+    def cc(x):
+        cc_str = os.path.basename(x).split("_")[3].replace("cc", "")
+        return int(cc_str) / 100
 
     fdf["Land Use"] = fdf["file"].apply(land)
-    fdf["Hub Height"] = fdf["file"].apply(hh)
     fdf["Plant Size"] = fdf["file"].apply(ps)
-    fdf["Exclude Coast"] = fdf["file"].apply(coast)
+    fdf["CAPEX Scale"] = fdf["file"].apply(cc)
 
     entry = {}
     entry["data"] = fdf.to_dict()
-    entry["units"] = {"Land Use": " Category",
-                      "Hub Height": "m",
-                      "Plant Size": "MW",
-                      "Exclude Coast": ""}
+    entry["units"] = {
+        "Land Use": " Category",
+        "Plant Size": "MW",
+        "CAPEX Scale": "Percent (%)",
+        }
     entry["directory"] = directory
     entry["extra_fields"] = {
-        "titles": {},
-        "units": {}
+        "titles": {
+            "hh": "Hub Height",
+            "rs": "Relative Spacing"
+            },
+        "units": {
+            "hh": "m",
+            "rs": "D"
+            }
         }
     config["Southern Company"] = entry
     with open(os.path.expanduser("~/.review_config"), "w") as file:

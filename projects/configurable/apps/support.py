@@ -247,14 +247,16 @@ def get_dataframe_path(project, *options):
         directory = project_config["directory"]
         data = pd.DataFrame(project_config["data"])
         cols = data.columns
-    
+
         # Find the matching path
         for i, option in enumerate(options):
             data = data[data[cols[i + 1]] == option]
         try:
             assert data.shape[0] == 1
-            path = os.path.join(directory, data["file"].values[0])
+            path = data["file"].values[0]
         except:
+            print(data["file"].apply(lambda x: os.path.basename(x)))
+            print(options)
             raise AssertionError(
                 "The options did not result in a single selection."
                 )
@@ -273,8 +275,7 @@ def get_scales(project):
         for variable in tqdm(variables):
             maxes = []
             mins = []
-            for file in data["file"]:
-                path = os.path.join(project_config["directory"], file)
+            for path in data["file"]:
                 df = pd.read_csv(path)
                 maxes.append(df[variable].max())
                 mins.append(df[variable].min())
@@ -305,12 +306,95 @@ def is_number(x):
         check = False
     return check       
 
-
-def sample_config(directory, config=None):
+def bat_config(directory, config=None):
     """Build a sample configuration file that can be used as template to
     build custom ones and around which to structure configurable reView.
-    
-    directory = "/home/travis/github/reView/projects/configurable/data"
+
+    directory = "/shared-projects/rev/projects/weto/bat_curtailment/rev_supply_curve"
+    """
+
+    cfs = {
+        "0": "Jul 15 to Oct 16 - 5m/s (Variable: temp => ((15 / 7) * (ws) + 10)",
+        "1": "Jul 15 to Oct 16 - 6m/s (Variable: temp => ((10 / 7) * (ws) + 10)",
+        "2": "Jul 15 to Oct 16 - 6.9m/s (Variable: temp => ((5 / 7) * (ws) + 10)",
+        "3": "Jul 01 to Nov 01 - 5m/s",
+        "4": "Jul 01 to Nov 01 - 6m/s",
+        "5": "Jul 01 to Nov 01 - 6.9m/s",
+        "6": "Apr 01 Nov 01 - 5m/s",
+        "7": "Apr 01 Nov 01 - 6m/s",
+        "8": "Apr 01 Nov 01 - 6.9m/s",
+        "no_curtailment": "no_curtailment"
+    }
+
+    sds = {
+        "0": "50",
+        "1": "100",
+        "2": "200"
+        }
+
+    dp = Data_Path(directory)
+
+    if not config:
+        config = {}
+
+    template = {}
+    files = glob(dp.join(directory, "*/*_sc.csv"))
+    files.sort()
+    template["file"] = files
+
+    fdf = pd.DataFrame(template)
+
+    def strategy(x):
+        if "no_curtailment" in x:
+            return "no_curtailment"
+        else:
+            return os.path.basename(x).split("_")[0]        
+
+    def curtailment(x):
+        if "no_curtailment" in x:
+            code = "no_curtailment"
+        else:
+            code = os.path.basename(x).split("_")[1].replace("cf", "")
+        return cfs[code]
+
+    def ps(x):
+        code = os.path.basename(x).split("_")[2].replace("sd", "")
+        return sds[code]
+
+    fdf["Strategy"] = fdf["file"].apply(strategy)
+    fdf["Curtailment"] = fdf["file"].apply(curtailment)
+    fdf["Plant Size"] = fdf["file"].apply(ps)
+
+    entry = {}
+    entry["data"] = fdf.to_dict()
+    entry["units"] = {"Strategy": " Category",
+                      "Curtailment": " Category",
+                      "Plant Size": " Category"}
+    entry["directory"] = directory
+    entry["extra_fields"] = {
+            "titles": {
+                "aep": "AEP",
+                "b_aep": "Baseline AEP",
+                "pr_aep": "Percent Reduction in AEP"
+            },
+            "units": {
+                "aep": "MWh",
+                "b_aep": "MWh",
+                "pr_aep": "Ratio"
+            }
+    }
+    config["WETO Bat Curtailment"] = entry
+    with open(os.path.expanduser("~/.review_config"), "w") as file:
+        file.write(json.dumps(config, indent=4))
+
+    return entry
+
+
+def soco_config(directory, config=None):
+    """Build a sample configuration file that can be used as template to
+    build custom ones and around which to structure configurable reView.
+
+    directory = "/shared-projects/rev/projects/soco/rev/runs/aggregation"
     """
 
     dp = Data_Path(directory)
@@ -319,48 +403,43 @@ def sample_config(directory, config=None):
         config = {}
 
     template = {}
-    files = [os.path.basename(f) for f in glob(dp.join(directory, "*csv"))]
+    files = glob(dp.join(directory, "*/*_sc.csv"))
     files.sort()
-    files.remove("scales.csv")
     template["file"] = files
 
     fdf = pd.DataFrame(template)
 
+    def land(x):
+        return os.path.basename(x).split("_")[0]        
+
     def hh(x):
-        if not "lcoe" in x:
-            return x[:3]
-        else:
-            return x[:11]
+        return os.path.basename(x).split("_")[1].replace("hh", "")
 
     def ps(x):
-        if not "lcoe" in x:
-            ps = x.split("_")[1].replace("ps", "")
-        else:
-            ps = x.split("_")[2].replace("ps", "")
-        return ps
+        return os.path.basename(x).split("_")[2].replace("ps", "")
 
+    def coast(x):
+        if "nocoast" in os.path.basename(x):
+            return "Yes"
+        else:
+            return "No"
+
+    fdf["Land Use"] = fdf["file"].apply(land)
     fdf["Hub Height"] = fdf["file"].apply(hh)
     fdf["Plant Size"] = fdf["file"].apply(ps)
+    fdf["Exclude Coast"] = fdf["file"].apply(coast)
 
     entry = {}
     entry["data"] = fdf.to_dict()
-    entry["units"] = {"Hub Height": "m", "Plant Size": "MW"}
+    entry["units"] = {"Land Use": " Category",
+                      "Hub Height": "m",
+                      "Plant Size": "MW",
+                      "Exclude Coast": ""}
     entry["directory"] = directory
     entry["extra_fields"] = {
-        "titles": {
-            "hh": "Hub Height",
-            "rd": "Rotor Diameter",
-            "mw": "Plant Size",
-            "rs": "Relative Spacing"
-            },
-        "units": {
-            "hh": "m",
-            "rd": "m",
-            "mw": "MW",
-            "rs": "unitless"
-            }
+        "titles": {},
+        "units": {}
         }
-
     config["Southern Company"] = entry
     with open(os.path.expanduser("~/.review_config"), "w") as file:
         file.write(json.dumps(config, indent=4))
@@ -413,7 +492,8 @@ class Config:
 
     def chart_title(self, var_title, op_values, group):
         """Make a title for the chart with variable/group name and options."""
-        del op_values[group]
+        if group in op_values:
+            del op_values[group]
         for op, val in op_values.items():
             units = self.project_config["units"][op]
             op_title = str(val) + units + " " + op
@@ -422,11 +502,18 @@ class Config:
         return var_title
 
     @property
+    def options(self):
+        """Not all options will be available for every grouping variable."""
+        options = {}
+        data = pd.DataFrame(self.project_config["data"])
+        del data["file"]
+        for col in data.columns:
+            options[col] = list(data[col].unique())
+
+    @property
     def data(self):
         """Return a pandas data frame with fuill file paths."""
         data = pd.DataFrame(self.project_config["data"])
-        directory = self.project_config["directory"]
-        data["file"] = data["file"].apply(lambda x: os.path.join(directory, x))
         return data
 
     @property

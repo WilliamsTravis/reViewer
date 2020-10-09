@@ -1,5 +1,4 @@
-/data/
-**/data/
-.DS_Store
-/__pycache__
-**/__pycache_
+data/
+*.DS_Store
+__pycache__/
+

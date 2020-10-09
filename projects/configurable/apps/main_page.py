@@ -20,6 +20,7 @@ import os
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dask.dataframe as dd
 import pandas as pd
 
 from app import app, cache
@@ -140,7 +141,7 @@ layout = html.Div(
                                 className="two columns"),
                         dcc.Input(
                             id="map_point_size",
-                            value=3,
+                            value=5,
                             type="number",
                             className="two columns",
                             style={"margin-left": -5, "width": "7%"}
@@ -283,27 +284,34 @@ layout = html.Div(
 
 # Read and cache the dataframe according to the input values
 @cache.memoize()
-def cache_map_table(path, idx=None):
+def cache_map_table(path, y="total_lcoe", idx=None):
     """Read and store a data frame from the config and options given."""
     df = pd.read_csv(path)
-    if idx:
-        df = df.iloc[idx]
+    if idx is not None:
+        df = df.loc[idx]
+    df = df[[y, "state", "county", "latitude", "longitude"]]
     return df
 
+# def cache_map_table2(path, x="capacity", y="total_lcoe", idx=None):
+#     """Read and store a data frame from the config and options given."""
+#     df2 = dd.read_csv(path)
+#     if idx is not None:
+#         df2 = df2.map_partitions(lambda x: x[x.index.isin(idx)])
+#     df2 = df2[[x, y]]
+#     df2 = df2.compute()
+#     return df
 
 @cache.memoize()
 def cache_chart_tables(project, group, x, y, state, idx, *options):
     """Read and store a data frame from the config and options given.
     
     project = "Southern Company"
-    y = "total_lcoe"
+    y = "capacity"
     x = "capacity"
     group = "Plant Size"
     filters = {"Hub Height": "120", "Plant Size": "20"}
     idx = None    
     """
-    if group == "placeholder":
-        raise PreventUpdate
     project_config = CONFIG[project]
     directory = project_config["directory"]
     data = pd.DataFrame(project_config["data"]).copy()
@@ -318,9 +326,10 @@ def cache_chart_tables(project, group, x, y, state, idx, *options):
     dfs = {}
     for i, row in data.iterrows():
         group_val = row[group]
-        file = row["file"]
-        path = os.path.join(directory, file)
+        path = row["file"]
         df = pd.read_csv(path, usecols=[x, y, "state"])
+        if x == y:
+            df[x + "2"] = df[x].copy()
         if state:
             df = df[df["state"].isin(state)]
         if idx:
@@ -384,7 +393,12 @@ def chart_tab_options(tab_choice, chart_choice, project):
                Input("project", "value")] + OPTION_INPUTS)
 def get_map_table(option_div, project, *options):
     """Get the data path from a list of map options and store those optons."""
-    options = [o for o in options if o]
+    print("get_map_table options:")
+    print(options)
+    options = [str(o) for o in options if o is not None]
+    print(options)
+    types = [type(o) for o in options]
+    print(types)
     op_names = []
     for o in option_div:
         entry = o["props"]["children"][0]["props"]
@@ -530,8 +544,9 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    print_args(make_map, variable, state, basemap, color, chartsel, point_size,
-                rev_color, reset, mapview, mapsel)
+    print_args(make_map, data_path, variable, state, basemap, color, chartsel,
+               point_size, rev_color, reset, project, mapview, mapsel,
+               op_values)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     config = Config(project)
@@ -555,7 +570,7 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
         rev_color = False
 
     # Build the scatter plot data object
-    df = cache_map_table(data_path)
+    df = cache_map_table(data_path, y=variable)
 
     if "reset" not in trig:
         # If there is a selection in the chart filter these points
@@ -575,7 +590,6 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
     df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
                   + df[variable].round(2).astype(str) + " "
                   + config.units[variable])
-    df = df[[variable, "latitude", "longitude", "text"]]
 
     # Reverse color is from a button (number of clicks)
     if rev_color % 2 == 1:
@@ -619,7 +633,7 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
     layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
     layout_copy['mapbox']['bearing'] = mapview['mapbox.bearing']
     layout_copy['mapbox']['pitch'] = mapview['mapbox.pitch']
-    layout_copy['titlefont'] = dict(color='white', size=25,
+    layout_copy['titlefont'] = dict(color='white', size=20,
                                     family='Time New Roman',
                                     fontweight='bold')
     layout_copy["dragmode"] = "select"
@@ -697,7 +711,7 @@ def make_chart(chart, signal, mapsel, point_size, reset, chartview, chartsel,
         title_font_family="Times New Roman",
         legend_title_font_color="black",
         font_color="white",
-        title_font_size=25,
+        title_font_size=20,
         font_size=15,
         margin=dict(l=70, r=20, t=70, b=20),
         height=500,
@@ -737,7 +751,6 @@ def toggle_rev_color_button(click):
     if click % 2 == 1:
         children = 'Reverse Map Color: Off'
         style = BUTTON_STYLES["off"]
-
     else:
         children = 'Reverse Map Color: On'
         style = BUTTON_STYLES["on"]

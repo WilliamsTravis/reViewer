@@ -396,51 +396,77 @@ def soco_config(directory, config=None):
 
     directory = "/shared-projects/rev/projects/soco/rev/final/wind/aggregation"
     """
-
+    # Create data path object
     dp = Data_Path(directory)
 
+    # Append to existing config or create new one
     if not config:
         config = {}
 
+    # Find paths to all file
     template = {}
-    files = glob(dp.join(directory, "*/*lcoe*_sc.csv"))
+    files = dp.contents("soco_results/*_sc.csv")  # <-------------------------- Paramterize pattern recognition
     files.sort()
     template["file"] = files
-
     fdf = pd.DataFrame(template)
 
-    def land(x):
+    # File grouping variables
+    def lu(x):
         return os.path.basename(x).split("_")[0]  
 
+    def mw(x):
+        return os.path.basename(x).split("_")[1].replace("mw", "")
+
+    def hh(x):
+        return os.path.basename(x).split("_")[2].replace("hh", "")
+
+    def rs(x):
+        return os.path.basename(x).split("_")[3].replace("rs", "")
+
     def ps(x):
-        return os.path.basename(x).split("_")[2].replace("ps", "")
+        return os.path.basename(x).split("_")[4].replace("ps", "")
 
     def cc(x):
-        cc_str = os.path.basename(x).split("_")[3].replace("cc", "")
-        return int(cc_str) / 100
+        cc_str = os.path.basename(x).split("_")[5].replace("cc", "")
+        return "{:.2f}".format(int(cc_str) / 100)
 
-    fdf["Land Use"] = fdf["file"].apply(land)
+    fdf["Land Use"] = fdf["file"].apply(lu)
+    fdf["Rating"] = fdf["file"].apply(mw)
+    fdf["Hub Height"] = fdf["file"].apply(hh)
+    fdf["Relative Spacing"] = fdf["file"].apply(rs)
     fdf["Plant Size"] = fdf["file"].apply(ps)
     fdf["CAPEX Scale"] = fdf["file"].apply(cc)
+    fdf["name"] = fdf["file"].apply(lambda x: os.path.basename(x))
 
+    # Extra fields
+    extra_titles = {
+        "hh": "Hub Height",
+        "rd": "Rotor Diameter"
+        }
+    extra_units = {
+        "hh": "m",
+        "rd": "m"
+        }
+    titles = {**TITLES, **extra_titles}
+    units = {**UNITS, **extra_units}
+
+    # Create entry
     entry = {}
     entry["data"] = fdf.to_dict()
     entry["units"] = {
         "Land Use": " Category",
+        "Rating": "MW",
+        "Hub Height": "m",
+        "Relative Spacing": "D",
         "Plant Size": "MW",
         "CAPEX Scale": "Percent (%)",
         }
     entry["directory"] = directory
-    entry["extra_fields"] = {
-        "titles": {
-            "hh": "Hub Height",
-            "rs": "Relative Spacing"
-            },
-        "units": {
-            "hh": "m",
-            "rs": "D"
-            }
+    entry["fields"] = {
+        "titles": titles,
+        "units": units
         }
+
     config["Southern Company"] = entry
     with open(os.path.expanduser("~/.review_config"), "w") as file:
         file.write(json.dumps(config, indent=4))

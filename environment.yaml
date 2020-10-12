@@ -12,7 +12,10 @@ dependencies:
   - gunicorn
   - h5py
   - matplotlib
+  - pip
   - rasterio
   - spyder
   - tqdm
   - tk
+  - pip:
+    - colorama

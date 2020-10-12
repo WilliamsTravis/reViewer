@@ -5,16 +5,20 @@ Created on Sat Aug 15 15:47:40 2020
 @author: travis
 """
 
-from glob import glob
 import json
 import os
 
+from collections import Counter
+from glob import glob
+
 import dash_core_components as dcc
 import dash_html_components as html
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import us
 
+from colorama import Style, Fore
 from dash.dependencies import Input
 from review import Data_Path
 from tqdm import tqdm
@@ -244,9 +248,9 @@ def get_dataframe_path(project, *options):
     if options:
         # Extract the project config and its data frame
         project_config = CONFIG[project]
-        directory = project_config["directory"]
         data = pd.DataFrame(project_config["data"])
         cols = data.columns
+        del data["name"]
 
         # Find the matching path
         for i, option in enumerate(options):
@@ -258,7 +262,11 @@ def get_dataframe_path(project, *options):
             print(data["file"].apply(lambda x: os.path.basename(x)))
             print(options)
             raise AssertionError(
-                "The options did not result in a single selection."
+                Fore.RED
+                + "The options did not result in a single selection:"
+                + "\n"
+                + str(options)
+                + Style.RESET_ALL
                 )
         return path
 
@@ -286,14 +294,14 @@ def get_scales(project):
         scales.to_csv(dst, index=False)
     else:
         scales = pd.read_csv(dst)
+        scales = scales.sort_values(list(scales.columns)[0])
         scales.index = ["min", "max"]
     return scales
 
 
 def get_variables(project_config):
     """Create a dictionary of variables given the extras in the config."""
-    extra_fields = project_config["extra_fields"]["titles"]
-    variables = {**TITLES, **extra_fields}
+    variables = project_config["fields"]["titles"]
     return variables
 
 
@@ -405,7 +413,7 @@ def soco_config(directory, config=None):
 
     # Find paths to all file
     template = {}
-    files = dp.contents("soco_results/*_sc.csv")  # <-------------------------- Paramterize pattern recognition
+    files = dp.contents("*_sc.csv")  # <--------------------------------------- Paramterize pattern recognition
     files.sort()
     template["file"] = files
     fdf = pd.DataFrame(template)
@@ -546,15 +554,13 @@ class Config:
     @property
     def titles(self):
         """Return a titles dictionary with extra fields."""
-        extras = self.project_config["extra_fields"]
-        titles = {**TITLES, **extras["titles"]}
+        titles = self.project_config["fields"]["titles"]
         return titles
 
     @property
     def units(self):
         """Return a units dictionary with extra fields."""
-        extras = self.project_config["extra_fields"]
-        units = {**UNITS, **extras["units"]}
+        units = self.project_config["fields"]["units"]
         return units
 
 
@@ -572,9 +578,10 @@ class Plots:
         """Return a cumulative capacity scatterplot."""
         main_df = None
         for key, df in self.data.items():
+            df = self._fix_doubles(df)
             if main_df is None:
                 main_df = df.copy()
-                y = main_df.columns[1]  # <------------------------------------ Fix case where y =="capacity"
+                y = main_df.columns[1]  # <------------------------------ Fix case where y =="capacity"
                 main_df = main_df.sort_values(y)
                 main_df["ccap"] = main_df["capacity"].cumsum()
                 main_df[self.group] = key
@@ -585,14 +592,19 @@ class Plots:
                 df[self.group] = key
                 main_df = pd.concat([main_df, df])
 
+        if "_2" in y:
+            labely = y.replace("_2", "")
+        else:
+            labely = y
+
         main_df = main_df.sort_values(self.group)
         fig = px.scatter(main_df,
                          x="ccap",
                          y=y,
-                         labels={"ccap": UNITS["capacity"], y: UNITS[y]},
+                         labels={"ccap": UNITS["capacity"], y: UNITS[labely]},
                          color=self.group,
                          color_discrete_sequence=px.colors.qualitative.Safe)
-    
+
         fig.update_traces(
             marker=dict(
                 size=self.point_size,
@@ -613,6 +625,7 @@ class Plots:
         """Return a regular scatterplot."""
         main_df = None
         for key, df in self.data.items():
+            df = self._fix_doubles(df)
             if main_df is None:
                 x = df.columns[0]
                 y = df.columns[1]
@@ -622,11 +635,16 @@ class Plots:
                 df[self.group] = key
                 main_df = pd.concat([main_df, df])
 
+        if "_2" in y:
+            labely = y.replace("_2", "")
+        else:
+            labely = y
+
         main_df = main_df.sort_values(self.group)
         fig = px.scatter(main_df,
                          x=x,
                          y=y,
-                         labels={x: UNITS[x], y: UNITS[y]},
+                         labels={x: UNITS[x], y: UNITS[labely]},
                          color=self.group,
                          color_discrete_sequence=px.colors.qualitative.Safe)
     
@@ -649,6 +667,7 @@ class Plots:
         """Return a histogram."""
         main_df = None
         for key, df in self.data.items():
+            df = self._fix_doubles(df)
             if main_df is None:
                 y = df.columns[1]
                 main_df = df.copy()
@@ -657,11 +676,15 @@ class Plots:
                 df[self.group] = key
                 main_df = pd.concat([main_df, df])
 
-        main_df = main_df.sort_values(self.group)
+        if "_2" in y:
+            labely = y.replace("_2", "")
+        else:
+            labely = y
 
+        main_df = main_df.sort_values(self.group)
         fig = px.histogram(main_df,
                            x=y,
-                           labels={y: UNITS[y]},
+                           labels={y: UNITS[labely]},
                            color=self.group,
                            color_discrete_sequence=px.colors.qualitative.Safe)
 
@@ -692,6 +715,7 @@ class Plots:
         main_df = None
         data = self.data.copy()
         for key, df in data.items():
+            df = self._fix_doubles(df)
             if main_df is None:
                 y = df.columns[1]
                 main_df = df.copy()
@@ -699,6 +723,11 @@ class Plots:
             else:
                 df[self.group] = key
                 main_df = pd.concat([main_df, df])
+
+        if "_2" in y:
+            labely = y.replace("_2", "")
+        else:
+            labely = y
 
         if all(main_df[self.group].apply(lambda x: is_number(x))):
             main_df[self.group] = main_df[self.group].astype(int)
@@ -708,7 +737,7 @@ class Plots:
         fig = px.box(main_df,
                      x=self.group,
                      y=y,
-                     labels={y: UNITS[y]},
+                     labels={y: UNITS[labely]},
                      color=self.group,
                      color_discrete_sequence=px.colors.qualitative.Safe)
     
@@ -727,3 +756,14 @@ class Plots:
             )
     
         return fig
+
+    def _fix_doubles(self, df):
+        """Check and or fix columns names when they match."""
+        cols = np.array(df.columns)
+        counts = Counter(cols)
+        for col, count in counts.items():
+            if count > 1:
+                idx = np.where(cols == col)[0]
+                cols[idx[1]] = col + "_2"
+        df.columns = cols
+        return df

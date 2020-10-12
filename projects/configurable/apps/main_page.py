@@ -11,6 +11,9 @@ Things to do:
     - Add point selection reset button
     - Add link to GDS page
     - Customize CSS, remove internal styling
+
+    - include a value range table in the config file
+    - speed up get_scales
 """
 
 import copy
@@ -34,7 +37,7 @@ from .support import (chart_point_filter, config_div, get_dataframe_path,
                       get_scales, get_variables, setup_options, sort_mixed,
                       Config, Plots)
 
-NOPTIONS = 5
+NOPTIONS = 6
 OPTION_INPUTS, OPTION_PLACEHOLDER = setup_options(NOPTIONS)
 
 
@@ -394,11 +397,8 @@ def chart_tab_options(tab_choice, chart_choice, project):
 def get_map_table(option_div, project, *options):
     """Get the data path from a list of map options and store those optons."""
     print("get_map_table options:")
-    print(options)
     options = [str(o) for o in options if o is not None]
     print(options)
-    types = [type(o) for o in options]
-    print(types)
     op_names = []
     for o in option_div:
         entry = o["props"]["children"][0]["props"]
@@ -489,7 +489,7 @@ def make_options(project):
             entries.append(entry)
 
     # Add in the variable options
-    variables = get_variables(project_config)
+    variables = project_config["fields"]["titles"]
     var_options = []
     for value, label in variables.items():
         option = {"label": label, "value": value}
@@ -544,6 +544,9 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
+    if not data_path:
+        raise PreventUpdate
+
     print_args(make_map, data_path, variable, state, basemap, color, chartsel,
                point_size, rev_color, reset, project, mapview, mapsel,
                op_values)
@@ -551,9 +554,6 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
     trig = dash.callback_context.triggered[0]['prop_id']
     config = Config(project)
     op_values = json.loads(op_values)
-
-    if not data_path:
-        raise PreventUpdate
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -616,7 +616,10 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
                     size=point_size,
                     colorbar=dict(
                         title=config.units[variable],
-                        dtickrange=scales[variable],
+                        dtickrange=[
+                            scales[variable]["min"],
+                            scales[variable]["max"]
+                            ],
                         textposition="auto",
                         orientation="h",
                         font=dict(
@@ -659,7 +662,7 @@ def make_chart(chart, signal, mapsel, point_size, reset, chartview, chartsel,
     """Make one of a variety of charts."""
     signal = json.loads(signal)
     print_args(make_chart, chart, signal, mapsel, point_size, reset,
-               chartview, chartsel)
+               chartview, chartsel, op_values)
 
     # Get the set of data frame using the stored signal
     project, group, y, x, state, *options = signal

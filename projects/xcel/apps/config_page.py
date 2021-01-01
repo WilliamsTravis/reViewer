@@ -19,7 +19,7 @@ import tkinter as tk
 from dash.dependencies import Input, Output, State
 
 from app import app
-from revruns import Data_Path
+from revruns.rr import Data_Path
 from tkinter import filedialog
 # from tkinter import ttk
 

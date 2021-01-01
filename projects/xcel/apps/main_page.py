@@ -4,7 +4,6 @@ Spyder Editor
 
 This is a temporary script file.
 """
-
 import copy
 import json
 import os
@@ -17,7 +16,7 @@ import pandas as pd
 from app import app
 from dash.dependencies import Input, Output, State
 from review import print_args
-from revruns import Data_Path
+from revruns.rr import Data_Path
 from .support import (BASEMAPS, BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
                       DATAKEYS, DATASETS, DEFAULT_MAPVIEW, MAP_LAYOUT,
                       STYLESHEET, TITLES, TAB_STYLE,

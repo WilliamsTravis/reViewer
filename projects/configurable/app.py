@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""
+"""Create dash application objects, server, and data caches.
+s
 Created on Sun Aug 23 16:39:45 2020
 
 @author: travis

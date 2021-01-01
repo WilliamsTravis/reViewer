@@ -1,19 +1,16 @@
 # -*- coding: utf-8 -*-
-"""
-Configuration Application
+"""Configuration Application.
 
 Created on Sun Aug 23 16:27:25 2020
 
 @author: travis
 """
-
 import json
 import os
 
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-import matplotlib
 import tkinter as tk
 
 from dash.dependencies import Input, Output, State
@@ -48,19 +45,21 @@ layout = html.Div([
             name="name_test",
             debounce=True,
             style={"width": "30%"}
-            ),
+        ),
 
         html.Button(
             children="navigate",
-            title="navigate the file system for the project directory",
+            title="Navigate the file system for the project directory.",
             id="proj_nav",
             n_clicks=0
-            ),
-
+        ),
     ], className="row",
-        style={"margin-left": "50px"}
+       style={"margin-left": "50px"}
     ),
 
+    html.Div(
+        id="project_directory_print"
+    ),
 
     # Groups
     html.H5("Create Groups", style={"margin-top": "50px"}),
@@ -87,8 +86,8 @@ layout = html.Div([
     ),
 
     # Dataset paths
-    html.H5("Add Data Set(s)", style={"margin-top": "50px"}),
     html.Div([
+        html.H5("Add Data Set(s)", style={"margin-top": "50px"}),
 
         html.Button(
             id="file_nav",
@@ -98,17 +97,26 @@ layout = html.Div([
             ),
 
     ], className="row",
-        style={"margin-left": "50px", "margin-bottom": "15px"}),
+        style={"margin-bottom": "15px"}),
 
     html.Div(
         id="file_groups",
         style={"margin-bottom": "50px", "margin-left": "50px"}
     ),
 
-    # Storage Units
+    # Submit and trigger configuration build/update
+    html.Button(
+        id="submit",
+        children="submit",
+        title="Submit above values and build the project configuration file.",
+        n_clicks=0
+    ),
+
+    # Storage
     html.Div(id="proj_dir", style={"display": "none"}, children="/"),
     html.Div(id="groups",  style={"display": "none"}),
-    html.Div(id="files", style={"display": "none"})
+    html.Div(id="files", style={"display": "none"}),
+    html.Div(id="config", style={"display": "none"})
 
 ], className="twelve columns")
 
@@ -116,7 +124,7 @@ layout = html.Div([
 def navigate(which, initialdir="/"):
     """Browse directory for file or folder paths."""
     # Print variables
-    print_args(navigate, which, initialdir)
+    # print_args(navigate, which, initialdir)
 
     filetypes = [('ALL', '*'), ('CSV', '*.csv')]
 
@@ -145,14 +153,15 @@ def navigate(which, initialdir="/"):
 
 
 @app.callback([Output("proj_input", "placeholder"),
-               Output("proj_dir", "children")],
+               Output("proj_dir", "children"),
+               Output("project_directory_print", "children")],
               [Input("proj_nav", "n_clicks"),
                Input("proj_input", "value")])
 def find_dir(n_clicks, path):
     """Find the root project directory containing data files."""
     # Print variables
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(find_dir, n_clicks, path, trig)
+    # print_args(find_dir, n_clicks, path, trig)
 
     if "proj_nav" in trig:
         if n_clicks > 0:
@@ -164,7 +173,16 @@ def find_dir(n_clicks, path):
     else:
         path = "/"
 
-    return path, path
+    sdiv = html.Div(
+            id="project_directory",
+            children=[
+                html.P(path),
+            ],
+            className="row",
+            style={"margin-left": "100px", "margin-bottom": "15px"}
+        )
+
+    return path, path, sdiv
 
 
 @app.callback([Output("top_groups", "children"),
@@ -175,7 +193,7 @@ def find_dir(n_clicks, path):
                State("groups", "children")])
 def set_group(submit, group_input, group_values, groups):
     """Set a group with which to categorize datasets."""
-    print_args(set_group, submit, group_input, group_values, groups)
+    # print_args(set_group, submit, group_input, group_values, groups)
 
     if groups:
         groups = json.loads(groups)
@@ -210,7 +228,7 @@ def set_group(submit, group_input, group_values, groups):
 def find_files(n_clicks, initialdir, files):
     """Browse the file system for a list of file paths."""
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(find_files, n_clicks, initialdir, files, trig)
+    # print_args(find_files, n_clicks, initialdir, files, trig)
 
     if "file_nav" in trig:
         if n_clicks > 0:
@@ -243,39 +261,48 @@ def find_files(n_clicks, initialdir, files):
 
 @app.callback(Output("file_groups", "children"),
               [Input("files", "children"),
-               Input("proj_dir", "children")],
-              [State("groups", "children")])
+               Input("proj_dir", "children"),
+               Input("groups", "children")])
 def file_groups(files, proj_dir, groups):
     """For each file, set a group and value from the user inputs above."""
+    print_args(file_groups, files, proj_dir, groups)
     if files:
         files = json.loads(files)
         groups = json.loads(groups)
+        groups = {k: v.split(",") for k, v in groups.items()}
+        groups = {k: [v.split()[0] for v in g] for k, g in groups.items()}
+        groups = {k: v + ["NA"] for k, v in groups.items()}
+
         children = []
-        group_options = []
-        for group, values in groups.items():
-            goption = {"label": group, "value": group}
-            group_options.append(goption)
         for key, file in files.items():
-            file = file.replace(proj_dir, "")
-            if file[:1] == "/":
-                file = file[1:]
-            sdiv = html.Div([
-                        html.P(file, className="two columns"),
-                        dcc.Dropdown(
-                            id="{}_group".format(key),
-                            placeholder="Group",
-                            options=group_options,
-                            className="two columns",
-                            style={"height": "100%"}
-                            ),
-                        # dcc.Input(
-                        #     id="{}_values".format(key),
-                        #     placeholder="Value",
-                        #     options=value_options,
-                        #     className="two columns",
-                        #     style={"height": "100%"}
-                        #     )
-                    ], className="row")
-            children.append(sdiv)
+            file = os.path.basename(file)
+            dropdowns = []
+            for group, options in groups.items():
+                options = [{"label": op, "value": op} for op in options]
+                dropdown = dcc.Dropdown(
+                                id="{}_option".format(group),
+                                placeholder=group,
+                                options=options,
+                                className="two columns",
+                                style={"height": "100%"}
+                            )
+                dropdowns.append(dropdown)
+            dropdown_div = html.Div(dropdowns)
+            file_div = html.Div(children=[
+                html.P(file, className="two columns"),
+                dropdown_div
+            ], className="row")
+
+            children.append(file_div)
 
         return children
+
+
+@app.callback(Output("config", "children"),
+              [Input("submit", "n_clicks"),
+               Input("files", "children"),
+               Input("groups", "children"),
+               Input("project_name", "value")])
+def build_config(n_clicks, files, groups, project_name):
+    """Consolidate inputs into a project config and update overall config."""
+    print_args(build_config, n_clicks, files, groups, project_name)

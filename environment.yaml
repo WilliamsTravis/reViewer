@@ -14,8 +14,10 @@ dependencies:
   - matplotlib
   - pip
   - rasterio
+  - scipy
   - spyder
   - tqdm
   - tk
   - pip:
     - colorama
+    - us

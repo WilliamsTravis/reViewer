@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
-"""
+"""Configurable reView project index file.
+
 Created on Sun Aug 23 16:41:32 2020
+
+/shared-projects/rev/projects/weto/bat_curtailment/reruns/single_owner/ppa/phase_4/aggregation/results
 
 @author: travis
 """
@@ -18,7 +21,7 @@ from navbar import NAVBAR
 
 app.layout = html.Div([
     NAVBAR,
-    dcc.Location(id="url", pathname="/apps/main_page", refresh=False),
+    dcc.Location(id="url", pathname="/apps/config_page", refresh=False),
     html.Div(id="page_content")
 ])
 
@@ -42,5 +45,5 @@ def change_page(pathname):
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
-    # app.run_server()
+    # app.run_server(debug=True)
+    app.run_server()

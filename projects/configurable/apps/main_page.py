@@ -11,11 +11,10 @@ Things to do:
     - Add point selection reset button
     - Add link to GDS page
     - Customize CSS, remove internal styling
-
+    - Deal with long titles
     - include a value range table in the config file
     - speed up get_scales
 """
-
 import copy
 import json
 import os
@@ -31,7 +30,7 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from review import print_args
 from .support import (BASEMAPS, BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
-                      CONFIG, CONFIG_PATH, DEFAULT_MAPVIEW, MAP_LAYOUT,STATES,
+                      CONFIG, CONFIG_PATH, DEFAULT_MAPVIEW, MAP_LAYOUT, STATES,
                       TITLES, TAB_STYLE, TABLET_STYLE, UNITS, VARIABLES)
 from .support import (chart_point_filter, config_div, get_dataframe_path,
                       get_scales, get_variables, setup_options, sort_mixed,
@@ -62,11 +61,11 @@ layout = html.Div(
 
         # The chart and map div
         html.Div([
-    
+
             # The map div
             html.Div([
                 html.Div([
-    
+
                     # Map options
                     dcc.Tabs(
                         id="map_options_tab",
@@ -86,7 +85,7 @@ layout = html.Div(
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE)
                         ]),
-    
+
                     # State options
                     html.Div(
                         id="state_options_div",
@@ -99,7 +98,7 @@ layout = html.Div(
                                 value=None
                             )
                         ]),
-    
+
                     # Basemap options
                     html.Div(
                         id="basemap_options_div",
@@ -112,7 +111,7 @@ layout = html.Div(
                                 value="light"
                              )
                         ]),
-    
+
                     # Color scale options
                     html.Div(
                         id="color_options_div",
@@ -126,7 +125,7 @@ layout = html.Div(
                               )
                         ]),
                 ], className="row"),
-    
+
                 # The map
                 dcc.Graph(
                     id="map",
@@ -135,7 +134,7 @@ layout = html.Div(
                         "plotlyServerURL": "https://chart-studio.plotly.com"
                         }
                     ),
-    
+
                 # Point Size
                 html.Div(
                     id="map_point_size_div",
@@ -151,12 +150,12 @@ layout = html.Div(
                         ),
                     ], className="row"),
                 ], className="six columns"),
-    
+
             # The chart div
             html.Div([
                 html.Div([
                     html.Div([
-    
+
                         # Chart options
                         dcc.Tabs(
                             id="chart_options_tab",
@@ -177,7 +176,7 @@ layout = html.Div(
                                         style=TABLET_STYLE,
                                         selected_style=TABLET_STYLE),
                                 ]),
-    
+
                         # Type of chart
                         html.Div(
                             id="chart_options_div",
@@ -190,7 +189,7 @@ layout = html.Div(
                                     value="cumsum"
                                 )
                             ]),
-    
+
                         # The grouping variable
                         html.Div(
                             id="group_options_div",
@@ -221,7 +220,7 @@ layout = html.Div(
                         ]),
 
                 ], className="row"),
-    
+
                 # The chart
                 dcc.Graph(
                     id="chart",
@@ -229,7 +228,7 @@ layout = html.Div(
                         "showSendToCloud": True,
                         "plotlyServerURL": "https://chart-studio.plotly.com"
                     }),
-    
+
                 # Point Size
                 html.Div(
                     id="chart_point_size_div",
@@ -307,13 +306,13 @@ def cache_map_table(path, y="total_lcoe", idx=None):
 @cache.memoize()
 def cache_chart_tables(project, group, x, y, state, idx, *options):
     """Read and store a data frame from the config and options given.
-    
+
     project = "Southern Company"
     y = "capacity"
     x = "capacity"
     group = "Plant Size"
     filters = {"Hub Height": "120", "Plant Size": "20"}
-    idx = None    
+    idx = None
     """
     project_config = CONFIG[project]
     directory = project_config["directory"]
@@ -392,7 +391,7 @@ def chart_tab_options(tab_choice, chart_choice, project):
 
 @app.callback([Output("map_data_path", "children"),
                Output("chosen_map_options", "children")],
-              [Input("option_div", "children"), 
+              [Input("option_div", "children"),
                Input("project", "value")] + OPTION_INPUTS)
 def get_map_table(option_div, project, *options):
     """Get the data path from a list of map options and store those optons."""
@@ -494,7 +493,7 @@ def make_options(project):
     for value, label in variables.items():
         option = {"label": label, "value": value}
         var_options.append(option)
-    
+
     var = html.Div([
             html.H5("Variable"),
             dcc.Dropdown(id="variable",
@@ -631,12 +630,13 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
 
     # Set up layout
     title = config.map_title(variable, op_values)
+    title_size = config.title_size
     layout_copy = copy.deepcopy(MAP_LAYOUT)
     layout_copy['mapbox']['center'] = mapview['mapbox.center']
     layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
     layout_copy['mapbox']['bearing'] = mapview['mapbox.bearing']
     layout_copy['mapbox']['pitch'] = mapview['mapbox.pitch']
-    layout_copy['titlefont'] = dict(color='white', size=20,
+    layout_copy['titlefont'] = dict(color='white', size=title_size,
                                     family='Time New Roman',
                                     fontweight='bold')
     layout_copy["dragmode"] = "select"
@@ -708,13 +708,16 @@ def make_chart(chart, signal, mapsel, point_size, reset, chartview, chartsel,
         var_title = config.titles[y]
         title = config.chart_title(var_title, op_values, group)
 
+    # For now I'm shrinking extra long titles
+    title_size = config.title_size
+
     # Update the layout and traces
     fig.update_layout(
         font_family="Time New Roman",
         title_font_family="Times New Roman",
         legend_title_font_color="black",
         font_color="white",
-        title_font_size=20,
+        title_font_size=title_size,
         font_size=15,
         margin=dict(l=70, r=20, t=70, b=20),
         height=500,

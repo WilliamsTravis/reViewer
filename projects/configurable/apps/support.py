@@ -398,7 +398,7 @@ def bat_config(directory, config=None):
     return entry
 
 
-def soco_config(directory, config=None):
+def soco_config(directory, config=CONFIG):
     """Build a sample configuration file that can be used as template to
     build custom ones and around which to structure configurable reView.
 
@@ -413,7 +413,7 @@ def soco_config(directory, config=None):
 
     # Find paths to all file
     template = {}
-    files = dp.contents("*_sc.csv")  # <--------------------------------------- Paramterize pattern recognition
+    files = dp.contents("*/*_sc.csv")  # <------------------------------------- Paramterize pattern recognition
     files.sort()
     template["file"] = files
     fdf = pd.DataFrame(template)
@@ -467,7 +467,7 @@ def soco_config(directory, config=None):
         "Hub Height": "m",
         "Relative Spacing": "D",
         "Plant Size": "MW",
-        "CAPEX Scale": "Percent (%)",
+        "CAPEX Scale": "",
         }
     entry["directory"] = directory
     entry["fields"] = {
@@ -515,6 +515,7 @@ class Config:
     def __init__(self, project):
         """Initialize plotting object for a reV project."""
         self.project_config = CONFIG[project]
+        self.title_size = 20
 
     def map_title(self, variable, op_values):
         """Make a title for the map given a variable name and option values."""
@@ -523,6 +524,12 @@ class Config:
             units = self.project_config["units"][op]
             op_title = str(val) + units + " " + op
             var_title = var_title + " - " + op_title
+        if len(var_title.split(" - ")) > 3:
+            self.title_size = 12
+        elif len(var_title.split(" - ")) > 5:
+            self.title_size = 10
+        elif len(var_title.split(" - ")) > 7:
+            self.title_size = 8
         return var_title
 
     def chart_title(self, var_title, op_values, group):
@@ -534,6 +541,12 @@ class Config:
             op_title = str(val) + units + " " + op
             var_title = var_title + " - " + op_title
         var_title = var_title + ", All " + group + "s"
+        if len(var_title.split(" - ")) > 3:
+            self.title_size = 12
+        elif len(var_title.split(" - ")) > 5:
+            self.title_size = 10
+        elif len(var_title.split(" - ")) > 7:
+            self.title_size = 8
         return var_title
 
     @property

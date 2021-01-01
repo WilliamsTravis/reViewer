@@ -10,7 +10,7 @@ import os
 import pandas as pd
 import plotly.express as px
 
-from revruns import Data_Path
+from revruns.rr import Data_Path
 
 
 DATAPATH = Data_Path("./data")

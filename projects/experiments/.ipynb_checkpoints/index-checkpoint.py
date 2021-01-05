@@ -1,9 +1,6 @@
-4# -*- coding: utf-8 -*-
-"""Configurable reView project index file.
-
+# -*- coding: utf-8 -*-
+"""
 Created on Sun Aug 23 16:41:32 2020
-
-/shared-projects/rev/projects/weto/bat_curtailment/reruns/single_owner/ppa/phase_4/aggregation/results
 
 @author: travis
 """
@@ -22,11 +19,11 @@ from navbar import NAVBAR
 app.layout = html.Div([
     NAVBAR,
     dcc.Location(id="url", pathname="/apps/main_page", refresh=False),
-    html.Div(id="page_content")
+    html.Div(id="page-content")
 ])
 
 
-@app.callback([Output("page_content", "children"),
+@app.callback([Output("page-content", "children"),
                Output("app_link_button", "style"),
                Output("config_link_button", "style")],
               [Input("url", "pathname")])
@@ -34,16 +31,16 @@ def change_page(pathname):
     """Output chosen layout from the navigation bar links."""
     config_style = BUTTON_STYLES["on"]
     app_style = BUTTON_STYLES["on"]
+    if pathname == "/apps/main_page":
+        page = main_page.layout
+        app_style = {"display": "none"}
     if pathname == "/apps/config_page":
         page = config_page.layout
         config_style = {"display": "none"}
-    else:
-        page = main_page.layout
-        app_style = {"display": "none"}
 
     return page, app_style, config_style
 
 
 if __name__ == '__main__':
-    # app.run_server(debug=True)
-    app.run_server()
+    app.run_server(debug=True)
+#     app.run_server()

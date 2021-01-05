@@ -11,7 +11,7 @@ Things to do:
     - Add point selection reset button
     - Add link to GDS page
     - Customize CSS, remove internal styling
-    - Deal with long titles
+
     - include a value range table in the config file
     - speed up get_scales
 """
@@ -26,18 +26,23 @@ import dask.dataframe as dd
 import pandas as pd
 
 from app import app, cache
-from dash.dependencies import Input, Output, State, ALL
+from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from review import print_args
 from .support import (BASEMAPS, BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
-                      CONFIG, CONFIG_PATH, DEFAULT_MAPVIEW, MAP_LAYOUT, STATES,
+                      CONFIG, CONFIG_PATH, DEFAULT_MAPVIEW, MAP_LAYOUT,STATES,
                       TITLES, TAB_STYLE, TABLET_STYLE, UNITS, VARIABLES)
 from .support import (chart_point_filter, config_div, get_dataframe_path,
-                      get_scales, get_variables, sort_mixed, Config, Plots)
+                      get_scales, get_variables, setup_options, sort_mixed,
+                      Config, Plots)
+
+NOPTIONS = 6
+OPTION_INPUTS, OPTION_PLACEHOLDER = setup_options(NOPTIONS)
 
 
 layout = html.Div(
     children=[
+
         # Project selection - use id "project" to access
         html.Div(
             id="project_div",
@@ -46,20 +51,21 @@ layout = html.Div(
             style={"margin-bottom": "50px"}
         ),
 
-        # Dynamic options
+        # Dynamic options - ids are "0" up to possible NOPTIONS
         html.Div(
             id="option_div",
             className="row",
+            children=OPTION_PLACEHOLDER,
             style={"margin-bottom": "50px"}
         ),
 
         # The chart and map div
         html.Div([
-
+    
             # The map div
             html.Div([
                 html.Div([
-
+    
                     # Map options
                     dcc.Tabs(
                         id="map_options_tab",
@@ -79,7 +85,7 @@ layout = html.Div(
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE)
                         ]),
-
+    
                     # State options
                     html.Div(
                         id="state_options_div",
@@ -92,7 +98,7 @@ layout = html.Div(
                                 value=None
                             )
                         ]),
-
+    
                     # Basemap options
                     html.Div(
                         id="basemap_options_div",
@@ -105,7 +111,7 @@ layout = html.Div(
                                 value="light"
                              )
                         ]),
-
+    
                     # Color scale options
                     html.Div(
                         id="color_options_div",
@@ -119,7 +125,7 @@ layout = html.Div(
                               )
                         ]),
                 ], className="row"),
-
+    
                 # The map
                 dcc.Graph(
                     id="map",
@@ -128,7 +134,7 @@ layout = html.Div(
                         "plotlyServerURL": "https://chart-studio.plotly.com"
                         }
                     ),
-
+    
                 # Point Size
                 html.Div(
                     id="map_point_size_div",
@@ -144,12 +150,12 @@ layout = html.Div(
                         ),
                     ], className="row"),
                 ], className="six columns"),
-
+    
             # The chart div
             html.Div([
                 html.Div([
                     html.Div([
-
+    
                         # Chart options
                         dcc.Tabs(
                             id="chart_options_tab",
@@ -170,7 +176,7 @@ layout = html.Div(
                                         style=TABLET_STYLE,
                                         selected_style=TABLET_STYLE),
                                 ]),
-
+    
                         # Type of chart
                         html.Div(
                             id="chart_options_div",
@@ -183,7 +189,7 @@ layout = html.Div(
                                     value="cumsum"
                                 )
                             ]),
-
+    
                         # The grouping variable
                         html.Div(
                             id="group_options_div",
@@ -214,7 +220,7 @@ layout = html.Div(
                         ]),
 
                 ], className="row"),
-
+    
                 # The chart
                 dcc.Graph(
                     id="chart",
@@ -222,7 +228,7 @@ layout = html.Div(
                         "showSendToCloud": True,
                         "plotlyServerURL": "https://chart-studio.plotly.com"
                     }),
-
+    
                 # Point Size
                 html.Div(
                     id="chart_point_size_div",
@@ -278,6 +284,7 @@ layout = html.Div(
 )
 
 
+# Read and cache the dataframe according to the input values
 @cache.memoize()
 def cache_map_table(path, y="total_lcoe", idx=None):
     """Read and store a data frame from the config and options given."""
@@ -287,17 +294,25 @@ def cache_map_table(path, y="total_lcoe", idx=None):
     df = df[[y, "state", "county", "latitude", "longitude"]]
     return df
 
+# def cache_map_table2(path, x="capacity", y="total_lcoe", idx=None):
+#     """Read and store a data frame from the config and options given."""
+#     df2 = dd.read_csv(path)
+#     if idx is not None:
+#         df2 = df2.map_partitions(lambda x: x[x.index.isin(idx)])
+#     df2 = df2[[x, y]]
+#     df2 = df2.compute()
+#     return df
 
 @cache.memoize()
 def cache_chart_tables(project, group, x, y, state, idx, *options):
     """Read and store a data frame from the config and options given.
-
+    
     project = "Southern Company"
     y = "capacity"
     x = "capacity"
     group = "Plant Size"
     filters = {"Hub Height": "120", "Plant Size": "20"}
-    idx = None
+    idx = None    
     """
     project_config = CONFIG[project]
     directory = project_config["directory"]
@@ -376,14 +391,13 @@ def chart_tab_options(tab_choice, chart_choice, project):
 
 @app.callback([Output("map_data_path", "children"),
                Output("chosen_map_options", "children")],
-              [Input("option_div", "children"),
-               Input("project", "value"),
-               Input({"type": "option_dropdown", "index": ALL}, "value")])
+              [Input("option_div", "children"), 
+               Input("project", "value")] + OPTION_INPUTS)
 def get_map_table(option_div, project, *options):
     """Get the data path from a list of map options and store those optons."""
-    print_args(get_map_table, option_div, project, *options)
-    options = options[0]
+    print("get_map_table options:")
     options = [str(o) for o in options if o is not None]
+    print(options)
     op_names = []
     for o in option_div:
         entry = o["props"]["children"][0]["props"]
@@ -393,9 +407,8 @@ def get_map_table(option_div, project, *options):
                 op_names.append(op_name)
     op_values = dict(zip(op_names, options))
 
-    if any(op_values):
-        path = get_dataframe_path(project, op_values)
-        print(path)
+    if any(options):
+        path = get_dataframe_path(project, *options)
         return path, json.dumps(op_values)
 
 
@@ -404,12 +417,9 @@ def get_map_table(option_div, project, *options):
                Input("group_options", "value"),
                Input("variable", "value"),
                Input("chart_xvariable_options", "value"),
-               Input("state_options", "value"),
-               Input({'type': 'option_dropdown', 'index': ALL}, 'value')])
+               Input("state_options", "value")] + OPTION_INPUTS)
 def get_chart_tables(project, group, y, x, state, *options):
     """Store the signal used to get the set of tables needed for the chart."""
-    print_args(get_chart_tables, project, group, y, x, state, *options)
-    options = options[0]
     options = [str(o) for o in options if o]
     signal = json.dumps([project, group, y, x, state, *options])
     print("signal = " + signal)
@@ -418,7 +428,7 @@ def get_chart_tables(project, group, y, x, state, *options):
 
 @app.callback(Output("group_options_div", "children"),
               [Input("project", "value")])
-def chart_group_options(project):
+def group_options(project):
     """Update grouping options for the chart according to the project."""
     # Get the possible grouping variables
     project_config = CONFIG[project]
@@ -449,34 +459,41 @@ def make_options(project):
     project_config = CONFIG[project]
     data = pd.DataFrame(project_config["data"])
     del data["file"]
-    del data["name"]
 
     # For each field in the data frame create a dropdown menu of options
     entries = []
-    for i, group in enumerate(data.columns):
-        values = list(data[group].unique())
-        values = sort_mixed(values)
-        options = [{"label": value, "value": value}  for value in values]
-        entry = html.Div([
-                    html.H5(group),
-                    dcc.Dropdown(id={"type": "option_dropdown", "index": i},
-                                 options=options,
-                                 value=values[0]),
-                    ],
+    for i in range(NOPTIONS):
+        if i in range(len(data.columns)):
+            variable = data.columns[i]
+            values = list(data[variable].unique())
+            values = sort_mixed(values)
+            options = []
+            for value in values:
+                option = {"label": value, "value": value}
+                options.append(option)
+            entry = html.Div([
+                html.H5(variable),
+                dcc.Dropdown(id="option_{}".format(i),
+                             options=options,
+                             value=values[0]),
+                ],
                 className="two columns")
-        entries.append(entry)
+            entries.append(entry)
+        else:
+            entry = html.Div([
+                dcc.Dropdown(id="option_{}".format(i)),
+                ],
+                style={"display": "none"},
+                className="two columns")
+            entries.append(entry)
 
     # Add in the variable options
     variables = project_config["fields"]["titles"]
-    for group in data.columns:
-        if group in variables:
-            del variables[group]
-
     var_options = []
     for value, label in variables.items():
         option = {"label": label, "value": value}
         var_options.append(option)
-
+    
     var = html.Div([
             html.H5("Variable"),
             dcc.Dropdown(id="variable",
@@ -526,14 +543,12 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    print("RENDERING MAP")
     if not data_path:
-        print("MAP: No data path")
         raise PreventUpdate
 
     print_args(make_map, data_path, variable, state, basemap, color, chartsel,
-                point_size, rev_color, reset, project, mapview, mapsel,
-                op_values)
+               point_size, rev_color, reset, project, mapview, mapsel,
+               op_values)
 
     trig = dash.callback_context.triggered[0]['prop_id']
     config = Config(project)
@@ -571,15 +586,9 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
         if state:
             df = df[df["state"].isin(state)]
 
-    if not isinstance(df[variable].iloc[0], str):
-        df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
-                      + df[variable].round(2).astype(str) + " "
-                      + config.units[variable])
-    else:
-        df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
-                      + df[variable] + " "
-                      + config.units[variable])
-
+    df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
+                  + df[variable].round(2).astype(str) + " "
+                  + config.units[variable])
 
     # Reverse color is from a button (number of clicks)
     if rev_color % 2 == 1:
@@ -621,13 +630,12 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
 
     # Set up layout
     title = config.map_title(variable, op_values)
-    title_size = config.title_size
     layout_copy = copy.deepcopy(MAP_LAYOUT)
     layout_copy['mapbox']['center'] = mapview['mapbox.center']
     layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
     layout_copy['mapbox']['bearing'] = mapview['mapbox.bearing']
     layout_copy['mapbox']['pitch'] = mapview['mapbox.pitch']
-    layout_copy['titlefont'] = dict(color='white', size=title_size,
+    layout_copy['titlefont'] = dict(color='white', size=20,
                                     family='Time New Roman',
                                     fontweight='bold')
     layout_copy["dragmode"] = "select"
@@ -649,11 +657,11 @@ def make_map(data_path, variable, state, basemap, color, chartsel, point_size,
      State("chart", "selectedData"),
      State("chosen_map_options", "children")])
 def make_chart(chart, signal, mapsel, point_size, reset, chartview, chartsel,
-                op_values):
+               op_values):
     """Make one of a variety of charts."""
     signal = json.loads(signal)
     print_args(make_chart, chart, signal, mapsel, point_size, reset,
-                chartview, chartsel, op_values)
+               chartview, chartsel, op_values)
 
     # Get the set of data frame using the stored signal
     project, group, y, x, state, *options = signal
@@ -699,16 +707,13 @@ def make_chart(chart, signal, mapsel, point_size, reset, chartview, chartsel,
         var_title = config.titles[y]
         title = config.chart_title(var_title, op_values, group)
 
-    # For now I'm shrinking extra long titles
-    title_size = config.title_size
-
     # Update the layout and traces
     fig.update_layout(
         font_family="Time New Roman",
         title_font_family="Times New Roman",
         legend_title_font_color="black",
         font_color="white",
-        title_font_size=title_size,
+        title_font_size=20,
         font_size=15,
         margin=dict(l=70, r=20, t=70, b=20),
         height=500,

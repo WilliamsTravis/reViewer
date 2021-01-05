@@ -20,7 +20,7 @@ import us
 
 from colorama import Style, Fore
 from dash.dependencies import Input
-from review import Data_Path, print_args
+from review import Data_Path
 from tqdm import tqdm
 
 
@@ -159,68 +159,45 @@ MAP_LAYOUT = dict(
         zoom=2)
 )
 
-ORIGINAL_FIELDS = ['sc_gid', 'res_gids', 'gen_gids', 'gid_counts', 'n_gids',
-                   'mean_cf', 'mean_lcoe', 'mean_res', 'capacity',
-                   'area_sq_km', 'latitude', 'longitude', 'country', 'state',
-                   'county', 'elevation', 'timezone', 'sc_point_gid',
-                   'sc_row_ind', 'sc_col_ind', 'res_class', 'trans_multiplier',
-                   'trans_gid', 'trans_capacity', 'trans_type',
-                   'trans_cap_cost', 'dist_mi', 'lcot', 'total_lcoe']
-
 STYLESHEET = 'https://codepen.io/chriddyp/pen/bWLwgP.css'
 
 TAB_STYLE = {'height': '25px', 'padding': '0'}
 
 TABLET_STYLE = {'line-height': '25px', 'padding': '0'}
 
-TITLES = {
-    'area_sq_km': 'Supply Curve Point Area',
-    'capacity': 'Total Generation Capacity',
-    'elevation': 'Elevation',
-    'dist_mi': 'Distance to Transmission',
-    'lcot': 'LCOT',
-    'mean_cf': 'Mean Capacity Factor',
-    'mean_lcoe': 'Mean Site-Based LCOE',
-    'mean_res': 'Mean Windspeed',
-    'total_lcoe': 'Total LCOE',
-    'trans_capacity': 'Total Transmission Capacity',
-    'trans_cap_cost': 'Transmission Capital Costs',
-    'trans_multiplier': 'Transmission Cost Multiplier',
-    'trans_type': 'Transmission Feature Type'
-}
+TITLES = {'mean_cf': 'Mean Capacity Factor',
+          'mean_lcoe': 'Mean Site-Based LCOE',
+          'mean_res': 'Mean Windspeed',
+          'capacity': 'Total Generation Capacity',
+          'area_sq_km': 'Supply Curve Point Area',
+          'trans_capacity': 'Total Transmission Capacity',
+          'trans_cap_cost': 'Transmission Capital Costs',
+          'lcot': 'LCOT',
+          'total_lcoe': 'Total LCOE'}
 
 STATES = [{"label": s.name, "value": s.name} for s in us.STATES]
 
-UNITS = {
-    'area_sq_km': 'square km',
-    'elevation': 'm',  # Double check this
-    'capacity': 'MW',
-    'dist_mi': 'miles',
-    'lcot': '$/MWh',
-    'mean_cf': 'CF %',
-    'mean_lcoe': '$/MWh',
-    'mean_res': 'm/s',  # This will change based on resource
-    'total_lcoe': '$/MWh',
-    'trans_capacity': 'MW',
-    'trans_cap_cost': '$/MW',
-    'trans_multiplier': 'unitless',
-    'trans_type': 'category'
-}
+UNITS = {'mean_cf': 'CF %',
+         'mean_lcoe': '$/MWh',
+         'mean_res': 'm/s',
+         'capacity': 'MW',
+         'area_sq_km': 'square km',
+         'trans_capacity': 'MW',
+         'trans_cap_cost': '$/MW',
+         'lcot': '$/MWh',
+         'total_lcoe': '$/MWh'}
 
 VARIABLES = [
-    {"label": "Distance to Transmission", "value": "dist_mi"},
-    {"label": "Elevation", "value": "elevation"},
-    {"label": "LCOT", "value": "lcot"},
     {"label": "Mean Capacity Factor", "value": "mean_cf"},
-    {"label": "Mean Site-Based LCOE", "value": "mean_lcoe"},
     {"label": "Mean Windspeed", "value": "mean_res"},
-    {"label": "Supply Curve Point Area", "value": "area_sq_km"},
     {"label": "Total Generation Capacity", "value": "capacity"},
-    {"label": "Total LCOE", "value": "total_lcoe"},
+    {"label": "Supply Curve Point Area", "value": "area_sq_km"},
     {"label": "Total Transmission Capacity", "value": "trans_capacity"},
     {"label": 'Transmission Capital Costs', "value": 'trans_cap_cost'},
-    {"label": "Transmission Cost Multiplier", "value": "trans_ultiplier"},
-    {"label": "Tranmission Feature Type", "value": "trans_type"},
+    {"label": "Mean Site-Based LCOE", "value": "mean_lcoe"},
+    {"label": "LCOT", "value": "lcot"},
+    {"label": "Total LCOE", "value": "total_lcoe"}
+
 ]
 
 
@@ -264,44 +241,43 @@ def chart_point_filter(df, chartsel, chartvar):
     return df
 
 
-def get_dataframe_path(project, op_values):
+def get_dataframe_path(project, *options):
     """Get the table for a set of options."""
-    # print_args(get_dataframe_path, project, op_values)
-    with open(CONFIG_PATH) as cfile:
-        config = json.load(cfile)
-
     # There will be Nones
-    if op_values:
+    options = [str(o) for o in options if o]
+    if options:
         # Extract the project config and its data frame
-        project_config = config[project]
+        project_config = CONFIG[project]
         data = pd.DataFrame(project_config["data"])
+        cols = data.columns
+        del data["name"]
 
         # Find the matching path
-        for col, option in op_values.items():
-            data = data[data[col] == option]
-
+        for i, option in enumerate(options):
+            data = data[data[cols[i + 1]] == option]
         try:
             assert data.shape[0] == 1
             path = data["file"].values[0]
         except:
+            print(data["file"].apply(lambda x: os.path.basename(x)))
+            print(options)
             raise AssertionError(
                 Fore.RED
                 + "The options did not result in a single selection:"
                 + "\n"
+                + str(options)
                 + Style.RESET_ALL
-            )
+                )
         return path
 
 
 def get_scales(project):
-    """Read or create a value scale data frame for each variable."""  # <------ Parallelize and build into conifg
+    """Read or create a value scale data frame for each variable."""
     project_config = CONFIG[project]
     dst = os.path.join(project_config["directory"], "review_scale.csv")
     if not os.path.exists(dst):
-        data = pd.DataFrame(project_config["data"])
-        groups = [c for c in data.columns if c not in ["file", "name"]]
         variables = get_variables(project_config)
-        variables = [v for v in variables if v not in groups]
+        data = pd.DataFrame(project_config["data"])
         scales = {}
         print("Calculating value scales for setting color ranges...")
         for variable in tqdm(variables):
@@ -338,13 +314,13 @@ def is_number(x):
         check = False
     return check       
 
-
 def bat_config(directory, config=None):
     """Build a sample configuration file that can be used as template to
     build custom ones and around which to structure configurable reView.
 
     directory = "/shared-projects/rev/projects/weto/bat_curtailment/rev_supply_curve"
     """
+
     cfs = {
         "0": "Jul 15 to Oct 16 - 5m/s (Variable: temp => ((15 / 7) * (ws) + 10)",
         "1": "Jul 15 to Oct 16 - 6m/s (Variable: temp => ((10 / 7) * (ws) + 10)",
@@ -422,7 +398,7 @@ def bat_config(directory, config=None):
     return entry
 
 
-def soco_config(directory, config=CONFIG):
+def soco_config(directory, config=None):
     """Build a sample configuration file that can be used as template to
     build custom ones and around which to structure configurable reView.
 
@@ -437,7 +413,7 @@ def soco_config(directory, config=CONFIG):
 
     # Find paths to all file
     template = {}
-    files = dp.contents("*/*_sc.csv")  # <------------------------------------- Paramterize pattern recognition
+    files = dp.contents("*_sc.csv")  # <--------------------------------------- Paramterize pattern recognition
     files.sort()
     template["file"] = files
     fdf = pd.DataFrame(template)
@@ -473,23 +449,11 @@ def soco_config(directory, config=CONFIG):
     # Extra fields
     extra_titles = {
         "hh": "Hub Height",
-        "rd": "Rotor Diameter",
-        "Land Use": " Land Use",
-        "Rating": "Rating",
-        "Hub Height": "Hub Height",
-        "Relative Spacing": "Relative Spacing",
-        "Plant Size": "Plant Size",
-        "CAPEX Scale": "CAPEX Scale"
+        "rd": "Rotor Diameter"
         }
     extra_units = {
         "hh": "m",
-        "rd": "m",
-        "Land Use": " Category",
-        "Rating": "MW",
-        "Hub Height": "m",
-        "Relative Spacing": "D",
-        "Plant Size": "MW",
-        "CAPEX Scale": ""
+        "rd": "m"
         }
     titles = {**TITLES, **extra_titles}
     units = {**UNITS, **extra_units}
@@ -497,8 +461,14 @@ def soco_config(directory, config=CONFIG):
     # Create entry
     entry = {}
     entry["data"] = fdf.to_dict()
-    entry["units"] = units
-    entry["titles"] = titles
+    entry["units"] = {
+        "Land Use": " Category",
+        "Rating": "MW",
+        "Hub Height": "m",
+        "Relative Spacing": "D",
+        "Plant Size": "MW",
+        "CAPEX Scale": "Percent (%)",
+        }
     entry["directory"] = directory
     entry["fields"] = {
         "titles": titles,
@@ -510,6 +480,20 @@ def soco_config(directory, config=CONFIG):
         file.write(json.dumps(config, indent=4))
 
     return entry
+
+
+def setup_options(n):
+    """Setup option inputs and placeholder options."""
+    opt_inputs = [Input("option_{}".format(i), "value") for i in range(n)]
+    option_placeholders = []
+    for i in range(n):
+        op = html.Div(dcc.Dropdown(id="option_{}".format(i)),
+                      style={"display": "none"})
+        option_placeholders.append(op)
+    var = html.Div(dcc.Dropdown(id="variable", value="placeholder"),
+                   style={"display": "none"})
+    option_placeholders = option_placeholders + [var]
+    return opt_inputs, option_placeholders
 
 
 def sort_mixed(values):
@@ -531,21 +515,14 @@ class Config:
     def __init__(self, project):
         """Initialize plotting object for a reV project."""
         self.project_config = CONFIG[project]
-        self.title_size = 20
 
     def map_title(self, variable, op_values):
         """Make a title for the map given a variable name and option values."""
         var_title = self.titles[variable]
         for op, val in op_values.items():
-            units = self.project_config["fields"]["units"][op]
+            units = self.project_config["units"][op]
             op_title = str(val) + units + " " + op
             var_title = var_title + " - " + op_title
-        if len(var_title.split(" - ")) > 3:
-            self.title_size = 12
-        elif len(var_title.split(" - ")) > 5:
-            self.title_size = 10
-        elif len(var_title.split(" - ")) > 7:
-            self.title_size = 8
         return var_title
 
     def chart_title(self, var_title, op_values, group):
@@ -553,17 +530,10 @@ class Config:
         if group in op_values:
             del op_values[group]
         for op, val in op_values.items():
-            units = self.project_config["fields"]["units"][op]
+            units = self.project_config["units"][op]
             op_title = str(val) + units + " " + op
             var_title = var_title + " - " + op_title
         var_title = var_title + ", All " + group + "s"
-
-        if len(var_title.split(" - ")) > 3:
-            self.title_size = 12
-        elif len(var_title.split(" - ")) > 5:
-            self.title_size = 10
-        elif len(var_title.split(" - ")) > 7:
-            self.title_size = 8
         return var_title
 
     @property
@@ -602,7 +572,7 @@ class Plots:
         self.point_size = point_size
         self.project = project
         self.project_config = CONFIG[project]
-        self.units = self.project_config["fields"]["units"]
+        self.units = self.project_config["units"]
 
     def ccap(self):
         """Return a cumulative capacity scatterplot."""

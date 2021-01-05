@@ -12,6 +12,7 @@ dependencies:
   - gunicorn
   - h5py
   - matplotlib
+  - pathos
   - pip
   - rasterio
   - scipy

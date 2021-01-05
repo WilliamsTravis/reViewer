@@ -7,6 +7,7 @@ review/functions.py
 review/mapbox.py
 review/navbar.py
 review/options.py
+review/support.py
 review/tiledb_practice.py
 review.egg-info/PKG-INFO
 review.egg-info/SOURCES.txt

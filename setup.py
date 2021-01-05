@@ -18,7 +18,7 @@ def check_deps():
 setup(
     name="review",
     packages=["review"],
-    version="0.0.1",
+    version="0.0.2",
     author="Travis Williams",
     author_email="Travis.Williams@nrel.gov",
     install_requires=["h5py", "numpy", "pandas"]

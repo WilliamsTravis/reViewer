@@ -834,6 +834,10 @@ def make_signal(data_path, data_path2, variable, lchh_path, difference,
     if "scenario_b" in trig and difference == "off":
         raise PreventUpdate
 
+    # Get/build the value scale table
+    config = Config("Transition")
+    scales = config.scales
+
     # Build the scatter plot data object
     if difference == "off":
         data_path2 = None
@@ -923,9 +927,6 @@ def make_map(data_signal, state, basemap, color, chartsel, point_size,
         mapview = DEFAULT_MAPVIEW
     elif 'mapbox.center' not in mapview.keys():
         mapview = DEFAULT_MAPVIEW
-
-    # Get/build the value scale table
-    scales = config.scales
 
     if rev_color % 2 == 1:
         rev_color = True

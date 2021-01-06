@@ -22,9 +22,11 @@ import os
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import numpy as np
 import pandas as pd
+import pathos.multiprocessing as mp
 
-from app import app, cache, cache2
+from app import app, cache, cache2, cache3
 from dash.dependencies import Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
 from review import print_args
@@ -35,7 +37,7 @@ from review.support import (AGGREGATIONS, BASEMAPS, BUTTON_STYLES,
 from review.support import (chart_point_filter, config_div, get_dataframe_path,
                             sort_mixed, Config, Plots)
 from revruns import rr
-
+from tqdm import tqdm
 
 with open(os.path.expanduser("~/.review_config"), "r") as file:
     FULL_CONFIG = json.load(file)
@@ -48,7 +50,9 @@ DP = rr.Data_Path(CONFIG["directory"])
 FILEDF = pd.DataFrame(CONFIG["data"])
 
 GROUPS = [c for c in FILEDF.columns if c not in ["file", "name"]]
-
+GROUP_OPTIONS = [
+    {"label": g, "value": g} for g in GROUPS
+]
 MASTER_FNAME = ("National Impact Innovations - Land Based WInd Scenario "
                 "Matrix.xlsx")
 
@@ -59,6 +63,11 @@ SCENARIO_OPTIONS = [
     {"label": " ".join(row["name"].split("_")[:2]).capitalize(),
      "value": row["file"]} for i, row in FILEDF.iterrows()
 ]
+
+TABLET_STYLE_CLOSED = {
+    **TABLET_STYLE,
+    **{"border-bottom": "1px solid #d6d6d6"}
+}
 
 VARIABLE_OPTIONS = [
     {"label": v, "value": k} for k, v in CONFIG["titles"].items()
@@ -115,13 +124,116 @@ layout = html.Div(
             # Show difference map
             html.Div([
                 html.H5("Difference"),
-                dcc.RadioItems(
+                dcc.Tabs(
                     id="difference",
-                    options=[{"label": "On", "value": "on"},
-                             {"label": "Off", "value": "off"}],
-                    value="off"),
-                ],
-                className="two columns"),
+                    value="off",
+                    style=TAB_STYLE,
+                    children=[
+                        dcc.Tab(value='on',
+                                label='On',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE_CLOSED),
+                        dcc.Tab(value='off',
+                                label='Off',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE_CLOSED)
+                ]),
+                html.Hr()
+            ], className="two columns"),
+
+            # Calculate Lowest Cost Hub Heights
+            html.Div([
+                # Option to calculate or no
+                html.H5("Lowest LCOE Data Set"),
+                dcc.Tabs(
+                    id="low_cost_tabs",
+                    value="off",
+                    style=TAB_STYLE,
+                    children=[
+                        dcc.Tab(value='on',
+                                label='On',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE_CLOSED),
+                        dcc.Tab(value='off',
+                                label='Off',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE_CLOSED)
+                ]),
+
+                # How do we want to organize this?
+                html.Div(
+                    id="low_cost_group_tab_div",
+                    style={"display": "none"},
+                    children=[
+                    dcc.Tabs(
+                        id="low_cost_group_tab",
+                        value="all",
+                        style=TAB_STYLE,
+                        children=[
+                            dcc.Tab(value='all',
+                                    label='All',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE_CLOSED),
+                            dcc.Tab(value='group',
+                                    label='Group',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE_CLOSED),
+                            dcc.Tab(value='pair',
+                                    label='Pair',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE_CLOSED)
+                            ]   
+                    ),                
+
+                    html.Div(
+                        id="low_cost_choice_div",
+                        children=[
+                            # Pair Options
+                            html.Div(
+                                id="pair_div",
+                                children=[
+                                    dcc.Dropdown(
+                                        id="low_cost_pair_1",
+                                        options=SCENARIO_OPTIONS,
+                                        value=SCENARIO_OPTIONS[0]["value"]
+                                    ),
+                                    dcc.Dropdown(
+                                        id="low_cost_pair_2",
+                                        options=SCENARIO_OPTIONS,
+                                        value=SCENARIO_OPTIONS[1]["value"]
+                                    )
+                                ]
+                            ),
+
+                            # Group Options
+                            html.Div(
+                                id="low_cost_split_group_div",
+                                children=[
+                                    dcc.Dropdown(
+                                        id="low_cost_split_group",
+                                        options=GROUP_OPTIONS,
+                                        value=GROUP_OPTIONS[0]["value"]
+                                    ),
+                                    dcc.Dropdown(
+                                        id="low_cost_split_group_options"
+                                    )
+                                ]
+                            ),
+                        
+                        ]
+                    ),                
+
+                    # Enter Button for whichever option was picked
+                    html.Button(
+                        id="low_cost_enter",
+                        children="Enter",
+                        style={"width": "100%", "margin-left": "0px",
+                               "padding": "0px", "background-color": "#d6d6d6"}
+                    ),
+                ]),
+                html.Hr(),
+
+            ], className="six columns")
 
         ], className="row", style={"margin-bottom": "50px"}),
 
@@ -248,10 +360,6 @@ layout = html.Div(
                                         style=TABLET_STYLE,
                                         selected_style=TABLET_STYLE
                                         ),
-                                dcc.Tab(value="group",
-                                        label="Grouping Variable",
-                                        style=TABLET_STYLE,
-                                        selected_style=TABLET_STYLE),
                                 dcc.Tab(value='xvariable',
                                         label='X Variable',
                                         style=TABLET_STYLE,
@@ -270,21 +378,6 @@ layout = html.Div(
                                     value="cumsum"
                                 )
                             ]),
-
-                        # The grouping variable
-                        html.Div(
-                            id="group_options_div",
-                            children=[
-                                dcc.Dropdown(
-                                    id="group_options",
-                                    clearable=False,
-                                    options=[{"value": "placeholder",
-                                              "label": "placeholder"}],
-                                    multi=False,
-                                    value="placeholder"
-                                )
-                            ]
-                        ),
 
                         # X-axis Variable
                         html.Div(
@@ -356,8 +449,61 @@ layout = html.Div(
             id="chart_data_signal",
             style={"display": "none"}
             ),
+
+        # For storing and triggering lchh graphs
+        html.Div(
+            id="lchh_path",
+            style={"display": "none"}
+            ),
+
+        # Interim way to share data between map and chart
+        html.Div(
+            id="map_data_paths",
+            style={"display": "none"}
+            )
     ]
 )
+
+
+def calc_low_cost(paths, dst, by="total_lcoe"):
+    """Calculate a single data frame by the lowest cost row from many."""
+    # Get a list of data frames
+    paths.sort()
+    scenarios = [os.path.basename(path).split("_")[1] for path in paths]
+    if os.path.exists(dst):
+        df = cache_table(dst)
+    else:
+        # Retrieve a data frame and add scenario
+        def retrieve(arg):
+            path, scenario = arg
+            df = cache_table(path)
+            df["scenario"] = scenario
+            return df
+
+        dfs = []
+        args = [[paths[i], scenarios[i]] for i in range(len(paths))]
+        with mp.Pool(mp.cpu_count()) as pool:
+            for df in tqdm(pool.imap(retrieve, args), total=len(paths)):
+                dfs.append(df)
+
+        # How to deal with mismatching grids?
+        shapes = [df.shape[0] for df in dfs]
+        if len(np.unique(shapes)) > 1:
+            base = dfs[np.where(shapes == np.min(shapes))[0][0]]
+            gids = base["sc_point_gid"].values
+            dfs = [df[df["sc_point_gid"].isin(gids)] for df in dfs]
+
+        # For each row, find which df has the lowest lcoes
+        values = np.array([df[by].values for df in dfs])
+        df_indices = np.argmin(values, axis=0)
+        row_indices = [np.where(df_indices == i)[0] for i in range(len(dfs))]
+    
+        dfs = [dfs[i].iloc[idx] for i, idx in enumerate(row_indices)]
+        df = pd.concat(dfs)
+        df.to_csv(dst, index=False)
+        del dfs
+
+    return df
 
 
 @cache.memoize()
@@ -368,10 +514,11 @@ def cache_table(path):
 
 
 @cache2.memoize()
-def cache_map_table(path, path2=None, y="total_lcoe", idx=None):
+def cache_map_table(path, path2=None, y="total_lcoe", x="capacity", idx=None):
     """Read and store a data frame from the config and options given."""
     # Is it faster to subset columns before rows?
-    keepers = [y, "state", "county", "latitude", "longitude", "sc_point_gid"]
+    keepers = [y, x, "state", "county", "latitude", "longitude",
+               "sc_point_gid"]
 
     # Read and cache first table
     df = cache_table(path)
@@ -399,6 +546,110 @@ def cache_map_table(path, path2=None, y="total_lcoe", idx=None):
         df[y] = (1 -  y1 / y2) * 100
 
     return df
+
+
+@cache3.memoize()
+def cache_chart_tables(path, path2, x, y, state, idx):
+    """Read and store a data frame from the config and options given.
+
+    project = "Southern Company"
+    y = "capacity"
+    x = "capacity"
+    group = "Plant Size"
+    filters = {"Hub Height": "120", "Plant Size": "20"}
+    idx = None
+    """
+    df = cache_map_table(path, path2, y=y, x=x)
+    df = df[[x, y, "state"]]
+    if x == y:
+        df[x + "2"] = df[x].copy()
+    if state:
+        df = df[df["state"].isin(state)]
+    if idx:
+        df = df.iloc[idx, :]
+    df = df[[x, y]]
+    dfs = {"Map Data": df}
+
+    return dfs
+
+
+@app.callback([Output("low_cost_group_tab_div", "style"),
+               Output("low_cost_pair_1", "style"),
+               Output("low_cost_pair_2", "style"),
+               Output("low_cost_split_group_div", "style")],
+              [Input("low_cost_tabs", "value"),
+               Input("low_cost_group_tab", "value")])
+def toggle_low_cost_options(choice, how):
+    """Show the grouping options for the low cost function."""
+    if choice == "on":
+        style1 = {}
+    else:
+        style1 = {"display": "none"}
+    if how == "all":
+        style2 = {"display": "none"}
+        style3 = {"display": "none"}
+        style4 = {"display": "none"}
+    elif how == "pair":
+        style2 = {}
+        style3 = {}
+        style4 = {"display": "none"}
+    else:
+        style2 = {"display": "none"}
+        style3 = {"display": "none"}
+        style4 = {}
+    return style1, style2, style3, style4 
+
+
+@app.callback(Output("lchh_path", "children"),
+              [Input("low_cost_enter", "n_clicks")],
+              [State("low_cost_group_tab", "value"),
+               State("low_cost_pair_1", "value"),
+               State("low_cost_pair_2", "value"),
+               State("low_cost_split_group", "value"),
+               State("low_cost_split_group_options", "value")])
+def retrieve_low_cost(enter, how, pair1, pair2, group, group_choice):
+    """Calculate low cost fields based on user decision."""
+    print_args(retrieve_low_cost, enter, how, pair1, pair2, group)
+    if how == "all":
+        # Just one output
+        fname = "scenarios_all_lchh_sc.csv"
+        paths = FILEDF["file"].values
+    elif how == "pair":
+        # Just one output
+        paths = [pair1, pair2]
+        scenarios = [os.path.basename(path).split("_")[1] for path in paths]
+        scen_key = "_".join(scenarios)
+        fname = "scenarios_{}_lchh_sc.csv".format(scen_key)
+    else:
+        # This could create multiple outputs, but we'll do one at a time
+        fname = "scenarios_{}_{}_sc.csv".format(group,
+                                                group_choice.replace(".", ""))
+        paths = FILEDF["file"][FILEDF[group] == group_choice].values
+        
+    lchh_path = DP.join("review_outputs", fname, mkdir=True)
+    df = calc_low_cost(paths, lchh_path)
+
+    return lchh_path
+
+
+
+    if len(scenarios) == FILEDF.shape[0]:
+        scen_key = "all"
+    else:
+        scen_key = "_".join(scenarios)
+    fname = "scenarios_{}_lchh_sc.csv".format(scen_key)
+
+
+
+
+@app.callback([Output("low_cost_split_group_options", "options"),
+               Output("low_cost_split_group_options", "value")],
+              [Input("low_cost_split_group", "value")])
+def display_lchh_group_options(group):
+    """Display the available options for a chosen group."""
+    options = FILEDF[group].unique()
+    option_list = [{"label": o, "value": o} for o in options]
+    return option_list, options[0]
 
 
 # @cache.memoize()
@@ -487,93 +738,53 @@ def toggle_scenario_b(difference):
     return style
 
 
-# @app.callback([Output('chart_options_tab', 'children'),
-#                Output('chart_options_div', 'style'),
-#                Output('group_options_div', 'style'),
-#                Output('chart_xvariable_options_div', 'style')],
-#               [Input('chart_options_tab', 'value'),
-#                Input('chart_options', 'value'),
-#                Input('project', 'value')])
-# def chart_tab_options(tab_choice, chart_choice, project):
-#     """Choose which map tab dropown to display."""
-#     styles = [{'display': 'none'}] * 3
-#     order = ["chart", "group", "xvariable"]
-#     idx = order.index(tab_choice)
-#     styles[idx] = {"width": "100%", "text-align": "center"}
+@app.callback([Output('chart_options_tab', 'children'),
+               Output('chart_options_div', 'style'),
+               Output('chart_xvariable_options_div', 'style')],
+              [Input('chart_options_tab', 'value'),
+               Input('chart_options', 'value')])
+def chart_tab_options(tab_choice, chart_choice):
+    """Choose which map tab dropown to display."""
+    print_args(chart_tab_options, tab_choice, chart_choice)
+    styles = [{'display': 'none'}] * 2
+    order = ["chart", "xvariable"]
+    idx = order.index(tab_choice)
+    styles[idx] = {"width": "100%", "text-align": "center"}
 
-#     # If Cumulative capacity only show the y variable
-#     if chart_choice in ["cumsum", "histogram", "box"]:
-#         children = [
-#             dcc.Tab(value='chart',
-#                     label='Chart Type',
-#                     style=TABLET_STYLE,
-#                     selected_style=TABLET_STYLE
-#                     ),
-#             dcc.Tab(value="group",
-#                     label="Grouping Variable",
-#                     style=TABLET_STYLE,
-#                     selected_style=TABLET_STYLE),
-#             ]
-#     else:
-#         children = [
-#             dcc.Tab(value='chart',
-#                     label='Chart Type',
-#                     style=TABLET_STYLE,
-#                     selected_style=TABLET_STYLE
-#                     ),
-#             dcc.Tab(value="group",
-#                     label="Grouping Variable",
-#                     style=TABLET_STYLE,
-#                     selected_style=TABLET_STYLE),
-#             dcc.Tab(value='xvariable',
-#                     label='X Variable',
-#                     style=TABLET_STYLE,
-#                     selected_style=TABLET_STYLE)
-#             ]
+    # If Cumulative capacity only show the y variable
+    if chart_choice in ["cumsum", "histogram", "box"]:
+        children = [
+            dcc.Tab(value='chart',
+                    label='Chart Type',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE
+                )
+        ]
+    else:
+        children = [
+            dcc.Tab(value='chart',
+                    label='Chart Type',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE),
+            dcc.Tab(value='xvariable',
+                    label='X Variable',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE)
+        ]
 
-#     return children, styles[0], styles[1], styles[2]
+    return children, styles[0], styles[1]
 
 
-# @app.callback(Output("chart_data_signal", "children"),
-#               [Input("project", "value"),
-#                Input("group_options", "value"),
-#                Input("variable", "value"),
-#                Input("chart_xvariable_options", "value"),
-#                Input("state_options", "value"),
-#                Input({'type': 'option_dropdown', 'index': ALL}, 'value')])
-# def get_chart_tables(project, group, y, x, state, *options):
-#     """Store the signal used to get the set of tables needed for the chart."""
-#     print_args(get_chart_tables, project, group, y, x, state, *options)
-#     options = options[0]
-#     options = [str(o) for o in options if o]
-#     signal = json.dumps([project, group, y, x, state, *options])
-#     print("signal = " + signal)
-#     return signal
-
-
-# @app.callback(Output("group_options_div", "children"),
-#               [Input("project", "value")])
-# def chart_group_options(project):
-#     """Update grouping options for the chart according to the project."""
-#     # Get the possible grouping variables
-#     project_config = CONFIG[project]
-#     data = pd.DataFrame(project_config["data"])
-#     del data["file"]
-#     groups = data.columns
-#     group_options = [{"label": group, "value": group} for group in groups]
-
-#     # The grouping variable
-#     children = [
-#             dcc.Dropdown(
-#                 id="group_options",
-#                 clearable=False,
-#                 options=group_options,
-#                 multi=False,
-#                 value=data.columns[0]
-#             )
-#         ]
-
-#     return children
+@app.callback(Output("chart_data_signal", "children"),
+              [Input("variable", "value"),
+               Input("chart_xvariable_options", "value"),
+               Input("state_options", "value")])
+def get_chart_tables(y, x, state):
+    """Store the signal used to get the set of tables needed for the chart."""
+    print_args(get_chart_tables, y, x, state)
+    signal = json.dumps([y, x, state])
+    print("signal = " + signal)
+    return signal
 
 
 @app.callback([Output("state_options", "style"),
@@ -608,11 +819,13 @@ def toggle_rev_color_button(click):
 
 
 @app.callback(
-    [Output('map', 'figure'),
-     Output("mapview_store", "children")],
+    [Output("map", "figure"),
+     Output("mapview_store", "children"),
+     Output("map_data_paths", "children")],
     [Input("scenario_a", "value"),
      Input("scenario_b", "value"),
      Input("variable", "value"),
+     Input("lchh_path", "children"),
      Input("state_options", "value"),
      Input("basemap_options", "value"),
      Input("color_options", "value"),
@@ -622,24 +835,25 @@ def toggle_rev_color_button(click):
      Input("reset_chart", "n_clicks"),
      Input("difference", "value"),
      Input("map_color_min", "value"),
-     Input("map_color_max", "value"),],
-    [State("map", "relayoutData"),
+     Input("map_color_max", "value")],
+    [State("low_cost_tabs", "value"),
+     State("map", "relayoutData"),
      State("map", "selectedData")])
-def make_map(data_path, data_path2, variable, state, basemap, color, chartsel,
-             point_size, rev_color, reset, difference, uymin, uymax, mapview,
-             mapsel):
+def make_map(data_path, data_path2, variable, lchh_path, state,
+             basemap, color, chartsel, point_size, rev_color, reset,
+             difference, uymin, uymax, lchh_toggle, mapview, mapsel):
     """Make the scatterplot map.
 
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    print_args(make_map, data_path, data_path2, variable, state, basemap,
-               color, chartsel, point_size, rev_color, reset, difference,
-                uymin, uymax, mapview, mapsel)
-
     config = Config("Transition")
-
     trig = dash.callback_context.triggered[0]['prop_id']
+    print_args(make_map, data_path, data_path2, variable, lchh_path, state,
+               basemap, color, chartsel, point_size, rev_color, reset,
+               difference, uymin, uymax, lchh_toggle, mapview,
+               mapsel, trig)
+    print("trig = '" + str(trig) + "'")
 
     # Prevent the first trigger when difference is off
     if "scenario_b" in trig and difference == "off":
@@ -675,6 +889,11 @@ def make_map(data_path, data_path2, variable, state, basemap, color, chartsel,
     if uymax:
         ymax = uymax
 
+    # Here we will retrieve either ...
+    if "lchh_path" in trig and lchh_toggle == "on":
+        data_path = lchh_path
+
+    print("USING DATA PATH: " + data_path)
     df = cache_map_table(data_path, y=variable, path2=data_path2)
 
     if "reset" not in trig:
@@ -767,6 +986,10 @@ def make_map(data_path, data_path2, variable, state, basemap, color, chartsel,
 
         ag_print = "  |  {}: {} {}".format(conditioner, ag, units)
         title = title + ag_print
+
+    # Let's just recycle all this for the chart
+    chart_signal = [data_path, data_path2, ymin, ymax, title]
+
     title_size = 25
 
     layout_copy = copy.deepcopy(MAP_LAYOUT)
@@ -782,118 +1005,97 @@ def make_map(data_path, data_path2, variable, state, basemap, color, chartsel,
     layout_copy['mapbox']['style'] = basemap
     figure = dict(data=[data], layout=layout_copy)
 
-    return figure, json.dumps(mapview)
+    return figure, json.dumps(mapview), json.dumps(chart_signal)
 
 
-# @app.callback(
-#     Output('chart', 'figure'),
-#     [Input("chart_options", "value"),
-#      Input("chart_data_signal", "children"),
-#      Input("map", "selectedData"),
-#      Input("chart_point_size", "value"),
-#      Input("reset_chart", "n_clicks"),
-#      Input("chosen_map_options", "children")],
-#     [State("chart", "relayoutData"),
-#      State("chart", "selectedData")])
-# def make_chart(chart, signal, mapsel, point_size, reset, op_values, chartview,
-#                chartsel):
-#     """Make one of a variety of charts."""
-#     signal = json.loads(signal)
-#     print_args(make_chart, chart, signal, mapsel, point_size, reset, op_values,
-#                chartview, chartsel)
+@app.callback(Output('chart', 'figure'),
+             [Input("map_data_paths", "children"),
+              Input("chart_options", "value"),
+              Input("chart_data_signal", "children"),
+              Input("map", "selectedData"),
+              Input("chart_point_size", "value"),
+              Input("reset_chart", "n_clicks"),
+              Input("chosen_map_options", "children")],
+             [State("chart", "relayoutData"),
+              State("chart", "selectedData")])
+def make_chart(map_data_paths, chart, signal, mapsel, point_size, reset,
+               op_values, chartview, chartsel):
+    """Make one of a variety of charts."""
+    signal = json.loads(signal)
+    print_args(make_chart, map_data_paths, chart, signal, mapsel, point_size,
+               reset, op_values, chartview, chartsel)
 
-#     # Get the set of data frame using the stored signal
-#     project, group, y, x, state, *options = signal
-#     config = Config(project)
-#     op_values = json.loads(op_values)
+    # Get the data_paths used in the map
+    [data_path, data_path2, ymin, ymax, title] = json.loads(map_data_paths)
 
-#     # Turn the map selection object into indices
-#     if mapsel:
-#         idx = [d["pointIndex"] for d in mapsel["points"]]
-#     else:
-#         idx = None
+    # Get the set of data frame using the stored signal
+    y, x, state = signal
+    config = Config("Transition")
 
-#     # And generate on of these plots
-#     if chart == "cumsum":
-#         x = "capacity"
-#         dfs, name = cache_chart_tables(project, group, x, y, state, idx,
-#                                        *options)
-#         plotter = Plots(dfs, project, group, point_size)
-#         fig = plotter.ccap()
-#         ytitle = config.titles[y]
-#         var_title = ytitle + " by Cumulative Capacity"
-#         title = config.chart_title(var_title, op_values, group)
+    # Turn the map selection object into indices
+    if mapsel:
+        idx = [d["pointIndex"] for d in mapsel["points"]]
+    else:
+        idx = None
 
-#     elif chart == "scatter":
-#         dfs, name = cache_chart_tables(project, group, x, y, state, idx,
-#                                        *options)
-#         plotter = Plots(dfs, project, group, point_size)
-#         fig = plotter.scatter()
-#         ytitle = config.titles[y]
-#         xtitle = config.titles[x]
-#         var_title = ytitle + " by " + xtitle
-#         title = config.chart_title(var_title, op_values, group)
+    # And generate on of these plots
+    group = "Map Data"
+    title_size = 25
+    ylim = [ymin, ymax]
+    if chart == "cumsum":
+        x = "capacity"
+        dfs = cache_chart_tables(data_path, data_path2, x, y, state, idx)
+        plotter = Plots(dfs, "Transition", group, point_size)
+        fig = plotter.ccap()
 
-#     elif chart == "histogram":
-#         dfs, name = cache_chart_tables(project, group, x, y, state, idx,
-#                                        *options)
-#         plotter = Plots(dfs, project, group, point_size)
-#         fig = plotter.histogram()
-#         var_title = config.titles[y]
-#         title = config.chart_title(var_title, op_values, group)
+    elif chart == "scatter":
+        dfs = cache_chart_tables(data_path, data_path2, x, y, state, idx)
+        plotter = Plots(dfs, "Transition", group, point_size)
+        fig = plotter.scatter()
 
-#     elif chart == "box":
-#         dfs, name = cache_chart_tables(project, group, x, y, state, idx,
-#                                        *options)
-#         plotter = Plots(dfs, project, group, point_size)
-#         fig = plotter.box()
-#         var_title = config.titles[y]
-#         title = config.chart_title(var_title, op_values, group)
+    elif chart == "histogram":
+        dfs = cache_chart_tables(data_path, data_path2, x, y, state, idx)
+        plotter = Plots(dfs, "Transition", group, point_size)
+        fig = plotter.histogram()
 
-#     # Quick hack for transition team
-#     if project == "Transition":
-#         title = name.replace("_sc.csv", "")
-#         title = " ".join(title.split("_")).capitalize()
-#         title_size = 25
-#     else:
-#         title_size = config.title_size
-#     ylim = [
-#          plotter.config.scales[y]["min"],
-#          plotter.config.scales[y]["max"]
-#      ]
+    elif chart == "box":
+        dfs = cache_chart_tables(data_path, data_path2, x, y, state, idx)
+        plotter = Plots(dfs, "Transition", group, point_size)
+        fig = plotter.box()
 
-#     # Update the layout and traces
-#     fig.update_layout(
-#         font_family="Time New Roman",
-#         title_font_family="Times New Roman",
-#         legend_title_font_color="black",
-#         font_color="white",
-#         title_font_size=title_size,
-#         font_size=15,
-#         margin=dict(l=70, r=20, t=70, b=20),
-#         height=500,
-#         hovermode="x unified",
-#         paper_bgcolor="#1663B5",
-#         legend_title_text=group,
-#         dragmode="select",
-#         yaxis=dict(range=ylim),
-#         title=dict(
-#                 text=title,
-#                 yref="paper",
-#                 y=1,
-#                 x=0.1,
-#                 yanchor="bottom",
-#                 pad=dict(b=10)
-#                 ),
-#         legend=dict(
-#             title_font_family="Times New Roman",
-#             bgcolor="#E4ECF6",
-#             font=dict(
-#                 family="Times New Roman",
-#                 size=15,
-#                 color="black"
-#                 )
-#             )
-#         )
+    # Update the layout and traces
+    fig.update_layout(
+        font_family="Time New Roman",
+        title_font_family="Times New Roman",
+        legend_title_font_color="black",
+        font_color="white",
+        title_font_size=title_size,
+        font_size=15,
+        margin=dict(l=70, r=20, t=70, b=20),
+        height=500,
+        hovermode="x unified",
+        paper_bgcolor="#1663B5",
+        legend_title_text=group,
+        dragmode="select",
+        yaxis=dict(range=ylim),
+        title=dict(
+                text=title,
+                yref="paper",
+                y=1,
+                x=0.1,
+                yanchor="bottom",
+                pad=dict(b=10)
+                ),
+        legend=dict(
+            title_font_family="Times New Roman",
+            bgcolor="#E4ECF6",
+            font=dict(
+                family="Times New Roman",
+                size=15,
+                color="black"
+                )
+            )
+        )
 
-#     return fig
+    return fig
+    # return ""

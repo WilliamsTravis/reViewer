@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Configurable reView project index file.
+"""Transition reView project index file.
 
 Created on Sun Aug 23 16:41:32 2020
 
-/shared-projects/rev/projects/weto/bat_curtailment/reruns/single_owner/ppa/phase_4/aggregation/results
-
 @author: travis
 """
-
 import dash_core_components as dcc
 import dash_html_components as html
 

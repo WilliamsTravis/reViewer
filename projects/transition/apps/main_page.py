@@ -46,7 +46,6 @@ CONFIG = FULL_CONFIG["Transition"]
 
 DP = rr.Data_Path(CONFIG["directory"])
 
-
 FILEDF = pd.DataFrame(CONFIG["data"])
 
 GROUPS = [c for c in FILEDF.columns if c not in ["file", "name"]]
@@ -56,7 +55,7 @@ GROUP_OPTIONS = [
 MASTER_FNAME = ("National Impact Innovations - Land Based WInd Scenario "
                 "Matrix.xlsx")
 
-MASTER = rr.get_sheet(DP.join("data", MASTER_FNAME),
+MASTER = rr.get_sheet(DP.join("..", "data", "tables", MASTER_FNAME),
                       sheet_name="Rev_full_matrix")
 
 SCENARIO_OPTIONS = [
@@ -458,7 +457,7 @@ layout = html.Div(
 
         # Interim way to share data between map and chart
         html.Div(
-            id="map_data_paths",
+            id="data_signal",
             style={"display": "none"}
             )
     ]
@@ -817,61 +816,23 @@ def toggle_rev_color_button(click):
 
     return children, style
 
-
-@app.callback(
-    [Output("map", "figure"),
-     Output("mapview_store", "children"),
-     Output("map_data_paths", "children")],
-    [Input("scenario_a", "value"),
-     Input("scenario_b", "value"),
-     Input("variable", "value"),
-     Input("lchh_path", "children"),
-     Input("state_options", "value"),
-     Input("basemap_options", "value"),
-     Input("color_options", "value"),
-     Input("chart", "selectedData"),
-     Input("map_point_size", "value"),
-     Input("rev_color", "n_clicks"),
-     Input("reset_chart", "n_clicks"),
-     Input("difference", "value"),
-     Input("map_color_min", "value"),
-     Input("map_color_max", "value")],
-    [State("low_cost_tabs", "value"),
-     State("map", "relayoutData"),
-     State("map", "selectedData")])
-def make_map(data_path, data_path2, variable, lchh_path, state,
-             basemap, color, chartsel, point_size, rev_color, reset,
-             difference, uymin, uymax, lchh_toggle, mapview, mapsel):
-    """Make the scatterplot map.
-
-    To fix the point selection issue check this out:
-        https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
-    """
-    config = Config("Transition")
+@app.callback([Output("data_signal", "children")],
+              [Input("scenario_a", "value"),
+               Input("scenario_b", "value"),
+               Input("variable", "value"),
+               Input("lchh_path", "children"),
+               Input("difference", "value"),
+               Input("map_color_min", "value"),
+               Input("map_color_max", "value")],
+              [State("low_cost_tabs", "value")])
+def make_signal(data_path, data_path2, variable, lchh_path, difference,
+                uymin, uymax, lchh_toggle):
+    """A signal for sharing data between map and chart with dependence."""
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(make_map, data_path, data_path2, variable, lchh_path, state,
-               basemap, color, chartsel, point_size, rev_color, reset,
-               difference, uymin, uymax, lchh_toggle, mapview,
-               mapsel, trig)
-    print("trig = '" + str(trig) + "'")
 
     # Prevent the first trigger when difference is off
     if "scenario_b" in trig and difference == "off":
         raise PreventUpdate
-
-    # To save zoom levels and extent between map options (funny how this works)
-    if not mapview:
-        mapview = DEFAULT_MAPVIEW
-    elif 'mapbox.center' not in mapview.keys():
-        mapview = DEFAULT_MAPVIEW
-
-    # Get/build the value scale table
-    scales = config.scales
-
-    if rev_color % 2 == 1:
-        rev_color = True
-    else:
-        rev_color = False
 
     # Build the scatter plot data object
     if difference == "off":
@@ -889,9 +850,87 @@ def make_map(data_path, data_path2, variable, lchh_path, state,
     if uymax:
         ymax = uymax
 
+    # Set up titles
+    title = os.path.basename(data_path).replace("_sc.csv", "")
+    title = " ".join(title.split("_")).capitalize()
+    title = title + "  |  " + config.titles[variable]
+    if variable in AGGREGATIONS:
+        ag_fun = AGGREGATIONS[variable]
+        if ag_fun == "mean":
+            conditioner = "Unweighted mean"
+        else:
+            conditioner = "Total"
+        if variable == "capacity":
+            ag = round(df[variable].apply(ag_fun) / 1_000_000, 2)
+            units = "TW"
+        else:
+            ag = round(df[variable].apply(ag_fun), 2)
+            units = config.units[variable]
+
+        if difference == "on":
+            s1 = os.path.basename(data_path).replace("_sc.csv", "")
+            s2 = os.path.basename(data_path2).replace("_sc.csv", "")
+            s1 = " ".join(s1.split("_")).capitalize()
+            s2 = " ".join(s2.split("_")).capitalize()
+            title = "{} vs {}  |  ".format(s2, s1)  + config.titles[variable]
+            conditioner = "% Difference | Average"
+            units = ""
+
+        ag_print = "  |  {}: {} {}".format(conditioner, ag, units)
+        title = title + ag_print
+
     # Here we will retrieve either ...
     if "lchh_path" in trig and lchh_toggle == "on":
         data_path = lchh_path
+
+    # Let's just recycle all this for the chart
+    data_signal = [data_path, data_path2, variable, ymin, ymax, title]
+
+    return json.dumps(data_signal)
+
+
+@app.callback(
+    [Output("map", "figure"),
+     Output("mapview_store", "children")],
+    [Input("data_signal", "children"),
+     Input("state_options", "value"),
+     Input("basemap_options", "value"),
+     Input("color_options", "value"),
+     Input("chart", "selectedData"),
+     Input("map_point_size", "value"),
+     Input("rev_color", "n_clicks"),
+     Input("reset_chart", "n_clicks")],
+    [State("map", "relayoutData"),
+     State("map", "selectedData")])
+def make_map(data_signal, state, basemap, color, chartsel, point_size,
+             rev_color, reset, difference, mapview, mapsel):
+    """Make the scatterplot map.
+
+    To fix the point selection issue check this out:
+        https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
+    """
+    config = Config("Transition")
+    trig = dash.callback_context.triggered[0]['prop_id']
+    print_args(make_map, data_signal, state, basemap, color, chartsel,
+               point_size, rev_color, reset, difference, mapview, mapsel)
+    print("trig = '" + str(trig) + "'")
+
+    # Get map elements from data signal
+    data_path, data_path2, variable, ymin, ymax, title = json.loads(data_signal) 
+
+    # To save zoom levels and extent between map options (funny how this works)
+    if not mapview:
+        mapview = DEFAULT_MAPVIEW
+    elif 'mapbox.center' not in mapview.keys():
+        mapview = DEFAULT_MAPVIEW
+
+    # Get/build the value scale table
+    scales = config.scales
+
+    if rev_color % 2 == 1:
+        rev_color = True
+    else:
+        rev_color = False
 
     print("USING DATA PATH: " + data_path)
     df = cache_map_table(data_path, y=variable, path2=data_path2)
@@ -958,38 +997,6 @@ def make_map(data_path, data_path2, variable, lchh_path, state,
                     )
                 )
 
-    # Set up layout
-    title = os.path.basename(data_path).replace("_sc.csv", "")
-    title = " ".join(title.split("_")).capitalize()
-    title = title + "  |  " + config.titles[variable]
-    if variable in AGGREGATIONS:
-        ag_fun = AGGREGATIONS[variable]
-        if ag_fun == "mean":
-            conditioner = "Unweighted mean"
-        else:
-            conditioner = "Total"
-        if variable == "capacity":
-            ag = round(df[variable].apply(ag_fun) / 1_000_000, 2)
-            units = "TW"
-        else:
-            ag = round(df[variable].apply(ag_fun), 2)
-            units = config.units[variable]
-
-        if difference == "on":
-            s1 = os.path.basename(data_path).replace("_sc.csv", "")
-            s2 = os.path.basename(data_path2).replace("_sc.csv", "")
-            s1 = " ".join(s1.split("_")).capitalize()
-            s2 = " ".join(s2.split("_")).capitalize()
-            title = "{} vs {}  |  ".format(s2, s1)  + config.titles[variable]
-            conditioner = "% Difference | Average"
-            units = ""
-
-        ag_print = "  |  {}: {} {}".format(conditioner, ag, units)
-        title = title + ag_print
-
-    # Let's just recycle all this for the chart
-    chart_signal = [data_path, data_path2, ymin, ymax, title]
-
     title_size = 25
 
     layout_copy = copy.deepcopy(MAP_LAYOUT)
@@ -1005,11 +1012,11 @@ def make_map(data_path, data_path2, variable, lchh_path, state,
     layout_copy['mapbox']['style'] = basemap
     figure = dict(data=[data], layout=layout_copy)
 
-    return figure, json.dumps(mapview), json.dumps(chart_signal)
+    return figure, json.dumps(mapview)
 
 
 @app.callback(Output('chart', 'figure'),
-             [Input("map_data_paths", "children"),
+             [Input("data_signal", "children"),
               Input("chart_options", "value"),
               Input("chart_data_signal", "children"),
               Input("map", "selectedData"),
@@ -1018,7 +1025,7 @@ def make_map(data_path, data_path2, variable, lchh_path, state,
               Input("chosen_map_options", "children")],
              [State("chart", "relayoutData"),
               State("chart", "selectedData")])
-def make_chart(map_data_paths, chart, signal, mapsel, point_size, reset,
+def make_chart(data_signal, chart, signal, mapsel, point_size, reset,
                op_values, chartview, chartsel):
     """Make one of a variety of charts."""
     signal = json.loads(signal)
@@ -1026,7 +1033,7 @@ def make_chart(map_data_paths, chart, signal, mapsel, point_size, reset,
                reset, op_values, chartview, chartsel)
 
     # Get the data_paths used in the map
-    [data_path, data_path2, ymin, ymax, title] = json.loads(map_data_paths)
+    data_path, data_path2, variable, ymin, ymax, title = json.loads(data_signal)
 
     # Get the set of data frame using the stored signal
     y, x, state = signal
@@ -1056,6 +1063,7 @@ def make_chart(map_data_paths, chart, signal, mapsel, point_size, reset,
     elif chart == "histogram":
         dfs = cache_chart_tables(data_path, data_path2, x, y, state, idx)
         plotter = Plots(dfs, "Transition", group, point_size)
+        ylim=[0, 2000]
         fig = plotter.histogram()
 
     elif chart == "box":

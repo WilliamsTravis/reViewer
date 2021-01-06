@@ -608,7 +608,7 @@ def toggle_low_cost_options(choice, how):
                State("low_cost_split_group_options", "value")])
 def retrieve_low_cost(enter, how, pair1, pair2, group, group_choice):
     """Calculate low cost fields based on user decision."""
-    print_args(retrieve_low_cost, enter, how, pair1, pair2, group)
+    # print_args(retrieve_low_cost, enter, how, pair1, pair2, group)
     if how == "all":
         # Just one output
         fname = "scenarios_all_lchh_sc.csv"
@@ -744,7 +744,7 @@ def toggle_scenario_b(difference):
                Input('chart_options', 'value')])
 def chart_tab_options(tab_choice, chart_choice):
     """Choose which map tab dropown to display."""
-    print_args(chart_tab_options, tab_choice, chart_choice)
+    # print_args(chart_tab_options, tab_choice, chart_choice)
     styles = [{'display': 'none'}] * 2
     order = ["chart", "xvariable"]
     idx = order.index(tab_choice)
@@ -780,7 +780,7 @@ def chart_tab_options(tab_choice, chart_choice):
                Input("state_options", "value")])
 def get_chart_tables(y, x, state):
     """Store the signal used to get the set of tables needed for the chart."""
-    print_args(get_chart_tables, y, x, state)
+    # print_args(get_chart_tables, y, x, state)
     signal = json.dumps([y, x, state])
     print("signal = " + signal)
     return signal
@@ -911,8 +911,8 @@ def make_map(data_signal, state, basemap, color, chartsel, point_size,
     """
     config = Config("Transition")
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(make_map, data_signal, state, basemap, color, chartsel,
-               point_size, rev_color, reset, difference, mapview, mapsel)
+    # print_args(make_map, data_signal, state, basemap, color, chartsel,
+    #            point_size, rev_color, reset, difference, mapview, mapsel)
     print("trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
@@ -1029,8 +1029,8 @@ def make_chart(data_signal, chart, signal, mapsel, point_size, reset,
                op_values, chartview, chartsel):
     """Make one of a variety of charts."""
     signal = json.loads(signal)
-    print_args(make_chart, map_data_paths, chart, signal, mapsel, point_size,
-               reset, op_values, chartview, chartsel)
+    # print_args(make_chart, map_data_paths, chart, signal, mapsel, point_size,
+    #            reset, op_values, chartview, chartsel)
 
     # Get the data_paths used in the map
     data_path, data_path2, variable, ymin, ymax, title = json.loads(data_signal)

@@ -19,12 +19,12 @@ server = app.server
 # Create simple cache for storing updated supply curve tables
 cache = Cache(config={'CACHE_TYPE': 'filesystem',
                       'CACHE_DIR': 'data/cache',
-                      'CACHE_THRESHOLD': 5})
+                      'CACHE_THRESHOLD': 10})
 
 # Create another cache for storing filtered supply curve tables
 cache2 = Cache(config={'CACHE_TYPE': 'filesystem',
                        'CACHE_DIR': 'data/cache2',
-                       'CACHE_THRESHOLD': 5})
+                       'CACHE_THRESHOLD': 10})
 
 cache.init_app(server)
 cache2.init_app(server)

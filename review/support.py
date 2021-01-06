@@ -29,6 +29,21 @@ CONFIG_PATH = os.path.expanduser("~/.review_config")  # <---------------------- 
 with open(CONFIG_PATH, "r") as file:
     CONFIG = json.load(file)
 
+AGGREGATIONS = {
+    'area_sq_km': 'sum',
+    'capacity': 'sum',
+    'elevation': 'mean',
+    'dist_mi': 'mean',
+    'lcot': 'mean',
+    'mean_cf': 'mean',
+    'mean_lcoe': 'mean',
+    'mean_res': 'mean',
+    'total_lcoe': 'mean',
+    'trans_capacity': 'sum',
+    'trans_cap_cost': 'mean',
+    'trans_multiplier': 'mean'
+}
+
 
 BASEMAPS = [{'label': 'Light', 'value': 'light'},
             {'label': 'Dark', 'value': 'dark'},
@@ -201,7 +216,7 @@ UNITS = {
     'capacity': 'MW',
     'dist_mi': 'miles',
     'lcot': '$/MWh',
-    'mean_cf': 'CF %',
+    'mean_cf': '',
     'mean_lcoe': '$/MWh',
     'mean_res': 'm/s',  # This will change based on resource
     'total_lcoe': '$/MWh',
@@ -454,6 +469,7 @@ def transition_config(directory, config=CONFIG):
     build custom ones and around which to structure configurable reView.
 
     directory = "/shared-projects/rev/projects/weto/fy21/transition/rev"
+    directory = "/home/travis/github/reView/projects/transition"
     """
     from revruns import rr
 
@@ -474,8 +490,7 @@ def transition_config(directory, config=CONFIG):
     # Get lookup table for scenario variables
     fname = ("National Impact Innovations - Land Based WInd Scenario "
              "Matrix.xlsx")
-    master = rr.get_sheet(dp.join("..", "data", "tables", fname),
-                          sheet_name="Rev_full_matrix")
+    master = rr.get_sheet(dp.join("data", fname), sheet_name="Rev_full_matrix")
     keepers = ["Rating (MW)", "Hub Height (m)", "Rotor diameter (m)",
                "Erection", "Tower Type", "Wake steering benefit", "O&M Crane",
                "Exclusion layer"]
@@ -525,7 +540,6 @@ def transition_config(directory, config=CONFIG):
         file.write(json.dumps(config, indent=4))
 
     return entry
-
 
 
 def sort_mixed(values):

@@ -73,6 +73,8 @@ VARIABLE_OPTIONS = [
     if k not in GROUPS
 ]
 
+DEFAULT_SIGNAL = json.dumps([FILEDF["file"].iloc[0], None, "total_lcoe", 0,
+                             200, "$/MWh"])
 
 layout = html.Div(
     children=[
@@ -458,6 +460,7 @@ layout = html.Div(
         # Interim way to share data between map and chart
         html.Div(
             id="data_signal",
+            children=DEFAULT_SIGNAL,
             style={"display": "none"}
             )
     ]
@@ -816,7 +819,7 @@ def toggle_rev_color_button(click):
 
     return children, style
 
-@app.callback([Output("data_signal", "children")],
+@app.callback(Output("data_signal", "children"),
               [Input("scenario_a", "value"),
                Input("scenario_b", "value"),
                Input("variable", "value"),
@@ -854,42 +857,13 @@ def make_signal(data_path, data_path2, variable, lchh_path, difference,
     if uymax:
         ymax = uymax
 
-    # Set up titles
-    title = os.path.basename(data_path).replace("_sc.csv", "")
-    title = " ".join(title.split("_")).capitalize()
-    title = title + "  |  " + config.titles[variable]
-    if variable in AGGREGATIONS:
-        ag_fun = AGGREGATIONS[variable]
-        if ag_fun == "mean":
-            conditioner = "Unweighted mean"
-        else:
-            conditioner = "Total"
-        if variable == "capacity":
-            ag = round(df[variable].apply(ag_fun) / 1_000_000, 2)
-            units = "TW"
-        else:
-            ag = round(df[variable].apply(ag_fun), 2)
-            units = config.units[variable]
-
-        if difference == "on":
-            s1 = os.path.basename(data_path).replace("_sc.csv", "")
-            s2 = os.path.basename(data_path2).replace("_sc.csv", "")
-            s1 = " ".join(s1.split("_")).capitalize()
-            s2 = " ".join(s2.split("_")).capitalize()
-            title = "{} vs {}  |  ".format(s2, s1)  + config.titles[variable]
-            conditioner = "% Difference | Average"
-            units = ""
-
-        ag_print = "  |  {}: {} {}".format(conditioner, ag, units)
-        title = title + ag_print
-
     # Here we will retrieve either ...
     if "lchh_path" in trig and lchh_toggle == "on":
         data_path = lchh_path
 
     # Let's just recycle all this for the chart
-    data_signal = [data_path, data_path2, variable, ymin, ymax, title]
-
+    data_signal = [data_path, data_path2, variable, ymin, ymax, units]
+    print(data_signal)
     return json.dumps(data_signal)
 
 
@@ -904,7 +878,8 @@ def make_signal(data_path, data_path2, variable, lchh_path, difference,
      Input("map_point_size", "value"),
      Input("rev_color", "n_clicks"),
      Input("reset_chart", "n_clicks")],
-    [State("map", "relayoutData"),
+    [State("difference", "value"),
+     State("map", "relayoutData"),
      State("map", "selectedData")])
 def make_map(data_signal, state, basemap, color, chartsel, point_size,
              rev_color, reset, difference, mapview, mapsel):
@@ -920,7 +895,7 @@ def make_map(data_signal, state, basemap, color, chartsel, point_size,
     print("trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
-    data_path, data_path2, variable, ymin, ymax, title = json.loads(data_signal) 
+    data_path, data_path2, variable, ymin, ymax, units = json.loads(data_signal) 
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -1000,6 +975,36 @@ def make_map(data_signal, state, basemap, color, chartsel, point_size,
 
     title_size = 25
 
+    # Set up titles
+    title = os.path.basename(data_path).replace("_sc.csv", "")
+    title = " ".join(title.split("_")).capitalize()
+    title = title + "  |  " + config.titles[variable]
+    if variable in AGGREGATIONS:
+        ag_fun = AGGREGATIONS[variable]
+        if ag_fun == "mean":
+            conditioner = "Unweighted mean"
+        else:
+            conditioner = "Total"
+
+        if difference == "on":
+            s1 = os.path.basename(data_path).replace("_sc.csv", "")
+            s2 = os.path.basename(data_path2).replace("_sc.csv", "")
+            s1 = " ".join(s1.split("_")).capitalize()
+            s2 = " ".join(s2.split("_")).capitalize()
+            title = "{} vs {}  |  ".format(s2, s1)  + config.titles[variable]
+            conditioner = "% Difference | Average"
+            units = ""
+
+    if variable == "capacity":
+        ag = round(df[variable].apply(ag_fun) / 1_000_000, 2)
+        units = "TW"
+    else:
+        ag = round(df[variable].apply(ag_fun), 2)
+        units = config.units[variable]
+
+    ag_print = "  |  {}: {} {}".format(conditioner, ag, units)
+    title = title + ag_print
+
     layout_copy = copy.deepcopy(MAP_LAYOUT)
     layout_copy['mapbox']['center'] = mapview['mapbox.center']
     layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
@@ -1024,17 +1029,18 @@ def make_map(data_signal, state, basemap, color, chartsel, point_size,
               Input("chart_point_size", "value"),
               Input("reset_chart", "n_clicks"),
               Input("chosen_map_options", "children")],
-             [State("chart", "relayoutData"),
+             [State("difference", "value"),
+              State("chart", "relayoutData"),
               State("chart", "selectedData")])
 def make_chart(data_signal, chart, signal, mapsel, point_size, reset,
-               op_values, chartview, chartsel):
+               op_values, difference, chartview, chartsel):
     """Make one of a variety of charts."""
     signal = json.loads(signal)
     # print_args(make_chart, map_data_paths, chart, signal, mapsel, point_size,
     #            reset, op_values, chartview, chartsel)
 
     # Get the data_paths used in the map
-    data_path, data_path2, variable, ymin, ymax, title = json.loads(data_signal)
+    data_path, data_path2, variable, ymin, ymax, units = json.loads(data_signal)
 
     # Get the set of data frame using the stored signal
     y, x, state = signal
@@ -1050,6 +1056,7 @@ def make_chart(data_signal, chart, signal, mapsel, point_size, reset,
     group = "Map Data"
     title_size = 25
     ylim = [ymin, ymax]
+
     if chart == "cumsum":
         x = "capacity"
         dfs = cache_chart_tables(data_path, data_path2, x, y, state, idx)
@@ -1071,6 +1078,38 @@ def make_chart(data_signal, chart, signal, mapsel, point_size, reset,
         dfs = cache_chart_tables(data_path, data_path2, x, y, state, idx)
         plotter = Plots(dfs, "Transition", group, point_size)
         fig = plotter.box()
+
+    # Set up titles
+    title = os.path.basename(data_path).replace("_sc.csv", "")
+    title = " ".join(title.split("_")).capitalize()
+    title = title + "  |  " + config.titles[variable]
+    if variable in AGGREGATIONS:
+        ag_fun = AGGREGATIONS[variable]
+        if ag_fun == "mean":
+            conditioner = "Unweighted mean"
+        else:
+            conditioner = "Total"
+
+        if difference == "on":
+            s1 = os.path.basename(data_path).replace("_sc.csv", "")
+            s2 = os.path.basename(data_path2).replace("_sc.csv", "")
+            s1 = " ".join(s1.split("_")).capitalize()
+            s2 = " ".join(s2.split("_")).capitalize()
+            title = "{} vs {}  |  ".format(s2, s1)  + config.titles[variable]
+            conditioner = "% Difference | Average"
+            units = ""
+    df = dfs[group]
+    ag_fun = AGGREGATIONS[variable]
+    if variable == "capacity":
+        ag = round(df[variable].apply(ag_fun) / 1_000_000, 2)
+        units = "TW"
+    else:
+        ag = round(df[variable].apply(ag_fun), 2)
+        units = config.units[variable]
+
+    ag_print = "  |  {}: {} {}".format(conditioner, ag, units)
+    title = title + ag_print
+
 
     # Update the layout and traces
     fig.update_layout(
@@ -1107,4 +1146,3 @@ def make_chart(data_signal, chart, signal, mapsel, point_size, reset,
         )
 
     return fig
-    # return ""

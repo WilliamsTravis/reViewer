@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 """Create dash application objects, server, and data caches.
-s
+
 Created on Sun Aug 23 16:39:45 2020
 
 @author: travis
 """
-
 import dash
 
 from review.support import STYLESHEET
@@ -27,7 +26,7 @@ cache2 = Cache(config={'CACHE_TYPE': 'filesystem',
                        'CACHE_THRESHOLD': 10})
 
 # Create another cache for storing filtered supply curve tables
-cache3= Cache(config={'CACHE_TYPE': 'filesystem',
+cache3 = Cache(config={'CACHE_TYPE': 'filesystem',
                        'CACHE_DIR': 'data/cache3',
                        'CACHE_THRESHOLD': 10})
 

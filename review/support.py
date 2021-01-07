@@ -315,8 +315,8 @@ def get_dataframe_path(project, op_values):
         return path
 
 
-def get_scales(file_df, fields):
-    """Create a value scale dictionary for each field."""
+def get_scales(file_df, field_units):
+    """Create a value scale dictionary for each field-unit pair."""
     def get_range(arg):
         file, fields = arg
         ranges = {}
@@ -330,15 +330,19 @@ def get_scales(file_df, fields):
                 del ranges[field]
         return ranges
 
-    groups = [c for c in file_df.columns if c not in ["file", "name"]]
-    fields = [f for f in fields if f not in groups]
+    # Get all the files
     files = file_df["file"].values
-    args = [[file, fields] for file in files]
+    numbers = [k for k, v in field_units.items() if v != "category"]
+    categories = [k for k, v in field_units.items() if v == "category"]
+
+    # Setup numeric scale runs
+    args = [[file, numbers] for file in files]
     ranges = []
     with mp.Pool(mp.cpu_count()) as pool:
         for rng in tqdm(pool.imap(get_range, args), total=len(args)):
             ranges.append(rng)
 
+    # Adjust
     rdf = pd.DataFrame(ranges).T
     mins = rdf.apply(lambda x: min([e["min"] for e in x]), axis=1)
     maxes = rdf.apply(lambda x: max([e["max"] for e in x]), axis=1)
@@ -353,6 +357,10 @@ def get_scales(file_df, fields):
             vmax = int(vmax)
         scales[field]["min"] = vmin
         scales[field]["max"] = vmax
+
+    # Add in qualifier for categorical fields
+    for field in categories:
+        scales[field] = {"min": "na", "max": "na"}
 
     return scales
 
@@ -468,7 +476,7 @@ def transition_config(directory, config=CONFIG):
     """Build a sample configuration file that can be used as template to
     build custom ones and around which to structure configurable reView.
 
-    directory = "/shared-projects/rev/projects/weto/fy21/transition/rev"
+    directory = "/shared-projects/rev/projects/weto/fy21/transition/"
     directory = "/home/travis/github/reView/projects/transition"
     """
     from revruns import rr
@@ -482,7 +490,7 @@ def transition_config(directory, config=CONFIG):
 
     # Find paths to all file
     template = {}
-    files = dp.contents("*/*_sc.csv")
+    files = dp.contents("rev/results/*_sc.csv")
     files.sort()
     template["file"] = files
     fdf = pd.DataFrame(template)
@@ -490,7 +498,8 @@ def transition_config(directory, config=CONFIG):
     # Get lookup table for scenario variables
     fname = ("National Impact Innovations - Land Based WInd Scenario "
              "Matrix.xlsx")
-    master = rr.get_sheet(dp.join("data", fname), sheet_name="Rev_full_matrix")
+    master = rr.get_sheet(dp.join("data", "tables", fname),
+                          sheet_name="Rev_full_matrix")
     keepers = ["Rating (MW)", "Hub Height (m)", "Rotor diameter (m)",
                "Erection", "Tower Type", "Wake steering benefit", "O&M Crane",
                "Exclusion layer"]
@@ -510,22 +519,23 @@ def transition_config(directory, config=CONFIG):
 
     # Extra fields
     extra_titles = {t: t for t in master.columns}
+    extra_titles = {**extra_titles, **{"scenario": "Scenario"}}
     extra_units = {
         'Rating': 'MW',
         'Hub Height': 'm',
         'Rotor diameter': 'm',
-        'Erection': '',
-        'Tower Type': '',
+        'Erection': 'category',
+        'Tower Type': 'category',
         'Wake steering benefit': '%',
-        'O&M Crane': '',
-        'Exclusion layer': ''
+        'O&M Crane': 'category',
+        'Exclusion layer': 'category',
+        "scenario": "category"
     }
     titles = {**TITLES, **extra_titles}
     units = {**UNITS, **extra_units}
 
     # Find scales for each field
-    fields = list(units.keys())
-    scales = get_scales(fdf, fields)
+    scales = get_scales(fdf, units)
 
     # Create entry
     entry = {}

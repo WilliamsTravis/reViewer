@@ -698,7 +698,7 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
                State("low_cost_split_group_options", "value")])
 def retrieve_low_cost(enter, how, lst, group, group_choice):
     """Calculate low cost fields based on user decision."""
-    print_args(retrieve_low_cost, enter, how, lst, group)
+    # print_args(retrieve_low_cost, enter, how, lst, group)
     if how == "all":
         # Just one output
         fname = "scenarios_all_lchh_sc.csv"
@@ -790,20 +790,25 @@ def cache_map_data(signal):
 
 
 @cache3.memoize()
-def cache_chart_tables(signal, region="national"):
+def cache_chart_tables(signal, region="national", idx=None):
     """Read and store a data frame from the config and options given."""
-    path, path2, y, x, diff, states, ymin, ymax, threshold, units = json.loads(signal)
+    [path, path2, y, x, diff, states, ymin, ymax, threshold,
+     units] = json.loads(signal)
     df = cache_map_data(signal)
-    # if y == x:
-    #     df = df.iloc[:, 1:]
     df = df[[x, y, "state", "nrel_region", "print_capacity"]]
+
     if states:
         df = df[df["state"].isin(states)]
+
     if region != "national":
         regions = df[region].unique()
         dfs = {r: df[df[region] == r] for r in regions}
     else:
         dfs = {"Map Data": df}
+
+    if idx:
+        dfs = {key: df.iloc[idx] for key, df in dfs.items()}
+
     return dfs
 
 
@@ -817,7 +822,7 @@ def cache_chart_tables(signal, region="national"):
                State("scenario_a", "options")])
 def retrieve_low_cost(submit, how, lst, group, group_choice, options):
     """Calculate low cost fields based on user decision."""
-    print_args(retrieve_low_cost, submit, how, lst, group)
+    # print_args(retrieve_low_cost, submit, how, lst, group)
     # Build the appropriate paths and target file name
     if how == "all":
         # Just one output
@@ -1036,8 +1041,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
     """
     config = Config("Transition")
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(make_map, signal, basemap, color, chartsel, point_size,
-               rev_color, uymin, uymax, mapview, mapsel)
+    # print_args(make_map, signal, basemap, color, chartsel, point_size,
+    #            rev_color, uymin, uymax, mapview, mapsel)
     print("trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
@@ -1143,8 +1148,8 @@ def chart_tab_options(tab_choice, chart_choice):
 def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
                chartsel):
     """Make one of a variety of charts."""
-    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-               region, chartview, chartsel)
+    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+    #            region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 
@@ -1167,7 +1172,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
         x = "capacity"
         signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
                              threshold, units])
-        dfs = cache_chart_tables(signal, region)
+        dfs = cache_chart_tables(signal, region, idx)
         plotter = Plots(dfs, "Transition", group, point_size)
         fig = plotter.ccap()
 

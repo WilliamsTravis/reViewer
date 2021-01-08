@@ -154,7 +154,7 @@ MAP_LAYOUT = dict(
                    size=35,
                    family='Time New Roman',
                    fontweight='bold'),
-    margin=dict(l=20, r=115, t=70, b=20),
+    margin=dict(l=20, r=115, t=90, b=20),
     hovermode="closest",
     plot_bgcolor="#083C04",
     paper_bgcolor="#1663B5",
@@ -162,7 +162,7 @@ MAP_LAYOUT = dict(
     title=dict(
         yref="paper",
         x=0.1,
-        y=1,
+        y=1.4,
         yanchor="bottom",
         pad=dict(b=10)
     ),
@@ -490,7 +490,8 @@ def transition_config(directory, config=CONFIG):
 
     # Find paths to all file
     template = {}
-    files = dp.contents("rev/results/*_sc.csv")
+    # files = dp.contents("rev/results/*_sc.csv")
+    files = dp.contents("data/*_sc.csv")
     files.sort()
     template["file"] = files
     fdf = pd.DataFrame(template)
@@ -665,7 +666,7 @@ class Plots():
             df = self._fix_doubles(df)
             if main_df is None:
                 main_df = df.copy()
-                y = main_df.columns[1]  # <------------------------------ Fix case where y == "capacity"
+                y = main_df.columns[1]
                 main_df = main_df.sort_values(y)
                 main_df["ccap"] = main_df["capacity"].cumsum()
                 main_df[self.group] = key
@@ -789,19 +790,22 @@ class Plots():
 
     def box(self):
         """Return a boxplot."""
-        units = self.project_config["units"][self.group]
         def fix_key(key, units):
             """It can't display numbers and strings together."""
             if is_number(key):
                 key = str(key) + units
             return key
 
+        # Infer the y variable and units
+        dfs = self.data
+        df = dfs[list(dfs.keys())[0]]
+        y = df.columns[1]
+        units = self.project_config["units"][y]
+
         main_df = None
-        data = self.data.copy()
-        for key, df in data.items():
+        for key, df in dfs.items():
             df = self._fix_doubles(df)
             if main_df is None:
-                y = df.columns[1]
                 main_df = df.copy()
                 main_df[self.group] = key
             else:

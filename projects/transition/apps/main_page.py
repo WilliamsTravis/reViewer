@@ -12,8 +12,6 @@ Things to do:
     - Add link to GDS page
     - Customize CSS, remove internal styling
     - Deal with long titles
-    - include a value range table in the config file
-    - speed up get_scales
 """
 import copy
 import json
@@ -29,6 +27,8 @@ import pathos.multiprocessing as mp
 from app import app, cache, cache2, cache3
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
+from plotly.colors import sequential as seq_colors
+
 from review import print_args
 from review.support import (AGGREGATIONS, BASEMAPS, BUTTON_STYLES,
                             CHART_OPTIONS, COLOR_OPTIONS, CONFIG_PATH,
@@ -54,6 +54,12 @@ GROUPS = [c for c in FILEDF.columns if c not in ["file", "name"]]
 GROUP_OPTIONS = [
     {"label": g, "value": g} for g in GROUPS
 ]
+REGION_OPTIONS = [
+    {"label": "National", "value": "national"},
+    {"label": "NREL Regions", "value": "nrel_region"},
+    {"label": "States", "value": "state"}
+]
+
 SCENARIO_OPTIONS = [
     {"label": " ".join(row["name"].split("_")[:2]).capitalize(),
      "value": row["file"]} for i, row in FILEDF.iterrows()
@@ -116,6 +122,19 @@ layout = html.Div(
                              value="capacity"),
                 ],
                 className="two columns"),
+
+            # Upper Total LCOE Threshold
+            html.Div([
+                html.H6("Upper LCOE Threshold"),
+                dcc.Input(
+                    id="upper_lcoe_threshold",
+                    value=None,
+                    type="number",
+                    className="two columns",
+                    placeholder="NA",
+                    style={"width": "70%"}
+                ),
+            ], className="two columns"),
 
             # Show difference map
             html.Div([
@@ -209,25 +228,24 @@ layout = html.Div(
                                     dcc.Dropdown(
                                         id="low_cost_split_group_options"
                                     )
-                                ]
-                            ),
-
-                        ]
-                    ),
-
-                    # Enter Button for whichever option was picked
-                    html.Button(
-                        id="low_cost_enter",
-                        children="Enter",
-                        style={"width": "100%", "margin-left": "0px",
-                               "padding": "0px", "background-color": "#d6d6d6"}
-                    ),
+                                ]),
+                        ]),
                 ]),
-                html.Hr(),
 
-            ], className="six columns")
+            html.Hr(),
+
+            ], className="four columns"),
 
         ], className="row", style={"margin-bottom": "50px"}),
+
+        #Submit Button to avoid repeated callbacks
+        html.Button(
+        id="submit",
+        children="Submit",
+        style={"width": "10%", "margin-left": "0px",
+               "padding": "0px", "background-color": "#F9F9F9",
+               "margin-bottom": "50px"}
+        ),
 
         # Print total capacity after all the filters
         html.Div(id="total_capacity",
@@ -361,6 +379,10 @@ layout = html.Div(
                                         label='X Variable',
                                         style=TABLET_STYLE,
                                         selected_style=TABLET_STYLE),
+                                dcc.Tab(value='region',
+                                        label='Region',
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE),
                                 ]),
 
                         # Type of chart
@@ -387,7 +409,20 @@ layout = html.Div(
                                     multi=False,
                                     value="mean_cf"
                                 )
-                            ])
+                            ]),
+
+                        # Region grouping
+                        html.Div(
+                            id="chart_region_div",
+                            children=[
+                                dcc.Dropdown(
+                                    id="chart_region",
+                                    clearable=False,
+                                    options=REGION_OPTIONS,
+                                    multi=False,
+                                    value="national"
+                                )
+                            ]),
                         ]),
 
                 ], className="row"),
@@ -409,15 +444,6 @@ layout = html.Div(
                         dcc.Input(
                             id="chart_point_size",
                             value=5,
-                            type="number",
-                            className="two columns",
-                            style={"margin-left": -5, "width": "7%"}
-                        ),
-                        html.H6("Upper Threshold:",
-                                className="three columns"),
-                        dcc.Input(
-                            id="chart_upper_threshold",
-                            value=None,
                             type="number",
                             className="two columns",
                             style={"margin-left": -5, "width": "7%"}
@@ -464,7 +490,7 @@ layout = html.Div(
 
         # Interim way to share data between map and chart
         html.Div(
-            id="data_signal",
+            id="map_signal",
             children=DEFAULT_SIGNAL,
             style={"display": "none"}
             )
@@ -472,21 +498,172 @@ layout = html.Div(
 )
 
 
+# Support functions
+def build_map_layout(mapview, title, basemap, title_size=25):
+    """Build the map data layout dictionary."""
+    layout = copy.deepcopy(MAP_LAYOUT)
+    layout['mapbox']['center'] = mapview['mapbox.center']
+    layout['mapbox']['zoom'] = mapview['mapbox.zoom']
+    layout['mapbox']['bearing'] = mapview['mapbox.bearing']
+    layout['mapbox']['pitch'] = mapview['mapbox.pitch']
+    layout['titlefont'] = dict(color='white',
+                               size=title_size,
+                               family='Time New Roman',
+                               fontweight='bold')
+    layout["legend"] = dict(size=20)
+    layout["dragmode"] = "select"
+    layout['title']['text'] = title
+    layout['mapbox']['style'] = basemap
+    return layout
+
+
+def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
+    """Build a Plotly scatter plot dictionary."""
+    if x == y:
+        df = df.iloc[:, 1:]
+
+    # Create hover text
+    if units == "category":
+        df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
+                      + df[y] + " "
+                      + units)
+    else:
+        df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
+                      + df[y].round(2).astype(str) + " "
+                      + units)
+
+    if units == "category":
+        cats = {cat: i for i, cat in enumerate(df[y].unique())}
+        df["cat"] = df[y].map(cats)
+        y = "cat"
+        showlegend = True
+        data = []
+
+        # How to allow optionality for categorical colors?
+        colors = seq_colors.__dict__[color][::len(cats)]
+
+        for cat, value in cats.items():
+            # Create a sub data frame
+            sdf = df[df[y] == value]
+
+            # Create data object
+            trace = dict(type='scattermapbox',
+                         hoverinfo='text',
+                         hovermode='closest',
+                         lat=sdf['latitude'],
+                         lon=sdf['longitude'],
+                         mode='markers',
+                         name=cat,
+                         showlegend=showlegend,
+                         text=sdf['text'],
+                         marker=dict(
+                             # color=sdf[y],
+                             # colorscale=color,
+                             opacity=1.0,
+                             reversescale=rev_color,
+                             size=point_size
+                             )
+                         )
+
+            # Add to data
+            data.append(trace)
+
+    else:
+        showlegend = False
+        marker = dict(
+             color=df[y],
+             colorscale=color,
+             cmax=ymax,
+             cmin=ymin,
+             opacity=1.0,
+             reversescale=rev_color,
+             size=point_size,
+             colorbar=dict(
+                 title=units,
+                 dtickrange=[
+                     ymin,
+                     ymax
+                 ],
+                 textposition="auto",
+                 orientation="h",
+                 font=dict(
+                     size=15,
+                     fontweight='bold')
+                 )
+             )
+
+        # Create data object
+        data = [dict(type='scattermapbox',
+                     lon=df['longitude'],
+                     lat=df['latitude'],
+                     text=df['text'],
+                     mode='markers',
+                     hoverinfo='text',
+                     hovermode='closest',
+                     showlegend=showlegend,
+                     marker=marker)]
+
+    return data
+
+
+def build_title(df, path, path2, y, x,  difference, title_size = 25):
+    """Create chart title."""
+    config = Config("Transition")
+    title = os.path.basename(path).replace("_sc.csv", "")
+    title = " ".join(title.split("_")).capitalize()
+    title = title + "  |  " + config.titles[y]
+    if y in AGGREGATIONS:
+        ag_fun = AGGREGATIONS[y]
+        if ag_fun == "mean":
+            conditioner = "Unweighted mean"
+        else:
+            conditioner = "Total"
+
+        if difference == "on":
+            ag = "mean"
+            s1 = os.path.basename(path).replace("_sc.csv", "")
+            s2 = os.path.basename(path2).replace("_sc.csv", "")
+            s1 = " ".join(s1.split("_")).capitalize()
+            s2 = " ".join(s2.split("_")).capitalize()
+            title = "{} vs {} |  ".format(s2, s1) + config.titles[y]
+            conditioner = "% Difference | Average"
+            units = ""
+
+        if isinstance(df, pd.core.frame.DataFrame):
+            if x == y:
+                df = df.iloc[:, 1:]
+            if y == "capacity":
+                ag = round(df[y].apply(ag_fun) / 1_000_000, 2)
+                if difference == "on":
+                    units = ""
+                else:
+                    units = "TW"
+            else:
+                ag = round(df[y].apply(ag_fun), 2)
+                if difference == "on":
+                    units = ""
+                else:
+                    units = config.units[y]
+
+            ag_print = "     <br> {}: {} {}".format(conditioner, ag, units)
+            title = title + ag_print
+
+    return title
+
+
 def calc_low_cost(paths, dst, by="total_lcoe"):
     """Calculate a single data frame by the lowest cost row from many."""
-    # Get a list of data frames
-    paths.sort()
-    scenarios = [os.path.basename(path).split("_")[1] for path in paths]
-    if os.path.exists(dst):
-        df = cache_table(dst)
-    else:
-        # Retrieve a data frame and add scenario
-        def retrieve(arg):
-            path, scenario = arg
-            df = cache_table(path)
-            df["scenario"] = scenario
-            return df
+    # Separate function for a retrieving a single data frame
+    def retrieve(arg):
+        path, scenario = arg
+        df = cache_table(path)
+        df["scenario"] = scenario
+        return df
 
+    # Retrieve a data frame and add scenario
+    if not os.path.exists(dst):
+        paths.sort()
+        scenarios = [os.path.basename(path).split("_")[1] for path in paths]
         dfs = []
         args = [[paths[i], scenarios[i]] for i in range(len(paths))]
         with mp.Pool(mp.cpu_count()) as pool:
@@ -504,13 +681,13 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
         values = np.array([df[by].values for df in dfs])
         df_indices = np.argmin(values, axis=0)
         row_indices = [np.where(df_indices == i)[0] for i in range(len(dfs))]
-
         dfs = [dfs[i].iloc[idx] for i, idx in enumerate(row_indices)]
         df = pd.concat(dfs)
-        df.to_csv(dst, index=False)
-        del dfs
 
-    return df
+        # Save
+        df.to_csv(dst, index=False)
+
+    return dst
 
 
 @app.callback(Output("lchh_path", "children"),
@@ -547,69 +724,128 @@ def retrieve_low_cost(enter, how, lst, group, group_choice):
 def cache_table(path):
     """Read in just a single table."""
     df = pd.read_csv(path, low_memory=False)
+    if not "print_capacity" in df.columns:
+        df["print_capacity"] = df["capacity"].copy()
+    if not "lcoe_threshold" in df.columns:
+        df["lcoe_threshold"] = df["total_lcoe"].copy()
     return df
 
 
 @cache2.memoize()
-def cache_map_table(path, path2=None, y="total_lcoe", x="capacity", idx=None):
+def cache_map_data(signal):
     """Read and store a data frame from the config and options given."""
+    # Get signal elements
+    [path, path2, y, x, diff, states, ymin, ymax, threshold,
+     units] = json.loads(signal)
+
     # Read and cache first table
     df = cache_table(path)
 
-    # If x and y are the same
-    if x == y:
-        x = x + "2"
-        df[x] = df[y].copy()
-
-    # We need capacity, but the original name might cause confusion
-    df["print_capacity"] = df["capacity"].copy()
-
     # Is it faster to subset columns before rows?
-    keepers = [y, x, "print_capacity", "state", "county", "latitude",
-               "longitude", "sc_point_gid"]
-
+    keepers = [y, x, "print_capacity", "lcoe_threshold", "state",
+               "nrel_region", "county", "latitude", "longitude",
+               "sc_point_gid"]
     df = df[keepers]
-    if idx:
-        df = df.loc[idx]
+    if y == x:
+        df = df.iloc[:, 1:]
 
     # If there's a second table, read/cache that
     if path2:
         df2 = cache_table(path2)
-
-        # If x and y were the same
-        if x[-1:] == "2":
-            df[x] = df[y].copy()
         df2 = df2[keepers]
-        if idx:
-            df2 = df2.loc[idx]
-
+        if y == x:
+            df2 = df2.iloc[:, 1:]
         # They might have different shapes
-        if df.shape[0] != df2.shape[0]:
+        # if df.shape[0] != df2.shape[0]:
+        #     df2 = df2.rename({y: y + "_2"}, axis=1)
+        #     df3 = df.rr.nearest(df2, fields=[y + "_2"])
+        #     y1 = df3[y]
+        #     y2 = df3[y + "_2"]
+        # else:
+        #     y1 = df[y]
+        #     y2 = df2[y]
+
+        # The above doesn't seem to work for two lchh's
+        if df.shape[0] > df2.shape[0]:
             df2 = df2.rename({y: y + "_2"}, axis=1)
             df3 = df.rr.nearest(df2, fields=[y + "_2"])
-            y1 = df3[y]
-            y2 = df3[y + "_2"]
         else:
-            y1 = df[y]
-            y2 = df2[y]
+            df = df.rename({y: y + "_2"}, axis=1)
+            df3 = df2.rr.nearest(df, fields=[y + "_2"])
+        y1 = df3[y]
+        y2 = df3[y + "_2"]
 
         # Now find the percent difference
         df[y] = (1 - y1 / y2) * 100
+
+    # If threshold, calculate here
+    if threshold:
+        df = df[df["lcoe_threshold"] <= threshold]
+
+    # Finally filter for states
+    if states:
+        df = df[df["state"].isin(states)]
 
     return df
 
 
 @cache3.memoize()
-def cache_chart_tables(path, path2, x, y, state, idx, group=None):
+def cache_chart_tables(signal, region="national"):
     """Read and store a data frame from the config and options given."""
-    df = cache_map_table(path, path2, y=y, x=x)
-    df = df[[x, y, "state", "print_capacity"]]
-    if state:
-        df = df[df["state"].isin(state)]
-    if idx:
-        df = df.iloc[idx, :]
-    dfs = {"Map Data": df}
+    path, path2, y, x, diff, states, ymin, ymax, threshold, units = json.loads(signal)
+    df = cache_map_data(signal)
+    # if y == x:
+    #     df = df.iloc[:, 1:]
+    df = df[[x, y, "state", "nrel_region", "print_capacity"]]
+    if states:
+        df = df[df["state"].isin(states)]
+    if region != "national":
+        regions = df[region].unique()
+        dfs = {r: df[df[region] == r] for r in regions}
+    else:
+        dfs = {"Map Data": df}
     return dfs
+
+
+@app.callback([Output("scenario_a", "options"),
+               Output("scenario_b", "options")],
+              [Input("submit", "n_clicks")],
+              [State("low_cost_group_tab", "value"),
+               State("low_cost_list", "value"),
+               State("low_cost_split_group", "value"),
+               State("low_cost_split_group_options", "value"),
+               State("scenario_a", "options")])
+def retrieve_low_cost(submit, how, lst, group, group_choice, options):
+    """Calculate low cost fields based on user decision."""
+    print_args(retrieve_low_cost, submit, how, lst, group)
+    # Build the appropriate paths and target file name
+    if how == "all":
+        # Just one output
+        fname = "least_cost_all_sc.csv"
+        paths = FILEDF["file"].values
+    elif how == "list":
+        # Just one output
+        paths = lst
+        scenarios = [os.path.basename(path).split("_")[1] for path in paths]
+        scen_key = "_".join(scenarios)
+        fname = "least_cost_{}_sc.csv".format(scen_key)
+    else:
+        # This could create multiple outputs, but we'll do one at a time
+        fname = "least_cost_{}_{}_sc.csv".format(group,
+                                                 group_choice.replace(".", ""))
+        paths = FILEDF["file"][FILEDF[group] == group_choice].values
+
+    # Build the full target path and create the file
+    lchh_path = DP.join("review_outputs", fname, mkdir=True)
+    calc_low_cost(paths, lchh_path, by="total_lcoe")
+
+    # Update the scenario file options
+    label = " ".join([f.capitalize() for f in fname.split("_")[:-1]])
+    if label not in [o["label"] for o in options]:
+        option = {"label": label, "value": lchh_path}
+        options.append(option)
+    return options, options
+
 
 
 @app.callback([Output("low_cost_group_tab_div", "style"),
@@ -645,52 +881,6 @@ def display_lchh_group_options(group):
     return option_list, options[0]
 
 
-# @cache.memoize()
-# def cache_chart_tables(project, group, x, y, state, idx, *options):
-#     """Read and store a data frame from the config and options given.
-
-#     project = "Southern Company"
-#     y = "capacity"
-#     x = "capacity"
-#     group = "Plant Size"
-#     filters = {"Hub Height": "120", "Plant Size": "20"}
-#     idx = None
-#     """
-#     project_config = CONFIG[project]
-#     data = pd.DataFrame(project_config["data"]).copy()
-#     option_names = [c for c in data.columns if c not in ["file", "name"]]
-#     filters = dict(zip(option_names, options))
-
-#     # We're keeping the grouping variable
-#     if group in filters:
-#         del filters[group]
-
-#     # If every possible combination is present this works
-#     for fltr, value in filters.items():
-#         data = data[data[fltr] == value]
-#         del data[fltr]
-
-#     # If there are results
-#     dfs = {}
-#     for i, row in data.iterrows():
-#         group_val = row[group]
-#         path = row["file"]
-#         df = pd.read_csv(path, usecols=[x, y, "state"])
-#         if x == y:
-#             df[x + "2"] = df[x].copy()
-#         if state:
-#             df = df[df["state"].isin(state)]
-#         if idx:
-#             df = df.iloc[idx, :]
-#         df = df[[x, y]]
-#         dfs[group_val] = df
-
-#     # If there's one result
-#     name = data["name"].values[0]
-
-#     return dfs, name
-
-
 @app.callback([Output("scenario_a_specs", "children"),
                Output("scenario_b_specs", "children")],
               [Input("scenario_a", "value"),
@@ -701,21 +891,25 @@ def scenario_specs(scenario_a, scenario_b):
 
     fields = [f for f in FILEDF.columns if f not in ["file", "name"]]
 
-    df1 = FILEDF[FILEDF["file"] == scenario_a][fields].to_dict()
-    df2 = FILEDF[FILEDF["file"] == scenario_b][fields].to_dict()
+    if "least_cost" not in scenario_a:
+        df1 = FILEDF[FILEDF["file"] == scenario_a][fields].to_dict()
+        dct1 = {k: v[list(v.keys())[0]] for k, v in df1.items()}
+        specs1 = []
+        for i, (k, v) in enumerate(dct1.items()):
+            specs1.append("{}: {}".format(k, v))
+            specs1.append(html.Br())
+    else:
+        specs1 = ["Combination of multiple scenarios."]
 
-    dct1 = {k: v[list(v.keys())[0]] for k, v in df1.items()}
-    dct2 = {k: v[list(v.keys())[0]] for k, v in df2.items()}
-
-    specs1 = []
-    for i, (k, v) in enumerate(dct1.items()):
-        specs1.append("{}: {}".format(k, v))
-        specs1.append(html.Br())
-
-    specs2 = []
-    for i, (k, v) in enumerate(dct2.items()):
-        specs2.append("{}: {}".format(k, v))
-        specs2.append(html.Br())
+    if "least_cost" not in scenario_b:
+        df2 = FILEDF[FILEDF["file"] == scenario_b][fields].to_dict()
+        dct2 = {k: v[list(v.keys())[0]] for k, v in df2.items()}
+        specs2 = []
+        for i, (k, v) in enumerate(dct2.items()):
+            specs2.append("{}: {}".format(k, v))
+            specs2.append(html.Br())
+    else:
+        specs2 = ["Combination of multiple scenarios."]
 
     return specs1, specs2
 
@@ -731,43 +925,7 @@ def toggle_scenario_b(difference):
     return style
 
 
-@app.callback([Output('chart_options_tab', 'children'),
-               Output('chart_options_div', 'style'),
-               Output('chart_xvariable_options_div', 'style')],
-              [Input('chart_options_tab', 'value'),
-               Input('chart_options', 'value')])
-def chart_tab_options(tab_choice, chart_choice):
-    """Choose which map tab dropown to display."""
-    # print_args(chart_tab_options, tab_choice, chart_choice)
-    styles = [{'display': 'none'}] * 2
-    order = ["chart", "xvariable"]
-    idx = order.index(tab_choice)
-    styles[idx] = {"width": "100%", "text-align": "center"}
-
-    # If Cumulative capacity only show the y variable
-    if chart_choice in ["cumsum", "histogram", "box"]:
-        children = [
-            dcc.Tab(value='chart',
-                    label='Chart Type',
-                    style=TABLET_STYLE,
-                    selected_style=TABLET_STYLE
-                )
-        ]
-    else:
-        children = [
-            dcc.Tab(value='chart',
-                    label='Chart Type',
-                    style=TABLET_STYLE,
-                    selected_style=TABLET_STYLE),
-            dcc.Tab(value='xvariable',
-                    label='X Variable',
-                    style=TABLET_STYLE,
-                    selected_style=TABLET_STYLE)
-        ]
-
-    return children, styles[0], styles[1]
-
-
+# Map callbacks
 @app.callback(Output("chart_data_signal", "children"),
               [Input("variable", "value"),
                Input("chart_xvariable_options", "value"),
@@ -810,17 +968,21 @@ def toggle_rev_color_button(click):
 
     return children, style
 
-@app.callback(Output("data_signal", "children"),
-              [Input("scenario_a", "value"),
-               Input("scenario_b", "value"),
-               Input("variable", "value"),
-               Input("lchh_path", "children"),
-               Input("difference", "value"),
-               Input("map_color_min", "value"),
-               Input("map_color_max", "value")],
-              [State("low_cost_tabs", "value")])
-def make_signal(data_path, data_path2, variable, lchh_path, difference,
-                uymin, uymax, lchh_toggle):
+
+
+@app.callback(Output("map_signal", "children"),
+              [Input("submit", "n_clicks"),
+               Input("state_options", "value")],
+              [State("upper_lcoe_threshold", "value"),
+               State("scenario_a", "value"),
+               State("scenario_b", "value"),
+               State("lchh_path", "children"),
+               State("variable", "value"),
+               State("chart_xvariable_options", "value"),
+               State("difference", "value"),
+               State("low_cost_tabs", "value")])
+def map_signal(submit, states, threshold, path, path2, lchh_path, y, x, diff,
+               lchh_toggle):
     """A signal for sharing data between map and chart with dependence."""
     trig = dash.callback_context.triggered[0]['prop_id']
 
@@ -833,48 +995,40 @@ def make_signal(data_path, data_path2, variable, lchh_path, difference,
     scales = config.scales
 
     # Build the scatter plot data object
-    if difference == "off":
-        data_path2 = None
-        ymin = scales[variable]["min"]
-        ymax = scales[variable]["max"]
-        units = config.units[variable]
+    if diff == "off":
+        path2 = None
+        ymin = scales[y]["min"]
+        ymax = scales[y]["max"]
+        units = config.units[y]
     else:
         ymin = -50
         ymax = 50
         units = "%"
 
-    if uymin:
-        ymin = uymin
-    if uymax:
-        ymax = uymax
-
     # Here we will retrieve either ...
     if "lchh_path" in trig and lchh_toggle == "on":
-        data_path = lchh_path
+        path = lchh_path
 
     # Let's just recycle all this for the chart
-    data_signal = [data_path, data_path2, variable, ymin, ymax, units]
-    print(data_signal)
-    return json.dumps(data_signal)
+    signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
+                         threshold, units])
+    return signal
 
 
-@app.callback(
-    [Output("map", "figure"),
-     Output("mapview_store", "children")],
-    [Input("data_signal", "children"),
-     Input("state_options", "value"),
-     Input("basemap_options", "value"),
-     Input("color_options", "value"),
-     Input("chart", "selectedData"),
-     Input("map_point_size", "value"),
-     Input("rev_color", "n_clicks"),
-     Input("reset_chart", "n_clicks"),
-     Input("chart_upper_threshold", "value")],
-    [State("difference", "value"),
-     State("map", "relayoutData"),
-     State("map", "selectedData")])
-def make_map(signal, state, basemap, color, chartsel, point_size,
-             rev_color, reset, threshold, difference, mapview, mapsel):
+@app.callback([Output("map", "figure"),
+               Output("mapview_store", "children")],
+              [Input("map_signal", "children"),
+               Input("basemap_options", "value"),
+               Input("color_options", "value"),
+               Input("chart", "selectedData"),
+               Input("map_point_size", "value"),
+               Input("rev_color", "n_clicks"),
+               Input("map_color_min", "value"),
+               Input("map_color_max", "value")],
+              [State("map", "relayoutData"),
+               State("map", "selectedData")])
+def make_map(signal, basemap, color, chartsel, point_size,
+             rev_color, uymin, uymax, mapview, mapsel):
     """Make the scatterplot map.
 
     To fix the point selection issue check this out:
@@ -882,12 +1036,15 @@ def make_map(signal, state, basemap, color, chartsel, point_size,
     """
     config = Config("Transition")
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(make_map, signal, state, basemap, color, chartsel,
-    #            point_size, rev_color, reset, difference, mapview, mapsel)
+    print_args(make_map, signal, basemap, color, chartsel, point_size,
+               rev_color, uymin, uymax, mapview, mapsel)
     print("trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
-    path, path2, variable, ymin, ymax, units = json.loads(signal)
+    df = cache_map_data(signal)
+    [path, path2, y, x, diff, states, ymin, ymax, threshold,
+     units] = json.loads(signal)
+
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -895,151 +1052,105 @@ def make_map(signal, state, basemap, color, chartsel, point_size,
     elif 'mapbox.center' not in mapview.keys():
         mapview = DEFAULT_MAPVIEW
 
+    # Reverse color
     if rev_color % 2 == 1:
         rev_color = True
     else:
         rev_color = False
 
-    df = cache_map_table(path, y=variable, path2=path2)
+    # Use user defined value ranges
+    if uymin:
+        ymin = uymin
+    if uymax:
+        ymax = uymax
 
-    if "reset" not in trig:
-        # If there is a selection in the chart filter these points
-        if chartsel:
-            if len(chartsel["points"]) > 0:
-                df = chart_point_filter(df, chartsel, variable)
+    # If there is a selection in the chart filter these points
+    if chartsel:
+        if len(chartsel["points"]) > 0:
+            df = chart_point_filter(df, chartsel, y)
 
-        if "selectedData" not in trig:
-            if mapsel:
-                idx = [p["pointIndex"] for p in mapsel["points"]]
-                df = df.loc[idx]
+    if "selectedData" not in trig:
+        if mapsel:
+            idx = [p["pointIndex"] for p in mapsel["points"]]
+            df = df.loc[idx]
 
-        # Finally filter for states
-        if state:
-            df = df[df["state"].isin(state)]
-
-    # Apply threshold
-    if threshold:
-        df = df[df[variable] <= threshold]
-
-    if not isinstance(df[variable].iloc[0], str):
-        df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
-                      + df[variable].round(2).astype(str) + " "
-                      + units)
-    else:
-        df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
-                      + df[variable] + " "
-                      + units)
-
-    # Reverse color is from a button (number of clicks)
-    if rev_color % 2 == 1:
-        rev_color = False
-    else:
-        rev_color = True
-
-    # Create data object
-    data = dict(type='scattermapbox',
-                lon=df['longitude'],
-                lat=df['latitude'],
-                text=df['text'],
-                mode='markers',
-                hoverinfo='text',
-                hovermode='closest',
-                showlegend=False,
-                marker=dict(
-                    colorscale=color,
-                    reversescale=rev_color,
-                    color=df[variable],
-                    cmin=ymin,
-                    cmax=ymax,
-                    opacity=1.0,
-                    size=point_size,
-                    colorbar=dict(
-                        title=units,
-                        dtickrange=[
-                            ymin,
-                            ymax
-                        ],
-                        textposition="auto",
-                        orientation="h",
-                        font=dict(
-                            size=15,
-                            fontweight='bold')
-                        )
-                    )
-                )
-    title_size = 25
-
-    # Set up titles
-    title = os.path.basename(path).replace("_sc.csv", "")
-    title = " ".join(title.split("_")).capitalize()
-    title = title + "  |  " + config.titles[variable]
-    if variable in AGGREGATIONS:
-        ag_fun = AGGREGATIONS[variable]
-        if ag_fun == "mean":
-            conditioner = "Unweighted mean"
-        else:
-            conditioner = "Total"
-
-        if difference == "on":
-            s1 = os.path.basename(path).replace("_sc.csv", "")
-            s2 = os.path.basename(path2).replace("_sc.csv", "")
-            s1 = " ".join(s1.split("_")).capitalize()
-            s2 = " ".join(s2.split("_")).capitalize()
-            title = "{} vs {}  |  ".format(s2, s1) + config.titles[variable]
-            conditioner = "% Difference | Average"
-            units = ""
-
-    if variable == "capacity":
-        ag = round(df[variable].apply(ag_fun) / 1_000_000, 2)
-        units = "TW"
-    else:
-        ag = round(df[variable].apply(ag_fun), 2)
-        units = config.units[variable]
-
-    ag_print = "  |  {}: {} {}".format(conditioner, ag, units)
-    title = title + ag_print
-
-    layout_copy = copy.deepcopy(MAP_LAYOUT)
-    layout_copy['mapbox']['center'] = mapview['mapbox.center']
-    layout_copy['mapbox']['zoom'] = mapview['mapbox.zoom']
-    layout_copy['mapbox']['bearing'] = mapview['mapbox.bearing']
-    layout_copy['mapbox']['pitch'] = mapview['mapbox.pitch']
-    layout_copy['titlefont'] = dict(color='white', size=title_size,
-                                    family='Time New Roman',
-                                    fontweight='bold')
-    layout_copy["dragmode"] = "select"
-    layout_copy['title']['text'] = title
-    layout_copy['mapbox']['style'] = basemap
-    figure = dict(data=[data], layout=layout_copy)
+    # Build map elements
+    data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
+                          point_size)
+    title = build_title(df, path, path2, y, x, diff, title_size=25)
+    layout = build_map_layout(mapview, title, basemap, title_size=25)
+    figure = dict(data=data, layout=layout)
 
     return figure, json.dumps(mapview)
 
 
-@app.callback([Output('chart', 'figure'),
-               Output("total_capacity", "children")],
-              [Input("data_signal", "children"),
+# Charts
+@app.callback([Output('chart_options_tab', 'children'),
+               Output('chart_options_div', 'style'),
+               Output('chart_xvariable_options_div', 'style'),
+               Output('chart_region_div', 'style')],
+              [Input('chart_options_tab', 'value'),
+               Input('chart_options', 'value')])
+def chart_tab_options(tab_choice, chart_choice):
+    """Choose which map tab dropown to display."""
+    # print_args(chart_tab_options, tab_choice, chart_choice)
+    styles = [{'display': 'none'}] * 3
+    order = ["chart", "xvariable", "region"]
+    idx = order.index(tab_choice)
+    styles[idx] = {"width": "100%", "text-align": "center"}
+
+    # If Cumulative capacity only show the y variable
+    if chart_choice in ["cumsum", "histogram", "box"]:
+        children = [
+            dcc.Tab(value='chart',
+                    label='Chart Type',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE
+                ),
+            dcc.Tab(value='region',
+                    label='Region',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE)
+        ]
+    else:
+        children = [
+            dcc.Tab(value='chart',
+                    label='Chart Type',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE),
+            dcc.Tab(value='xvariable',
+                    label='X Variable',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE),
+            dcc.Tab(value='region',
+                    label='Region',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE)
+        ]
+
+    return children, styles[0], styles[1], styles[2]
+
+
+@app.callback(Output('chart', 'figure'),
+              [Input("map_signal", "children"),
                Input("chart_options", "value"),
                Input("map", "selectedData"),
                Input("chart_point_size", "value"),
-               Input("reset_chart", "n_clicks"),
                Input("chosen_map_options", "children"),
-               Input("chart_upper_threshold", "value")],
-              [State("difference", "value"),
-               State("chart_xvariable_options", "value"),
-               State("state_options", "value"),
-               State("chart", "relayoutData"),
+               Input("chart_region", "value")],
+              [State("chart", "relayoutData"),
                State("chart", "selectedData")])
-def make_chart(signal, chart, mapsel, point_size, reset, op_values, threshold,
-               difference, x, state, chartview, chartsel):
+def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
+               chartsel):
     """Make one of a variety of charts."""
-    print_args(make_chart, signal, chart, mapsel, point_size, reset, op_values,
-                threshold, difference, x, state, chartview, chartsel)
+    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+               region, chartview, chartsel)
+    trig = dash.callback_context.triggered[0]['prop_id']
+    print("trig = '" + str(trig) + "'")
 
-    # Get the data_paths used in the map
-    path, path2, variable, ymin, ymax, units = json.loads(signal)
-
-    # Get the set of data frame using the stored signal
-    config = Config("Transition")
+    # Get map elements from data signal
+    [path, path2, y, x, diff, states, ymin, ymax, threshold,
+     units] = json.loads(signal)
 
     # Turn the map selection object into indices
     if mapsel:
@@ -1053,67 +1164,31 @@ def make_chart(signal, chart, mapsel, point_size, reset, op_values, threshold,
     ylim = [ymin, ymax]
 
     if chart == "cumsum":
-        y = variable
         x = "capacity"
-        dfs = cache_chart_tables(path, path2, x, y, state, idx)
-        if threshold:
-            dfs = {k: v[v[y] <= threshold] for k, v in dfs.items()}
+        signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
+                             threshold, units])
+        dfs = cache_chart_tables(signal, region)
         plotter = Plots(dfs, "Transition", group, point_size)
         fig = plotter.ccap()
 
     elif chart == "scatter":
-        y = variable
-        dfs = cache_chart_tables(path, path2, x, y, state, idx)
+        dfs = cache_chart_tables(signal, region)
         plotter = Plots(dfs, "Transition", group, point_size)
         fig = plotter.scatter()
 
     elif chart == "histogram":
-        y = variable
-        dfs = cache_chart_tables(path, path2, x, y, state, idx)
+        dfs = cache_chart_tables(signal, region)
         plotter = Plots(dfs, "Transition", group, point_size)
         ylim = [0, 2000]
         fig = plotter.histogram()
 
     elif chart == "box":
-        dfs = cache_chart_tables(path, path2, x, y, state, idx)
+        dfs = cache_chart_tables(signal, region)
         plotter = Plots(dfs, "Transition", group, point_size)
         fig = plotter.box()
 
-    # Set up titles
-    title = os.path.basename(path).replace("_sc.csv", "")
-    title = " ".join(title.split("_")).capitalize()
-    title = title + "  |  " + config.titles[variable]
-    if variable in AGGREGATIONS:
-        ag_fun = AGGREGATIONS[variable]
-        if ag_fun == "mean":
-            conditioner = "Unweighted mean"
-        else:
-            conditioner = "Total"
-
-        if difference == "on":
-            s1 = os.path.basename(path).replace("_sc.csv", "")
-            s2 = os.path.basename(path2).replace("_sc.csv", "")
-            s1 = " ".join(s1.split("_")).capitalize()
-            s2 = " ".join(s2.split("_")).capitalize()
-            title = "{} vs {}  |  ".format(s2, s1) + config.titles[variable]
-            conditioner = "% Difference | Average"
-            units = ""
-    df = dfs[group]
-
     # Whats the total capacity at this point?
-    tcap = round(df["print_capacity"].sum() / 1_000_000, 2)
-    tcap_print = "Remaining Capacity: {} TW".format(tcap)
-
-    ag_fun = AGGREGATIONS[variable]
-    if variable == "capacity":
-        ag = round(df[variable].apply(ag_fun) / 1_000_000, 2)
-        units = "TW"
-    else:
-        ag = round(df[variable].apply(ag_fun), 2)
-        units = config.units[variable]
-
-    ag_print = "  |  {}: {} {}".format(conditioner, ag, units)
-    title = title + ag_print
+    title = build_title(dfs, path, path2, y, x, diff, title_size=25)
 
     # Update the layout and traces
     fig.update_layout(
@@ -1149,4 +1224,4 @@ def make_chart(signal, chart, mapsel, point_size, reset, op_values, threshold,
             )
         )
 
-    return fig, tcap_print
+    return fig

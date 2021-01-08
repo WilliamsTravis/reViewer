@@ -11,6 +11,7 @@ import json
 import os
 
 import pandas as pd
+import pathos.multiprocessing as mp
 
 from revruns import rr
 from tqdm import tqdm
@@ -101,8 +102,10 @@ def reshape_regions():
     return regions
 
 
-def update_file(path, config):
+def update_file(arg):
     """Add fields to a single file."""
+    path, config = arg
+
     # Get scenario from path
     name = os.path.basename(path)
     scenario = name.split("_")[1]
@@ -130,9 +133,10 @@ def update_files():
     with open(CONFIG, "r") as file:
         full_config = json.load(file)
     config = full_config["Transition"]
-    for path in tqdm(FILES):
-        update_file(path, config)
-
+    args = [(file, config) for file in FILES]
+    with mp.Pool(mp.cpu_count()) as pool:
+        for _ in tqdm(pool.imap(update_file, args), total=len(args)):
+            pass
 
 if __name__ == "__main__":
     update_files()

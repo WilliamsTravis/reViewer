@@ -17,12 +17,13 @@ from revruns import rr
 from tqdm import tqdm
 
 
-DP = rr.Data_Path(".")
-
-FILES = DP.contents("*sc.csv")
-
 CONFIG = os.path.expanduser("~/.review_config")
-
+DP = rr.Data_Path(".")
+FILES = DP.contents("*sc.csv")
+KEEPERS =  ["mean_cf", "mean_lcoe", "mean_res", "capacity", "area_sq_km",
+            "latitude", "longitude", "country", "state", "county", "elevation",
+            "timezone", "sc_point_gid", "transmission_multiplier",
+            "trans_capacity", "trans_type", "trans_cap_cost"]
 REGIONS = {
     "Pacific": [
         "Oregon",
@@ -125,6 +126,9 @@ def update_file(arg):
     # Now add NREL regions
     regions = reshape_regions()
     df["nrel_region"] = df["state"].map(regions)
+
+    # And the scenario
+    df["scenario"] = scenario
 
     df.to_csv(path, index=False)
 

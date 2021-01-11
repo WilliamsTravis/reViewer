@@ -90,11 +90,11 @@ layout = html.Div(
                     options=SCENARIO_OPTIONS,
                     value=SCENARIO_OPTIONS[0]["value"]
                 ),
-                html.P(
+                dcc.Markdown(
                     id="scenario_a_specs",
-                    style={"margin-left": "15px"}
+                    style={"margin-left": "15px", "font-size": "9pt"}
                 )
-            ], className="two columns"),
+            ], className="three columns"),
 
             # Second Scenario
             html.Div(
@@ -107,10 +107,11 @@ layout = html.Div(
                             options=SCENARIO_OPTIONS,
                             value=SCENARIO_OPTIONS[1]["value"]
                         ),
-                        html.P(
-                            id="scenario_b_specs"
+                        dcc.Markdown(
+                            id="scenario_b_specs",
+                            style={"margin-left": "15px", "font-size": "9pt"}
                         )
-                        ], className="two columns")
+                        ], className="three columns")
                 ],
                 style={"margin-left": "50px"}),
 
@@ -233,6 +234,13 @@ layout = html.Div(
                 ]),
 
             html.Hr(),
+
+            # Print total capacity after all the filters are applied
+            html.Div(
+                children=[
+                    html.H5("Remaining Generation Capacity: "),
+                    html.H1(id="capacity_print", children="")
+                ])
 
             ], className="four columns"),
 
@@ -525,12 +533,10 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
     # Create hover text
     if units == "category":
         df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
-                      + df[y] + " "
-                      + units)
+                      + df[y].astype(str) + " " + units)
     else:
         df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
-                      + df[y].round(2).astype(str) + " "
-                      + units)
+                      + df[y].round(2).astype(str) + " " + units)
 
     if units == "category":
         cats = {cat: i for i, cat in enumerate(df[y].unique())}
@@ -606,6 +612,53 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
     return data
 
 
+def build_specs(path):
+    """Calculate the percentage of each scenario present."""
+    fields = [f for f in FILEDF.columns if f not in ["file", "name"]]
+    df = FILEDF[FILEDF["file"] == path][fields].to_dict()
+    dct = {k: v[list(v.keys())[0]] for k, v in df.items()}
+    table = """| Variable | Value |\n|----------|------------|\n"""
+    for variable, value in dct.items():
+        row = "| {} | {} |\n".format(variable, value)
+        table = table + row
+    return table
+    
+
+def build_spec_split(path):
+    """Calculate the percentage of each scenario present."""
+    df = cache_table(path)
+    scenarios, counts = np.unique(df["scenario"], return_counts=True)
+    total = df.shape[0]
+    percentages = [counts[i] / total for i in range(len(counts))]
+    percentages = [round(p * 100, 2)  for p in percentages]
+    table = """| Scenario | Percentage |\n|----------|------------|\n"""
+
+    n = len(scenarios)
+    if n > 10:
+        table = """| Scenario | Percentage | Scenario | Percentage|\n"""
+        table = table + "|----------|------------|----------|------------|\n"
+        for i in np.arange(0, len(percentages), 2):
+            if i < n - 1:
+                s1 = scenarios[i]
+                s2 = scenarios[i + 1]
+                p1 = percentages[i]
+                p2 = percentages[i + 1]
+                row = "| {} | {}% | {} | {}% |\n".format(s1, p1, s2, p2)
+            else:
+                s1 = scenarios[n - 1]
+                s2 = ""
+                p1 = percentages[n - 1]
+                p2 = ""
+                row = "| {} | {}% | {} | {} |\n".format(s1, p1, s2, p2)
+            table = table + row
+    else:
+        for i in range(len(percentages)):
+            row = "| {} | {}% |\n".format(scenarios[i], percentages[i])
+            table = table + row
+
+    return table
+
+
 def build_title(df, path, path2, y, x,  difference, title_size = 25):
     """Create chart title."""
     config = Config("Transition")
@@ -651,6 +704,25 @@ def build_title(df, path, path2, y, x,  difference, title_size = 25):
     return title
 
 
+def calc_difference(df1, df2, y, x):
+    """Calculate the percent difference of a field between two dfs."""
+    # We may have two differently shaped data frames
+    shapes = [df1.shape[0], df2.shape[0]]
+    if len(np.unique(shapes)) > 1:
+        # Several options, but here we are using just the overlapping gids
+        dfs = [df1, df2]
+        larger = dfs[np.where(shapes == np.max(shapes))[0][0]]
+        smaller = dfs[np.where(shapes == np.min(shapes))[0][0]]
+        sgids = smaller["sc_point_gid"].values
+        df1 = df1[df1["sc_point_gid"].isin(sgids)]
+        df2 = df2[df2["sc_point_gid"].isin(sgids)]
+
+    # Calculte difference
+    df1[y] = (1 - (df1[y] / df2[y])) * 100
+
+    return df1
+
+
 def calc_low_cost(paths, dst, by="total_lcoe"):
     """Calculate a single data frame by the lowest cost row from many."""
     # Separate function for a retrieving a single data frame
@@ -658,6 +730,16 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
         path, scenario = arg
         df = cache_table(path)
         df["scenario"] = scenario
+        return df
+
+    # For each row, find which df has the lowest lcoes
+    def low_cost(dfs, by="total_lcoe"):
+        """Return a single df from a list of same-shaped dfs."""
+        values = np.array([df[by].values for df in dfs])
+        df_indices = np.argmin(values, axis=0)
+        row_indices = [np.where(df_indices == i)[0] for i in range(len(dfs))]
+        dfs = [dfs[i].iloc[idx] for i, idx in enumerate(row_indices)]
+        df = pd.concat(dfs)
         return df
 
     # Retrieve a data frame and add scenario
@@ -673,21 +755,50 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
         # How to deal with mismatching grids?
         shapes = [df.shape[0] for df in dfs]
         if len(np.unique(shapes)) > 1:
-            base = dfs[np.where(shapes == np.min(shapes))[0][0]]
-            gids = base["sc_point_gid"].values
-            dfs = [df[df["sc_point_gid"].isin(gids)] for df in dfs]
+            # Get the gids of the larger and the missing gids of the smaller
+            larger = dfs[np.where(shapes == np.max(shapes))[0][0]]
+            smaller = dfs[np.where(shapes == np.min(shapes))[0][0]]
+            lgids = larger["sc_point_gid"].values
+            sgids = smaller["sc_point_gid"].values
+            mgids = set(lgids) - set(sgids)
 
-        # For each row, find which df has the lowest lcoes
-        values = np.array([df[by].values for df in dfs])
-        df_indices = np.argmin(values, axis=0)
-        row_indices = [np.where(df_indices == i)[0] for i in range(len(dfs))]
-        dfs = [dfs[i].iloc[idx] for i, idx in enumerate(row_indices)]
-        df = pd.concat(dfs)
+            # Now create two lists of data frames, 
+            sdfs = [df[df["sc_point_gid"].isin(sgids)] for df in dfs]
+            mdfs = [df[df["sc_point_gid"].isin(mgids)] for df in dfs]
+            mdfs = [df for df in mdfs if df.shape[0] > 0]
+            sdf = low_cost(sdfs)
+            mdf = low_cost(mdfs)
+            df = pd.concat([sdf, mdf])
+            df = df.sort_values("sc_point_gid")
+        else:
+            df = low_cost(dfs)
 
         # Save
         df.to_csv(dst, index=False)
 
     return dst
+
+
+@app.callback(Output("capacity_print", "children"),
+             [Input("map_signal", "children"),
+              Input("map", "selectedData"),
+              Input("chart", "selectedData")])
+def calc_total_capacity(signal, mapsel, chartsel):
+    """Calculate total remaining capacity after all filters are applied."""
+    trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
+    df = cache_map_data(signal)
+    [path, path2, y, x, diff, states, ymin, ymax, threshold,
+     units] = json.loads(signal)
+    if trig == "map":
+        if mapsel:
+            idx = [d["pointIndex"] for d in mapsel["points"]]
+            df = df.iloc[idx]
+    elif trig == "chart":
+        if chartsel:
+            df = chart_point_filter(df, chartsel, y)
+    total = round(df["print_capacity"].sum() / 1_000_000, 2)
+    total_print = "{} MW".format(total)
+    return total_print
 
 
 @app.callback(Output("lchh_path", "children"),
@@ -746,37 +857,21 @@ def cache_map_data(signal):
                "nrel_region", "county", "latitude", "longitude",
                "sc_point_gid"]
     df = df[keepers]
+
+    # For other functions this data frame needs an x field
     if y == x:
         df = df.iloc[:, 1:]
 
-    # If there's a second table, read/cache that
+    # If there's a second table, read/cache the difference
     if path2:
+        # Match the format of the first dataframe
         df2 = cache_table(path2)
         df2 = df2[keepers]
         if y == x:
             df2 = df2.iloc[:, 1:]
-        # They might have different shapes
-        # if df.shape[0] != df2.shape[0]:
-        #     df2 = df2.rename({y: y + "_2"}, axis=1)
-        #     df3 = df.rr.nearest(df2, fields=[y + "_2"])
-        #     y1 = df3[y]
-        #     y2 = df3[y + "_2"]
-        # else:
-        #     y1 = df[y]
-        #     y2 = df2[y]
 
-        # The above doesn't seem to work for two lchh's
-        if df.shape[0] > df2.shape[0]:
-            df2 = df2.rename({y: y + "_2"}, axis=1)
-            df3 = df.rr.nearest(df2, fields=[y + "_2"])
-        else:
-            df = df.rename({y: y + "_2"}, axis=1)
-            df3 = df2.rr.nearest(df, fields=[y + "_2"])
-        y1 = df3[y]
-        y2 = df3[y + "_2"]
-
-        # Now find the percent difference
-        df[y] = (1 - y1 / y2) * 100
+        # And get the difference
+        df = calc_difference(df, df2, y, x)
 
     # If threshold, calculate here
     if threshold:
@@ -897,24 +992,14 @@ def scenario_specs(scenario_a, scenario_b):
     fields = [f for f in FILEDF.columns if f not in ["file", "name"]]
 
     if "least_cost" not in scenario_a:
-        df1 = FILEDF[FILEDF["file"] == scenario_a][fields].to_dict()
-        dct1 = {k: v[list(v.keys())[0]] for k, v in df1.items()}
-        specs1 = []
-        for i, (k, v) in enumerate(dct1.items()):
-            specs1.append("{}: {}".format(k, v))
-            specs1.append(html.Br())
+        specs1 = build_specs(scenario_a)
     else:
-        specs1 = ["Combination of multiple scenarios."]
+        specs1 = build_spec_split(scenario_a)
 
     if "least_cost" not in scenario_b:
-        df2 = FILEDF[FILEDF["file"] == scenario_b][fields].to_dict()
-        dct2 = {k: v[list(v.keys())[0]] for k, v in df2.items()}
-        specs2 = []
-        for i, (k, v) in enumerate(dct2.items()):
-            specs2.append("{}: {}".format(k, v))
-            specs2.append(html.Br())
+        specs2 = build_specs(scenario_b)
     else:
-        specs2 = ["Combination of multiple scenarios."]
+        specs2 = build_spec_split(scenario_b)
 
     return specs1, specs2
 
@@ -1043,7 +1128,7 @@ def make_map(signal, basemap, color, chartsel, point_size,
     trig = dash.callback_context.triggered[0]['prop_id']
     # print_args(make_map, signal, basemap, color, chartsel, point_size,
     #            rev_color, uymin, uymax, mapview, mapsel)
-    print("trig = '" + str(trig) + "'")
+    # print("trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
     df = cache_map_data(signal)
@@ -1074,10 +1159,11 @@ def make_map(signal, basemap, color, chartsel, point_size,
         if len(chartsel["points"]) > 0:
             df = chart_point_filter(df, chartsel, y)
 
-    if "selectedData" not in trig:
-        if mapsel:
-            idx = [p["pointIndex"] for p in mapsel["points"]]
-            df = df.loc[idx]
+    # If triggered again and there's still a map selection, re-highlight 
+    # if "selectedData" not in trig:
+    #     if mapsel:
+    #         idx = [p["pointIndex"] for p in mapsel["points"]]
+    #         # What goes here?  
 
     # Build map elements
     data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
@@ -1148,8 +1234,8 @@ def chart_tab_options(tab_choice, chart_choice):
 def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
                chartsel):
     """Make one of a variety of charts."""
-    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-    #            region, chartview, chartsel)
+    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+                region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 
@@ -1159,7 +1245,10 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
 
     # Turn the map selection object into indices
     if mapsel:
-        idx = [d["pointIndex"] for d in mapsel["points"]]
+        if len(mapsel["points"]) > 0:
+            idx = [d["pointIndex"] for d in mapsel["points"]]
+        else:
+            idx = None
     else:
         idx = None
 

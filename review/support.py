@@ -204,7 +204,7 @@ TITLES = {
     'total_lcoe': 'Total LCOE',
     'trans_capacity': 'Total Transmission Capacity',
     'trans_cap_cost': 'Transmission Capital Costs',
-    'trans_multiplier': 'Transmission Cost Multiplier',
+    'transmission_multiplier': 'Transmission Cost Multiplier',
     'trans_type': 'Transmission Feature Type'
 }
 
@@ -216,13 +216,13 @@ UNITS = {
     'capacity': 'MW',
     'dist_mi': 'miles',
     'lcot': '$/MWh',
-    'mean_cf': '',
+    'mean_cf': 'ratio',
     'mean_lcoe': '$/MWh',
     'mean_res': 'm/s',  # This will change based on resource
     'total_lcoe': '$/MWh',
     'trans_capacity': 'MW',
     'trans_cap_cost': '$/MW',
-    'trans_multiplier': 'unitless',
+    'transmission_multiplier': 'category',
     'trans_type': 'category'
 }
 
@@ -477,7 +477,7 @@ def transition_config(directory, config=CONFIG):
     build custom ones and around which to structure configurable reView.
 
     directory = "/shared-projects/rev/projects/weto/fy21/transition/"
-    directory = "/home/travis/github/reView/projects/transition"
+    directory = "/home/travis/nrel/transition/"
     """
     from revruns import rr
 
@@ -522,12 +522,12 @@ def transition_config(directory, config=CONFIG):
     extra_titles = {t: t for t in master.columns}
     extra_titles = {**extra_titles, **{"scenario": "Scenario"}}
     extra_units = {
-        'Rating': 'MW',
-        'Hub Height': 'm',
-        'Rotor diameter': 'm',
+        'Rating': 'category',
+        'Hub Height': 'category',
+        'Rotor diameter': 'caategory',
         'Erection': 'category',
         'Tower Type': 'category',
-        'Wake steering benefit': '%',
+        'Wake steering benefit': 'category',
         'O&M Crane': 'category',
         'Exclusion layer': 'category',
         "scenario": "category"

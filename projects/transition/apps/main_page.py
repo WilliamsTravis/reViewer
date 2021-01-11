@@ -797,7 +797,7 @@ def calc_total_capacity(signal, mapsel, chartsel):
         if chartsel:
             df = chart_point_filter(df, chartsel, y)
     total = round(df["print_capacity"].sum() / 1_000_000, 2)
-    total_print = "{} MW".format(total)
+    total_print = "{} TW".format(total)
     return total_print
 
 
@@ -1135,7 +1135,6 @@ def make_map(signal, basemap, color, chartsel, point_size,
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
      units] = json.loads(signal)
 
-
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
         mapview = DEFAULT_MAPVIEW
@@ -1234,8 +1233,8 @@ def chart_tab_options(tab_choice, chart_choice):
 def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
                chartsel):
     """Make one of a variety of charts."""
-    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-                region, chartview, chartsel)
+    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+    #             region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 

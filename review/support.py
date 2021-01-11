@@ -183,7 +183,8 @@ ORIGINAL_FIELDS = ['sc_gid', 'res_gids', 'gen_gids', 'gid_counts', 'n_gids',
                    'trans_cap_cost', 'dist_mi', 'lcot', 'total_lcoe']
 
 SCALE_OVERRIDES = {
-    "total_lcoe": [0, 200]
+    "total_lcoe": [0, 200],
+    "mean_lcoe": [0, 200]
 }
 
 STYLESHEET = 'https://codepen.io/chriddyp/pen/bWLwgP.css'

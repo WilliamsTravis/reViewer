@@ -127,13 +127,26 @@ layout = html.Div(
             # Upper Total LCOE Threshold
             html.Div([
                 html.H6("Upper LCOE Threshold"),
+                dcc.Tabs(
+                    id="threshold_field",
+                    value="total_lcoe_threshold",
+                    style=TAB_STYLE,
+                    children=[
+                        dcc.Tab(value='total_lcoe_threshold',
+                                label='Total LCOE',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE_CLOSED),
+                        dcc.Tab(value='mean_lcoe_threshold',
+                                label='Site LCOE',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE_CLOSED)
+                ]),
                 dcc.Input(
                     id="upper_lcoe_threshold",
                     value=None,
                     type="number",
-                    className="two columns",
                     placeholder="NA",
-                    style={"width": "70%"}
+                    style={"width": "100%"}
                 ),
             ], className="two columns"),
 
@@ -527,9 +540,6 @@ def build_map_layout(mapview, title, basemap, title_size=25):
 
 def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
     """Build a Plotly scatter plot dictionary."""
-    if x == y:
-        df = df.iloc[:, 1:]
-
     # Create hover text
     if units == "category":
         df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
@@ -659,7 +669,7 @@ def build_spec_split(path):
     return table
 
 
-def build_title(df, path, path2, y, x,  difference, title_size = 25):
+def build_title(df, path, path2, y, x,  difference, title_size=25):
     """Create chart title."""
     config = Config("Transition")
     title = os.path.basename(path).replace("_sc.csv", "")
@@ -676,15 +686,13 @@ def build_title(df, path, path2, y, x,  difference, title_size = 25):
             ag = "mean"
             s1 = os.path.basename(path).replace("_sc.csv", "")
             s2 = os.path.basename(path2).replace("_sc.csv", "")
-            s1 = " ".join(s1.split("_")).capitalize()
-            s2 = " ".join(s2.split("_")).capitalize()
-            title = "{} vs {} |  ".format(s2, s1) + config.titles[y]
+            s1 = " ".join([s.capitalize() for s in s1.split("_")])
+            s2 ="  ".join([s.capitalize() for s in s2.split("_")])
+            title = "{} vs {} |  ".format(s1, s2) + config.titles[y]
             conditioner = "% Difference | Average"
             units = ""
 
         if isinstance(df, pd.core.frame.DataFrame):
-            if x == y:
-                df = df.iloc[:, 1:]
             if y == "capacity":
                 ag = round(df[y].apply(ag_fun) / 1_000_000, 2)
                 if difference == "on":
@@ -704,22 +712,29 @@ def build_title(df, path, path2, y, x,  difference, title_size = 25):
     return title
 
 
-def calc_difference(df1, df2, y, x):
+def calc_difference(df1, df2, y, x, dst):
     """Calculate the percent difference of a field between two dfs."""
-    # We may have two differently shaped data frames
-    shapes = [df1.shape[0], df2.shape[0]]
-    if len(np.unique(shapes)) > 1:
-        # Several options, but here we are using just the overlapping gids
-        dfs = [df1, df2]
-        larger = dfs[np.where(shapes == np.max(shapes))[0][0]]
-        smaller = dfs[np.where(shapes == np.min(shapes))[0][0]]
-        sgids = smaller["sc_point_gid"].values
-        df1 = df1[df1["sc_point_gid"].isin(sgids)]
-        df2 = df2[df2["sc_point_gid"].isin(sgids)]
+    if not os.path.exists(dst):
+        # We may have two differently shaped data frames
+        shapes = [df1.shape[0], df2.shape[0]]
+        if len(np.unique(shapes)) > 1:
+            # Several options, but here we are using just the overlapping gids
+            dfs = [df1, df2]
+            larger = dfs[np.where(shapes == np.max(shapes))[0][0]]
+            smaller = dfs[np.where(shapes == np.min(shapes))[0][0]]
+            sgids = smaller["sc_point_gid"].values
+            df1 = df1[df1["sc_point_gid"].isin(sgids)]
+            df2 = df2[df2["sc_point_gid"].isin(sgids)]
 
-    # Calculte difference
-    df1[y] = (1 - (df1[y] / df2[y])) * 100
+            # Alternately, use the larger and set the difference 100%
 
+            # Also, should we keep the extra rows to filter by LCOE
+
+        # Calculate difference
+        df1[y] = (1 - (df1[y].values / df2[y].values)) * 100
+        df1.to_csv(dst, index=False)
+    else:
+        df1 = pd.read_csv(dst)
     return df1
 
 
@@ -801,36 +816,6 @@ def calc_total_capacity(signal, mapsel, chartsel):
     return total_print
 
 
-@app.callback(Output("lchh_path", "children"),
-              [Input("low_cost_enter", "n_clicks")],
-              [State("low_cost_group_tab", "value"),
-               State("low_cost_list", "value"),
-               State("low_cost_split_group", "value"),
-               State("low_cost_split_group_options", "value")])
-def retrieve_low_cost(enter, how, lst, group, group_choice):
-    """Calculate low cost fields based on user decision."""
-    # print_args(retrieve_low_cost, enter, how, lst, group)
-    if how == "all":
-        # Just one output
-        fname = "scenarios_all_lchh_sc.csv"
-        paths = FILEDF["file"].values
-    elif how == "list":
-        # Just one output
-        paths = lst
-        scenarios = [os.path.basename(path).split("_")[1] for path in paths]
-        scen_key = "_".join(scenarios)
-        fname = "scenarios_{}_lchh_sc.csv".format(scen_key)
-    else:
-        # This could create multiple outputs, but we'll do one at a time
-        fname = "scenarios_{}_{}_sc.csv".format(group,
-                                                group_choice.replace(".", ""))
-        paths = FILEDF["file"][FILEDF[group] == group_choice].values
-
-    lchh_path = DP.join("review_outputs", fname, mkdir=True)
-    df = calc_low_cost(paths, lchh_path, by="total_lcoe")
-    return lchh_path
-
-
 @cache.memoize()
 def cache_table(path):
     """Read in just a single table."""
@@ -838,7 +823,8 @@ def cache_table(path):
     if not "print_capacity" in df.columns:
         df["print_capacity"] = df["capacity"].copy()
     if not "lcoe_threshold" in df.columns:
-        df["lcoe_threshold"] = df["total_lcoe"].copy()
+        df["total_lcoe_threshold"] = df["total_lcoe"].copy()
+        df["mean_lcoe_threshold"] = df["mean_lcoe"].copy()
     return df
 
 
@@ -850,20 +836,31 @@ def cache_map_data(signal):
      units] = json.loads(signal)
 
     # Read and cache first table
-    df = cache_table(path)
+    df1 = cache_table(path)
 
     # Is it faster to subset columns before rows?
-    keepers = [y, x, "print_capacity", "lcoe_threshold", "state",
+    keepers = [y, x, "print_capacity", "total_lcoe_threshold",
+               "mean_lcoe_threshold", "state",
                "nrel_region", "county", "latitude", "longitude",
                "sc_point_gid"]
-    df = df[keepers]
+    df1 = df1[keepers]
 
     # For other functions this data frame needs an x field
     if y == x:
-        df = df.iloc[:, 1:]
+        df1 = df1.iloc[:, 1:]
 
     # If there's a second table, read/cache the difference
     if path2:
+        # Let's save these to file and speed this up
+        s1 = os.path.basename(path).replace("_sc.csv", "")
+        s1 = s1.replace("scenario", "s")
+        s1 = s1.replace("least_cost", "lc")
+        s2 = os.path.basename(path2).replace("_sc.csv", "")
+        s2 = s2.replace("scenario", "s")
+        s2 = s2.replace("least_cost", "lc")
+        fname = "difference_{}_{}_{}_sc.csv".format(y, s1, s2)
+        dst = DP.join("review_outputs", fname, mkdir=True)
+
         # Match the format of the first dataframe
         df2 = cache_table(path2)
         df2 = df2[keepers]
@@ -871,11 +868,16 @@ def cache_map_data(signal):
             df2 = df2.iloc[:, 1:]
 
         # And get the difference
-        df = calc_difference(df, df2, y, x)
+        df = calc_difference(df1, df2, y, x, dst)
+    else:
+        df = df1.copy()
 
     # If threshold, calculate here
     if threshold:
-        df = df[df["lcoe_threshold"] <= threshold]
+        print(threshold)
+        threshold_field = threshold[0]
+        threshold = threshold[1]
+        df = df[df[threshold_field] <= threshold]
 
     # Finally filter for states
     if states:
@@ -917,7 +919,9 @@ def cache_chart_tables(signal, region="national", idx=None):
                State("scenario_a", "options")])
 def retrieve_low_cost(submit, how, lst, group, group_choice, options):
     """Calculate low cost fields based on user decision."""
-    # print_args(retrieve_low_cost, submit, how, lst, group)
+    # print_args(retrieve_low_cost, submit, how, lst, group, group_choice,
+    #            options)
+
     # Build the appropriate paths and target file name
     if how == "all":
         # Just one output
@@ -1064,6 +1068,7 @@ def toggle_rev_color_button(click):
               [Input("submit", "n_clicks"),
                Input("state_options", "value")],
               [State("upper_lcoe_threshold", "value"),
+               State("threshold_field", "value"),
                State("scenario_a", "value"),
                State("scenario_b", "value"),
                State("lchh_path", "children"),
@@ -1071,8 +1076,8 @@ def toggle_rev_color_button(click):
                State("chart_xvariable_options", "value"),
                State("difference", "value"),
                State("low_cost_tabs", "value")])
-def map_signal(submit, states, threshold, path, path2, lchh_path, y, x, diff,
-               lchh_toggle):
+def map_signal(submit, states, threshold, threshold_field, path, path2,
+               lchh_path, y, x, diff, lchh_toggle):
     """A signal for sharing data between map and chart with dependence."""
     trig = dash.callback_context.triggered[0]['prop_id']
 
@@ -1098,6 +1103,9 @@ def map_signal(submit, states, threshold, path, path2, lchh_path, y, x, diff,
     # Here we will retrieve either ...
     if "lchh_path" in trig and lchh_toggle == "on":
         path = lchh_path
+
+    # Combine threshold and its field
+    threshold = [threshold_field, threshold]
 
     # Let's just recycle all this for the chart
     signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
@@ -1126,9 +1134,9 @@ def make_map(signal, basemap, color, chartsel, point_size,
     """
     config = Config("Transition")
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(make_map, signal, basemap, color, chartsel, point_size,
-    #            rev_color, uymin, uymax, mapview, mapsel)
-    # print("trig = '" + str(trig) + "'")
+    print_args(make_map, signal, basemap, color, chartsel, point_size,
+                rev_color, uymin, uymax, mapview, mapsel)
+    print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
     df = cache_map_data(signal)
@@ -1166,7 +1174,7 @@ def make_map(signal, basemap, color, chartsel, point_size,
 
     # Build map elements
     data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
-                          point_size)
+                         point_size)
     title = build_title(df, path, path2, y, x, diff, title_size=25)
     layout = build_map_layout(mapview, title, basemap, title_size=25)
     figure = dict(data=data, layout=layout)
@@ -1233,14 +1241,14 @@ def chart_tab_options(tab_choice, chart_choice):
 def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
                chartsel):
     """Make one of a variety of charts."""
-    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-    #             region, chartview, chartsel)
+    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+                region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units] = json.loads(signal)
+      units] = json.loads(signal)
 
     # Turn the map selection object into indices
     if mapsel:

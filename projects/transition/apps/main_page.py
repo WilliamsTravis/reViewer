@@ -731,7 +731,7 @@ def calc_difference(df1, df2, y, x, dst):
             # Also, should we keep the extra rows to filter by LCOE
 
         # Calculate difference
-        df1[y] = (1 - (df1[y].values / df2[y].values)) * 100
+        df1[y] = (1 - (df2[y].values / df1[y].values)) * 100
         df1.to_csv(dst, index=False)
     else:
         df1 = pd.read_csv(dst)
@@ -822,7 +822,7 @@ def cache_table(path):
     df = pd.read_csv(path, low_memory=False)
     if not "print_capacity" in df.columns:
         df["print_capacity"] = df["capacity"].copy()
-    if not "lcoe_threshold" in df.columns:
+    if not "total_lcoe_threshold" in df.columns:
         df["total_lcoe_threshold"] = df["total_lcoe"].copy()
         df["mean_lcoe_threshold"] = df["mean_lcoe"].copy()
     return df
@@ -876,7 +876,6 @@ def cache_map_data(signal):
     threshold_field = threshold[0]
     threshold = threshold[1]
     if threshold:
-        print("True")
         df = df[df[threshold_field] <= threshold]
 
     # Finally filter for states
@@ -1066,7 +1065,8 @@ def toggle_rev_color_button(click):
 
 @app.callback(Output("map_signal", "children"),
               [Input("submit", "n_clicks"),
-               Input("state_options", "value")],
+               Input("state_options", "value"),
+               Input("chart_options", "value")],
               [State("upper_lcoe_threshold", "value"),
                State("threshold_field", "value"),
                State("scenario_a", "value"),
@@ -1076,7 +1076,7 @@ def toggle_rev_color_button(click):
                State("chart_xvariable_options", "value"),
                State("difference", "value"),
                State("low_cost_tabs", "value")])
-def map_signal(submit, states, threshold, threshold_field, path, path2,
+def map_signal(submit, states, chart, threshold, threshold_field, path, path2,
                lchh_path, y, x, diff, lchh_toggle):
     """A signal for sharing data between map and chart with dependence."""
     trig = dash.callback_context.triggered[0]['prop_id']
@@ -1106,6 +1106,10 @@ def map_signal(submit, states, threshold, threshold_field, path, path2,
 
     # Combine threshold and its field
     threshold = [threshold_field, threshold]
+
+    # Get map elements from data signal
+    if chart == "cumsum":
+        x = "capacity"
 
     # Let's just recycle all this for the chart
     signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
@@ -1246,7 +1250,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 
-    # Get map elements from data signal
+    # Unpack the signal
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
      units] = json.loads(signal)
 
@@ -1264,28 +1268,18 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
     title_size = 25
     ylim = [ymin, ymax]
 
+    # Get the data frames
+    dfs = cache_chart_tables(signal, region, idx)
+    plotter = Plots(dfs, "Transition", group, point_size)
+
     if chart == "cumsum":
-        x = "capacity"
-        signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
-                             threshold, units])
-        dfs = cache_chart_tables(signal, region, idx)
-        plotter = Plots(dfs, "Transition", group, point_size)
         fig = plotter.ccap()
-
     elif chart == "scatter":
-        dfs = cache_chart_tables(signal, region)
-        plotter = Plots(dfs, "Transition", group, point_size)
         fig = plotter.scatter()
-
     elif chart == "histogram":
-        dfs = cache_chart_tables(signal, region)
-        plotter = Plots(dfs, "Transition", group, point_size)
         ylim = [0, 2000]
         fig = plotter.histogram()
-
     elif chart == "box":
-        dfs = cache_chart_tables(signal, region)
-        plotter = Plots(dfs, "Transition", group, point_size)
         fig = plotter.box()
 
     # Whats the total capacity at this point?

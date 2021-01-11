@@ -873,10 +873,10 @@ def cache_map_data(signal):
         df = df1.copy()
 
     # If threshold, calculate here
+    threshold_field = threshold[0]
+    threshold = threshold[1]
     if threshold:
-        print(threshold)
-        threshold_field = threshold[0]
-        threshold = threshold[1]
+        print("True")
         df = df[df[threshold_field] <= threshold]
 
     # Finally filter for states
@@ -1248,7 +1248,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
 
     # Get map elements from data signal
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-      units] = json.loads(signal)
+     units] = json.loads(signal)
 
     # Turn the map selection object into indices
     if mapsel:

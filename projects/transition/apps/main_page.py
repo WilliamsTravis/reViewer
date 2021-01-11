@@ -73,9 +73,9 @@ TABLET_STYLE_CLOSED = {
     **{"border-bottom": "1px solid #d6d6d6"}
 }
 
-DEFAULT_SIGNAL = json.dumps([FILEDF["file"].iloc[0], None, "total_lcoe", 0,
-                             200, "$/MWh"])
-
+DEFAULT_SIGNAL = json.dumps([FILEDF["file"].iloc[0], None, "capacity",
+                             "mean_cf", "off", None, 0.0243, 398.1312,
+                             ["mean_lcoe_threshold", 50], "MW"])
 
 layout = html.Div(
     children=[

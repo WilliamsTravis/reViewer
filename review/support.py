@@ -271,16 +271,8 @@ def config_div(config_path):
 def chart_point_filter(df, chartsel, chartvar):
     """Filter a dataframe by points selected from the chart."""
     points = chartsel["points"]
-    if "binNumber" in points[0]:
-        vals = [p["x"] for p in points]
-    else:
-        vals = [p["y"] for p in points]
-    try:
-        df = df[(df[chartvar] >= min(vals)) &
-                (df[chartvar] <= max(vals))]
-    except ValueError:
-        pass
-
+    idx = [p["pointIndex"] for p in points]
+    df = df.iloc[idx]
     return df
 
 

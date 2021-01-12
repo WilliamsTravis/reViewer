@@ -66,8 +66,7 @@ NAMES = [os.path.basename(f).replace("_sc.csv", "") for f in FILES]
 NAMES = [" ".join([n.capitalize() for n in name.split("_")]) for name in NAMES]
 FILE_LIST = dict(zip(NAMES, FILES))
 SCENARIO_OPTIONS = [
-    {"label": " ".join(key.split("_")).capitalize(),
-     "value": file} for key, file in FILE_LIST.items()
+    {"label": key, "value": file} for key, file in FILE_LIST.items()
 ]
 VARIABLE_OPTIONS = [
     {"label": v, "value": k} for k, v in CONFIG["titles"].items()
@@ -845,6 +844,7 @@ def calc_total_capacity(signal, mapsel, chartsel):
 def cache_table(path):
     """Read in just a single table."""
     df = pd.read_csv(path, low_memory=False)
+    df["index"] = df.index
     if not "print_capacity" in df.columns:
         df["print_capacity"] = df["capacity"].copy()
     if not "total_lcoe_threshold" in df.columns:
@@ -863,11 +863,18 @@ def cache_map_data(signal):
     # Read and cache first table
     df1 = cache_table(path)
 
+    # If chartsel
+    # if chartsel:
+    #     if len(chartsel) > 0:
+    #         points = chartsel["points"]
+    #         idx = [p["pointIndex"] for p in points]
+    #         df = df.iloc[idx]
+
     # Is it faster to subset columns before rows?
     keepers = [y, x, "print_capacity", "total_lcoe_threshold",
                "mean_lcoe_threshold", "state",
                "nrel_region", "county", "latitude", "longitude",
-               "sc_point_gid"]
+               "sc_point_gid", "index"]
     df1 = df1[keepers]
 
     # For other functions this data frame needs an x field
@@ -916,7 +923,10 @@ def cache_chart_tables(signal, region="national", idx=None):
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
      units] = json.loads(signal)
     df = cache_map_data(signal)
-    df = df[[x, y, "state", "nrel_region", "print_capacity"]]
+    df = df[[x, y, "state", "nrel_region", "print_capacity", "index"]]
+
+    if idx:
+        df = df.iloc[idx]
 
     if states:
         df = df[df["state"].isin(states)]
@@ -926,9 +936,6 @@ def cache_chart_tables(signal, region="national", idx=None):
         dfs = {r: df[df[region] == r] for r in regions}
     else:
         dfs = {"Map Data": df}
-
-    if idx:
-        dfs = {key: df.iloc[idx] for key, df in dfs.items()}
 
     return dfs
 
@@ -1091,7 +1098,6 @@ def toggle_rev_color_button(click):
     return children, style
 
 
-
 @app.callback(Output("map_signal", "children"),
               [Input("submit", "n_clicks"),
                Input("state_options", "value"),
@@ -1167,12 +1173,13 @@ def make_map(signal, basemap, color, chartsel, point_size,
     """
     config = Config("Transition")
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(make_map, signal, basemap, color, chartsel, point_size,
-    #             rev_color, uymin, uymax, mapview, mapsel)
+    print_args(make_map, signal, basemap, color, chartsel, point_size,
+                rev_color, uymin, uymax, mapview, mapsel)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
     df = cache_map_data(signal)
+    df.index = df["index"]
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
      units] = json.loads(signal)
 
@@ -1197,7 +1204,11 @@ def make_map(signal, basemap, color, chartsel, point_size,
     # If there is a selection in the chart filter these points
     if chartsel:
         if len(chartsel["points"]) > 0:
-            df = chart_point_filter(df, chartsel, y)
+            points = chartsel["points"]
+            ys = [p["y"] for p in points]
+            ymin = min(ys)
+            ymax = max(ys)
+            df = df[(df[y] >= ymin) & (df[y] <= ymax)]
 
     # If triggered again and there's still a map selection, re-highlight 
     # if "selectedData" not in trig:

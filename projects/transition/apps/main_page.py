@@ -760,12 +760,14 @@ def calc_difference(df1, df2, y, x, dst):
 
 def calc_low_cost(paths, dst, by="total_lcoe"):
     """Calculate a single data frame by the lowest cost row from many."""
-    
+    import time
+
     # Separate function for a retrieving a single data frame
     def retrieve(arg):
         path, scenario = arg
         df = cache_table(path)
         df["scenario"] = scenario
+        time.sleep(0.2)
         return df
 
     # For each row, find which df has the lowest lcoes
@@ -784,7 +786,7 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
         scenarios = [os.path.basename(path).split("_")[1] for path in paths]
         dfs = []
         args = [[paths[i], scenarios[i]] for i in range(len(paths))]
-        with mp.Pool(5) as pool:
+        with mp.Pool(10) as pool:
             for df in tqdm(pool.imap(retrieve, args), total=len(paths)):
                 dfs.append(df)
 

@@ -784,7 +784,7 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
         scenarios = [os.path.basename(path).split("_")[1] for path in paths]
         dfs = []
         args = [[paths[i], scenarios[i]] for i in range(len(paths))]
-        with mp.Pool(8) as pool:
+        with mp.Pool(5) as pool:
             for df in tqdm(pool.imap(retrieve, args), total=len(paths)):
                 dfs.append(df)
 

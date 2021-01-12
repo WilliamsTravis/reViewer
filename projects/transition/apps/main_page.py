@@ -822,7 +822,7 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
               Input("chart", "selectedData")])
 def calc_total_capacity(signal, mapsel, chartsel):
     """Calculate total remaining capacity after all filters are applied."""
-    print_args(calc_total_capacity, signal, mapsel, chartsel)
+    # print_args(calc_total_capacity, signal, mapsel, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
     df = cache_map_data(signal)
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
@@ -942,8 +942,8 @@ def cache_chart_tables(signal, region="national", idx=None):
                State("low_cost_by", "value")])
 def retrieve_low_cost(submit, how, lst, group, group_choice, options, by):
     """Calculate low cost fields based on user decision."""
-    print_args(retrieve_low_cost, submit, how, lst, group, group_choice,
-                options)
+    # print_args(retrieve_low_cost, submit, how, lst, group, group_choice,
+    #             options)
 
     # Build the appropriate paths and target file name
     if how == "all":
@@ -1165,8 +1165,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
     """
     config = Config("Transition")
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(make_map, signal, basemap, color, chartsel, point_size,
-                rev_color, uymin, uymax, mapview, mapsel)
+    # print_args(make_map, signal, basemap, color, chartsel, point_size,
+    #             rev_color, uymin, uymax, mapview, mapsel)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
@@ -1272,8 +1272,8 @@ def chart_tab_options(tab_choice, chart_choice):
 def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
                chartsel):
     """Make one of a variety of charts."""
-    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-                region, chartview, chartsel)
+    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+    #             region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 

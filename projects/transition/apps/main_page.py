@@ -59,10 +59,15 @@ REGION_OPTIONS = [
     {"label": "NREL Regions", "value": "nrel_region"},
     {"label": "States", "value": "state"}
 ]
-
+SCENARIO_OUTPUTS = DP.contents("review_outputs", "least_cost*_sc.csv")
+SCENARIO_ORIGINALS = list(FILEDF["file"].values)
+FILES = SCENARIO_ORIGINALS + SCENARIO_OUTPUTS
+NAMES = [os.path.basename(f).replace("_sc.csv", "") for f in FILES]
+NAMES = [" ".join([n.capitalize() for n in name.split("_")]) for name in NAMES]
+FILE_LIST = dict(zip(NAMES, FILES))
 SCENARIO_OPTIONS = [
-    {"label": " ".join(row["name"].split("_")[:2]).capitalize(),
-     "value": row["file"]} for i, row in FILEDF.iterrows()
+    {"label": " ".join(key.split("_")).capitalize(),
+     "value": file} for key, file in FILE_LIST.items()
 ]
 VARIABLE_OPTIONS = [
     {"label": v, "value": k} for k, v in CONFIG["titles"].items()
@@ -194,6 +199,21 @@ layout = html.Div(
                     id="low_cost_group_tab_div",
                     style={"display": "none"},
                     children=[
+                    dcc.Tabs(
+                        id="low_cost_by",
+                        value="total_lcoe",
+                        style=TAB_STYLE,
+                        children=[
+                            dcc.Tab(value='total_lcoe',
+                                    label='Total LCOE',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE_CLOSED),
+                            dcc.Tab(value='mean_lcoe',
+                                    label='Site LCOE',
+                                    style=TABLET_STYLE,
+                                    selected_style=TABLET_STYLE_CLOSED),
+                        ]
+                    ),
                     dcc.Tabs(
                         id="low_cost_group_tab",
                         value="all",
@@ -740,6 +760,7 @@ def calc_difference(df1, df2, y, x, dst):
 
 def calc_low_cost(paths, dst, by="total_lcoe"):
     """Calculate a single data frame by the lowest cost row from many."""
+    
     # Separate function for a retrieving a single data frame
     def retrieve(arg):
         path, scenario = arg
@@ -763,7 +784,7 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
         scenarios = [os.path.basename(path).split("_")[1] for path in paths]
         dfs = []
         args = [[paths[i], scenarios[i]] for i in range(len(paths))]
-        with mp.Pool(mp.cpu_count()) as pool:
+        with mp.Pool(8) as pool:
             for df in tqdm(pool.imap(retrieve, args), total=len(paths)):
                 dfs.append(df)
 
@@ -776,17 +797,18 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
             lgids = larger["sc_point_gid"].values
             sgids = smaller["sc_point_gid"].values
             mgids = set(lgids) - set(sgids)
+            msgids = set(sgids) - set(lgids)
 
-            # Now create two lists of data frames, 
+            # Now create three lists of data frames
             sdfs = [df[df["sc_point_gid"].isin(sgids)] for df in dfs]
             mdfs = [df[df["sc_point_gid"].isin(mgids)] for df in dfs]
             mdfs = [df for df in mdfs if df.shape[0] > 0]
-            sdf = low_cost(sdfs)
-            mdf = low_cost(mdfs)
+            sdf = low_cost(sdfs, by=by)
+            mdf = low_cost(mdfs, by=by)
             df = pd.concat([sdf, mdf])
             df = df.sort_values("sc_point_gid")
         else:
-            df = low_cost(dfs)
+            df = low_cost(dfs, by=by)
 
         # Save
         df.to_csv(dst, index=False)
@@ -800,6 +822,7 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
               Input("chart", "selectedData")])
 def calc_total_capacity(signal, mapsel, chartsel):
     """Calculate total remaining capacity after all filters are applied."""
+    print_args(calc_total_capacity, signal, mapsel, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
     df = cache_map_data(signal)
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
@@ -915,32 +938,36 @@ def cache_chart_tables(signal, region="national", idx=None):
                State("low_cost_list", "value"),
                State("low_cost_split_group", "value"),
                State("low_cost_split_group_options", "value"),
-               State("scenario_a", "options")])
-def retrieve_low_cost(submit, how, lst, group, group_choice, options):
+               State("scenario_a", "options"),
+               State("low_cost_by", "value")])
+def retrieve_low_cost(submit, how, lst, group, group_choice, options, by):
     """Calculate low cost fields based on user decision."""
-    # print_args(retrieve_low_cost, submit, how, lst, group, group_choice,
-    #            options)
+    print_args(retrieve_low_cost, submit, how, lst, group, group_choice,
+                options)
 
     # Build the appropriate paths and target file name
     if how == "all":
         # Just one output
-        fname = "least_cost_all_sc.csv"
+        fname = "least_cost_by_{}_all_sc.csv".format(by)
         paths = FILEDF["file"].values
     elif how == "list":
         # Just one output
         paths = lst
         scenarios = [os.path.basename(path).split("_")[1] for path in paths]
         scen_key = "_".join(scenarios)
-        fname = "least_cost_{}_sc.csv".format(scen_key)
+        fname = "least_cost_by_{}_{}_sc.csv".format(by, scen_key)
     else:
         # This could create multiple outputs, but we'll do one at a time
-        fname = "least_cost_{}_{}_sc.csv".format(group,
-                                                 group_choice.replace(".", ""))
+        fname = "least_cost_by_{}_{}_{}_sc.csv".format(
+                                                 by,
+                                                 group,
+                                                 group_choice.replace(".", "")
+                                                 )
         paths = FILEDF["file"][FILEDF[group] == group_choice].values
 
     # Build the full target path and create the file
     lchh_path = DP.join("review_outputs", fname, mkdir=True)
-    calc_low_cost(paths, lchh_path, by="total_lcoe")
+    calc_low_cost(paths, lchh_path, by=by)
 
     # Update the scenario file options
     label = " ".join([f.capitalize() for f in fname.split("_")[:-1]])

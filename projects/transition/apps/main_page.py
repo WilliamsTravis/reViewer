@@ -76,6 +76,12 @@ TABLET_STYLE_CLOSED = {
     **TABLET_STYLE,
     **{"border-bottom": "1px solid #d6d6d6"}
 }
+TAB_BOTTOM_SELECTED_STYLE = {
+    'borderBottom': '1px solid #1975FA',
+    'borderTop': '1px solid #d6d6d6',
+    'line-height': '25px',
+    'padding': '0px'
+}
 
 DEFAULT_SIGNAL = json.dumps([FILEDF["file"].iloc[0], None, "capacity",
                              "mean_cf", "off", None, 0.0243, 398.1312,
@@ -152,6 +158,20 @@ layout = html.Div(
                     placeholder="NA",
                     style={"width": "100%"}
                 ),
+                dcc.Tabs(
+                    id="threshold_mask",
+                    value="mask_off",
+                    style=TAB_STYLE,
+                    children=[
+                        dcc.Tab(value='mask_off',
+                                label='No Mask',
+                                style=TABLET_STYLE,
+                                selected_style=TAB_BOTTOM_SELECTED_STYLE),
+                        dcc.Tab(value='mask_on',
+                                label='Scenario B Mask',
+                                style=TABLET_STYLE,
+                                selected_style=TAB_BOTTOM_SELECTED_STYLE)
+                ]),
             ], className="two columns"),
 
             # Show difference map
@@ -817,6 +837,14 @@ def calc_low_cost(paths, dst, by="total_lcoe"):
     return dst
 
 
+def calc_mask(df1, df2, threshold, threshold_field):
+    """Remove the areas in df2 under the threshold from df1."""
+    # How to deal with mismatching grids?
+    tidx = df2["sc_point_gid"][df2[threshold_field] <= threshold].values
+    df = df1[~df1["sc_point_gid"].isin(tidx)]
+    return df
+
+    
 @app.callback(Output("capacity_print", "children"),
              [Input("map_signal", "children"),
               Input("map", "selectedData"),
@@ -827,7 +855,7 @@ def calc_total_capacity(signal, mapsel, chartsel):
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
     df = cache_map_data(signal)
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units] = json.loads(signal)
+     units, mask] = json.loads(signal)
     if trig == "map":
         if mapsel:
             idx = [d["pointIndex"] for d in mapsel["points"]]
@@ -857,18 +885,15 @@ def cache_table(path):
 def cache_map_data(signal):
     """Read and store a data frame from the config and options given."""
     # Get signal elements
-    [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units] = json.loads(signal)
+    [path, path2, y, x, difference, states, ymin, ymax, threshold,
+     units, mask] = json.loads(signal)
 
     # Read and cache first table
     df1 = cache_table(path)
 
-    # If chartsel
-    # if chartsel:
-    #     if len(chartsel) > 0:
-    #         points = chartsel["points"]
-    #         idx = [p["pointIndex"] for p in points]
-    #         df = df.iloc[idx]
+    # Separate the threshold values out
+    threshold_field = threshold[0]
+    threshold = threshold[1]
 
     # Is it faster to subset columns before rows?
     keepers = [y, x, "print_capacity", "total_lcoe_threshold",
@@ -899,14 +924,20 @@ def cache_map_data(signal):
         if y == x:
             df2 = df2.iloc[:, 1:]
 
-        # And get the difference
-        df = calc_difference(df1, df2, y, x, dst)
+        # If the difference option is specified difference
+        if difference == "on":
+            df = calc_difference(df1, df2, y, x, dst)
+        else:
+            df = df1.copy()
+
+        # If mask, try that here
+        if mask == "mask_on":
+            if threshold:
+                df = calc_mask(df1, df2, threshold, threshold_field)
     else:
         df = df1.copy()
 
-    # If threshold, calculate here
-    threshold_field = threshold[0]
-    threshold = threshold[1]
+    # If threshold, calculate this for the final df here
     if threshold:
         df = df[df[threshold_field] <= threshold]
 
@@ -921,7 +952,7 @@ def cache_map_data(signal):
 def cache_chart_tables(signal, region="national", idx=None):
     """Read and store a data frame from the config and options given."""
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units] = json.loads(signal)
+     units, mask] = json.loads(signal)
     df = cache_map_data(signal)
     df = df[[x, y, "state", "nrel_region", "print_capacity", "index"]]
 
@@ -1044,10 +1075,15 @@ def scenario_specs(scenario_a, scenario_b):
 
 
 @app.callback(Output("scenario_b_div", "style"),
-              [Input("difference", "value")])
-def toggle_scenario_b(difference):
+              [Input("difference", "value"),
+               Input("threshold_mask", "value")])
+def toggle_scenario_b(difference, mask):
     """Show scenario b if the difference option is on."""
+    trig = dash.callback_context.triggered[0]["prop_id"].split(".")
+    print_args(toggle_scenario_b, difference, mask)
     if difference == "on":
+        style = {}
+    elif mask == "mask_on":
         style = {}
     else:
         style = {"display": "none"}
@@ -1110,27 +1146,35 @@ def toggle_rev_color_button(click):
                State("variable", "value"),
                State("chart_xvariable_options", "value"),
                State("difference", "value"),
-               State("low_cost_tabs", "value")])
+               State("low_cost_tabs", "value"),
+               State("threshold_mask", "value")])
 def map_signal(submit, states, chart, threshold, threshold_field, path, path2,
-               lchh_path, y, x, diff, lchh_toggle):
+               lchh_path, y, x, diff, lchh_toggle, mask):
     """A signal for sharing data between map and chart with dependence."""
+    print_args(map_signal, submit, states, chart, threshold, threshold_field,
+               path, path2, lchh_path, y, x, diff, lchh_toggle, mask )
     trig = dash.callback_context.triggered[0]['prop_id']
+    print("trig = '" + trig + "'")
 
     # Prevent the first trigger when difference is off
     if "scenario_b" in trig and difference == "off":
+        raise PreventUpdate
+
+    # Prevent the first trigger when mask is off
+    if "mask" in trig and mask == "off":
         raise PreventUpdate
 
     # Get/build the value scale table
     config = Config("Transition")
     scales = config.scales
 
-    # Build the scatter plot data object
-    if diff == "off":
+    # Createy mask and difference dependent variables
+    ymin = scales[y]["min"]
+    ymax = scales[y]["max"]
+    units = config.units[y]
+    if diff == "off" and mask == "mask_off":
         path2 = None
-        ymin = scales[y]["min"]
-        ymax = scales[y]["max"]
-        units = config.units[y]
-    else:
+    elif diff == "on":
         ymin = -50
         ymax = 50
         units = "%"
@@ -1148,7 +1192,7 @@ def map_signal(submit, states, chart, threshold, threshold_field, path, path2,
 
     # Let's just recycle all this for the chart
     signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
-                         threshold, units])
+                         threshold, units, mask])
     return signal
 
 
@@ -1173,15 +1217,15 @@ def make_map(signal, basemap, color, chartsel, point_size,
     """
     config = Config("Transition")
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(make_map, signal, basemap, color, chartsel, point_size,
-                rev_color, uymin, uymax, mapview, mapsel)
+    # print_args(make_map, signal, basemap, color, chartsel, point_size,
+    #             rev_color, uymin, uymax, mapview, mapsel)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
     df = cache_map_data(signal)
     df.index = df["index"]
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units] = json.loads(signal)
+     units, mask] = json.loads(signal)
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -1292,7 +1336,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
 
     # Unpack the signal
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units] = json.loads(signal)
+     units, mask] = json.loads(signal)
 
     # Turn the map selection object into indices
     if mapsel:

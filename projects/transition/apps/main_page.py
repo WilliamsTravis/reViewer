@@ -176,7 +176,7 @@ layout = html.Div(
 
             # Show difference map
             html.Div([
-                html.H5("Difference"),
+                html.H5("Scenario B Difference"),
                 dcc.Tabs(
                     id="difference",
                     value="off",
@@ -300,11 +300,11 @@ layout = html.Div(
 
         #Submit Button to avoid repeated callbacks
         html.Button(
-        id="submit",
-        children="Submit",
-        style={"width": "10%", "margin-left": "0px",
-               "padding": "0px", "background-color": "#F9F9F9",
-               "margin-bottom": "50px"}
+            id="submit",
+            children="Submit",
+            style={"width": "10%", "margin-left": "0px",
+                   "padding": "0px", "background-color": "#F9F9F9",
+                   "margin-bottom": "50px"}
         ),
 
         # Print total capacity after all the filters
@@ -671,7 +671,7 @@ def build_specs(path):
         row = "| {} | {} |\n".format(variable, value)
         table = table + row
     return table
-    
+
 
 def build_spec_split(path):
     """Calculate the percentage of each scenario present."""
@@ -710,6 +710,7 @@ def build_spec_split(path):
 
 def build_title(df, path, path2, y, x,  difference, title_size=25):
     """Create chart title."""
+    print_args(build_title, df, path, path2, y, x,  difference, title_size)
     config = Config("Transition")
     title = os.path.basename(path).replace("_sc.csv", "")
     title = " ".join(title.split("_")).capitalize()
@@ -726,7 +727,7 @@ def build_title(df, path, path2, y, x,  difference, title_size=25):
             s1 = os.path.basename(path).replace("_sc.csv", "")
             s2 = os.path.basename(path2).replace("_sc.csv", "")
             s1 = " ".join([s.capitalize() for s in s1.split("_")])
-            s2 ="  ".join([s.capitalize() for s in s2.split("_")])
+            s2 = "  ".join([s.capitalize() for s in s2.split("_")])
             title = "{} vs {} |  ".format(s1, s2) + config.titles[y]
             conditioner = "% Difference | Average"
             units = ""
@@ -844,7 +845,7 @@ def calc_mask(df1, df2, threshold, threshold_field):
     df = df1[~df1["sc_point_gid"].isin(tidx)]
     return df
 
-    
+
 @app.callback(Output("capacity_print", "children"),
              [Input("map_signal", "children"),
               Input("map", "selectedData"),
@@ -933,13 +934,13 @@ def cache_map_data(signal):
         # If mask, try that here
         if mask == "mask_on":
             if threshold:
-                df = calc_mask(df1, df2, threshold, threshold_field)
+                df = calc_mask(df, df2, threshold, threshold_field)
     else:
         df = df1.copy()
 
     # If threshold, calculate this for the final df here
     if threshold:
-        df = df[df[threshold_field] <= threshold]
+        df = df[df[threshold_field] < threshold]
 
     # Finally filter for states
     if states:
@@ -1217,8 +1218,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
     """
     config = Config("Transition")
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(make_map, signal, basemap, color, chartsel, point_size,
-    #             rev_color, uymin, uymax, mapview, mapsel)
+    print_args(make_map, signal, basemap, color, chartsel, point_size,
+                rev_color, uymin, uymax, mapview, mapsel)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
@@ -1254,17 +1255,17 @@ def make_map(signal, basemap, color, chartsel, point_size,
             ymax = max(ys)
             df = df[(df[y] >= ymin) & (df[y] <= ymax)]
 
-    # If triggered again and there's still a map selection, re-highlight 
+    # If triggered again and there's still a map selection, re-highlight
     # if "selectedData" not in trig:
     #     if mapsel:
     #         idx = [p["pointIndex"] for p in mapsel["points"]]
-    #         # What goes here?  
+    #         # What goes here?
 
     # Build map elements
     data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
                          point_size)
-    title = build_title(df, path, path2, y, x, diff, title_size=25)
-    layout = build_map_layout(mapview, title, basemap, title_size=25)
+    title = build_title(df, path, path2, y, x, diff, title_size=20)
+    layout = build_map_layout(mapview, title, basemap, title_size=20)
     figure = dict(data=data, layout=layout)
 
     return figure, json.dumps(mapview)
@@ -1323,14 +1324,16 @@ def chart_tab_options(tab_choice, chart_choice):
                Input("map", "selectedData"),
                Input("chart_point_size", "value"),
                Input("chosen_map_options", "children"),
-               Input("chart_region", "value")],
+               Input("chart_region", "value"),
+               Input("map_color_min", "value"),
+               Input("map_color_max", "value")],
               [State("chart", "relayoutData"),
                State("chart", "selectedData")])
-def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
-               chartsel):
+def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
+               uymax, chartview, chartsel):
     """Make one of a variety of charts."""
-    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-    #             region, chartview, chartsel)
+    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+               region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 
@@ -1349,12 +1352,11 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
 
     # And generate on of these plots
     group = "Map Data"
-    title_size = 25
-    ylim = [ymin, ymax]
+    title_size = 20
 
     # Get the data frames
     dfs = cache_chart_tables(signal, region, idx)
-    plotter = Plots(dfs, "Transition", group, point_size)
+    plotter = Plots(dfs, "Transition", group, point_size, yunits=units)
 
     if chart == "cumsum":
         fig = plotter.ccap()
@@ -1367,7 +1369,14 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
         fig = plotter.box()
 
     # Whats the total capacity at this point?
-    title = build_title(dfs, path, path2, y, x, diff, title_size=25)
+    title = build_title(dfs, path, path2, y, x, diff, title_size=title_size)
+
+    # User defined y-axis limits
+    if uymin:
+        ymin = uymin
+    if uymax:
+        ymax = uymax
+    ylim = [ymin, ymax]
 
     # Update the layout and traces
     fig.update_layout(
@@ -1378,7 +1387,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, chartview,
         title_font_size=title_size,
         font_size=15,
         margin=dict(l=70, r=20, t=70, b=20),
-        height=500,
+        height=700,
         hovermode="x unified",
         paper_bgcolor="#1663B5",
         legend_title_text=group,

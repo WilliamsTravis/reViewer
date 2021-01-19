@@ -41,7 +41,8 @@ AGGREGATIONS = {
     'total_lcoe': 'mean',
     'trans_capacity': 'sum',
     'trans_cap_cost': 'mean',
-    'trans_multiplier': 'mean'
+    'trans_multiplier': 'mean',
+    'Hub Height': 'mean'
 }
 
 
@@ -85,59 +86,86 @@ COLORS = {'Blackbody': 'Blackbody', 'Bluered': 'Bluered', 'Blues': 'Blues',
           'Greens': 'Greens', 'Greys': 'Greys', 'Hot': 'Hot', 'Jet': 'Jet',
           'Picnic': 'Picnic', 'Portland': 'Portland', 'Rainbow': 'Rainbow',
           'RdBu': 'RdBu',  'Viridis': 'Viridis', 'Reds': 'Reds',
-           'RdWhBu': [[0.00, 'rgb(115,0,0)'],
-                      [0.10, 'rgb(230,0,0)'],
-                      [0.20, 'rgb(255,170,0)'],
-                      [0.30, 'rgb(252,211,127)'],
-                      [0.40, 'rgb(255, 255, 0)'],
-                      [0.45, 'rgb(255, 255, 255)'],
-                      [0.55, 'rgb(255, 255, 255)'],
-                      [0.60, 'rgb(143, 238, 252)'],
-                      [0.70, 'rgb(12,164,235)'],
-                      [0.80, 'rgb(0,125,255)'],
-                      [0.90, 'rgb(10,55,166)'],
-                      [1.00, 'rgb(5,16,110)']],
-           'RdWhBu (Extreme Scale)':  [[0.00, 'rgb(115,0,0)'],
-                                       [0.02, 'rgb(230,0,0)'],
-                                       [0.05, 'rgb(255,170,0)'],
-                                       [0.10, 'rgb(252,211,127)'],
-                                       [0.20, 'rgb(255, 255, 0)'],
-                                       [0.30, 'rgb(255, 255, 255)'],
-                                       [0.70, 'rgb(255, 255, 255)'],
-                                       [0.80, 'rgb(143, 238, 252)'],
-                                       [0.90, 'rgb(12,164,235)'],
-                                       [0.95, 'rgb(0,125,255)'],
-                                       [0.98, 'rgb(10,55,166)'],
-                                       [1.00, 'rgb(5,16,110)']],
-           'RdYlGnBu':  [[0.00, 'rgb(124, 36, 36)'],
-                         [0.25, 'rgb(255, 255, 48)'],
-                         [0.5, 'rgb(76, 145, 33)'],
-                         [0.85, 'rgb(0, 92, 221)'],
-                         [1.00, 'rgb(0, 46, 110)']],
-           'BrGn':  [[0.00, 'rgb(91, 74, 35)'],
-                     [0.10, 'rgb(122, 99, 47)'],
-                     [0.15, 'rgb(155, 129, 69)'],
-                     [0.25, 'rgb(178, 150, 87)'],
-                     [0.30, 'rgb(223,193,124)'],
-                     [0.40, 'rgb(237, 208, 142)'],
-                     [0.45, 'rgb(245,245,245)'],
-                     [0.55, 'rgb(245,245,245)'],
-                     [0.60, 'rgb(198,234,229)'],
-                     [0.70, 'rgb(127,204,192)'],
-                     [0.75, 'rgb(62, 165, 157)'],
-                     [0.85, 'rgb(52,150,142)'],
-                     [0.90, 'rgb(1,102,94)'],
-                     [1.00, 'rgb(0, 73, 68)']]
+          'RdWhBu': [[0.00, 'rgb(115,0,0)'],
+                     [0.10, 'rgb(230,0,0)'],
+                     [0.20, 'rgb(255,170,0)'],
+                     [0.30, 'rgb(252,211,127)'],
+                     [0.40, 'rgb(255, 255, 0)'],
+                     [0.45, 'rgb(255, 255, 255)'],
+                     [0.55, 'rgb(255, 255, 255)'],
+                     [0.60, 'rgb(143, 238, 252)'],
+                     [0.70, 'rgb(12,164,235)'],
+                     [0.80, 'rgb(0,125,255)'],
+                     [0.90, 'rgb(10,55,166)'],
+                     [1.00, 'rgb(5,16,110)']],
+          'RdWhBu (Extreme Scale)': [[0.00, 'rgb(115,0,0)'],
+                                     [0.02, 'rgb(230,0,0)'],
+                                     [0.05, 'rgb(255,170,0)'],
+                                     [0.10, 'rgb(252,211,127)'],
+                                     [0.20, 'rgb(255, 255, 0)'],
+                                     [0.30, 'rgb(255, 255, 255)'],
+                                     [0.70, 'rgb(255, 255, 255)'],
+                                     [0.80, 'rgb(143, 238, 252)'],
+                                     [0.90, 'rgb(12,164,235)'],
+                                     [0.95, 'rgb(0,125,255)'],
+                                     [0.98, 'rgb(10,55,166)'],
+                                     [1.00, 'rgb(5,16,110)']],
+          'RdYlGnBu': [[0.00, 'rgb(124, 36, 36)'],
+                       [0.25, 'rgb(255, 255, 48)'],
+                       [0.5, 'rgb(76, 145, 33)'],
+                       [0.85, 'rgb(0, 92, 221)'],
+                       [1.00, 'rgb(0, 46, 110)']],
+          'BrGn (cb)': [[0.00, 'rgb(91, 74, 35)'],
+                        [0.10, 'rgb(122, 99, 47)'],
+                        [0.15, 'rgb(155, 129, 69)'],
+                        [0.25, 'rgb(178, 150, 87)'],
+                        [0.30, 'rgb(223,193,124)'],
+                        [0.40, 'rgb(237, 208, 142)'],
+                        [0.45, 'rgb(245,245,245)'],
+                        [0.55, 'rgb(245,245,245)'],
+                        [0.60, 'rgb(198,234,229)'],
+                        [0.70, 'rgb(127,204,192)'],
+                        [0.75, 'rgb(62, 165, 157)'],
+                        [0.85, 'rgb(52,150,142)'],
+                        [0.90, 'rgb(1,102,94)'],
+                        [1.00, 'rgb(0, 73, 68)']],
+          'YlGnBu (cb)': [[0.0, 'rgb(255,255,217)'],
+                          [0.125, 'rgb(237,248,177)'],
+                          [0.25, 'rgb(199,233,180)'],
+                          [0.375, 'rgb(127,205,187)'],
+                          [0.5, 'rgb(65,182,196)'],
+                          [0.625, 'rgb(29,145,192)'],
+                          [0.75, 'rgb(34,94,168)'],
+                          [0.875, 'rgb(37,52,148)'],
+                          [1.0, 'rgb(8,29,88)']],
+          'YlOrBr (cb)': [[0.0, 'rgb(255,255,229)'],
+                          [0.125, 'rgb(255,247,188)'],
+                          [0.25, 'rgb(254,227,145)'],
+                          [0.375, 'rgb(254,196,79)'],
+                          [0.5, 'rgb(254,153,41)'],
+                          [0.625, 'rgb(236,112,20)'],
+                          [0.75, 'rgb(204,76,2)'],
+                          [0.875, 'rgb(153,52,4)'],
+                          [1.0, 'rgb(102,37,6)']],
+          'YlGn (cb)': [[0.0, 'rgb(255,255,229)'],
+                        [0.125, 'rgb(247,252,185)'],
+                        [0.25, 'rgb(217,240,163)'],
+                        [0.375, 'rgb(173,221,142)'],
+                        [0.5, 'rgb(120,198,121)'],
+                        [0.625, 'rgb(65,171,93)'],
+                        [0.75, 'rgb(35,132,67)'],
+                        [0.875, 'rgb(0,104,55)'],
+                        [1.0, 'rgb(0,69,41)']]
           }
 
 COLOR_OPTIONS = [{"label": k, "value": v} for k, v in COLORS.items()]
 
 DEFAULT_MAPVIEW = {
     "mapbox.center": {
-        "lon": -100.75,
+        "lon": -96.50,
         "lat": 39.5
     },
-    "mapbox.zoom": 3.0,
+    "mapbox.zoom": 3.5,
     "mapbox.bearing": 0,
     "mapbox.pitch": 0
 }
@@ -147,7 +175,7 @@ LCOEOPTIONS = [{"label": "Site-Based", "value": "mean_lcoe"},
                {"label": "Total", "value": "total_lcoe"}]
 
 MAP_LAYOUT = dict(
-    height=500,
+    height=700,
     font=dict(color='white',
               fontweight='bold'),
     titlefont=dict(color='white',
@@ -171,7 +199,7 @@ MAP_LAYOUT = dict(
                      "aWlwcHZvdzdoIn0.9pxpgXxyyhM6qEF_dcyjIQ"),
         style="satellite-streets",
         center=dict(lon=-100.75, lat=39.5),
-        zoom=4)
+        zoom=5)
 )
 
 ORIGINAL_FIELDS = ['sc_gid', 'res_gids', 'gen_gids', 'gid_counts', 'n_gids',
@@ -642,7 +670,8 @@ class Config:
 class Plots():
     """Class for handling grouped plots (needs work)."""
 
-    def __init__(self, data, project, group, point_size):
+    def __init__(self, data, project, group, point_size, yunits=None,
+                 xunits=None):
         """Initialize plotting object for a reV project."""
         self.data = data
         self.group = group
@@ -651,6 +680,8 @@ class Plots():
         self.project_config = CONFIG[project]
         self.config = Config(project)
         self.units = self.project_config["units"]
+        self.yunits = yunits
+        self.xunits = xunits
 
     def ccap(self):
         """Return a cumulative capacity scatterplot."""
@@ -675,12 +706,18 @@ class Plots():
         else:
             labely = y
 
+        if self.yunits:
+            units = self.yunits
+        else:
+            units = self.units[labely]
+
         main_df = main_df.sort_values(self.group)
+        main_df["ccap"] = main_df["ccap"] / 1_000_000
         fig = px.scatter(main_df,
                          x="ccap",
                          y=y,
-                         labels={"ccap": self.units["capacity"],
-                                 y: self.units[labely]},
+                         labels={"ccap": "TW",
+                                 y: units},
                          color=self.group,
                          color_discrete_sequence=px.colors.qualitative.Safe)
 
@@ -698,7 +735,6 @@ class Plots():
             )
 
         return fig
-
 
     def scatter(self):
         """Return a regular scatterplot."""
@@ -719,11 +755,21 @@ class Plots():
         else:
             labely = y
 
+        if self.yunits:
+            yunits = self.yunits
+        else:
+            yunits = self.units[labely]
+
+        if self.xunits:
+            xunits = self.xunits
+        else:
+            xunits = self.units[x]
+
         main_df = main_df.sort_values(self.group)
         fig = px.scatter(main_df,
                          x=x,
                          y=y,
-                         labels={x: self.units[x], y: self.units[labely]},
+                         labels={x: xunits, y: yunits},
                          color=self.group,
                          color_discrete_sequence=px.colors.qualitative.Safe)
 
@@ -760,10 +806,15 @@ class Plots():
         else:
             labely = y
 
+        if self.yunits:
+            yunits = self.yunits
+        else:
+            yunits = self.units[labely]
+
         main_df = main_df.sort_values(self.group)
         fig = px.histogram(main_df,
                            x=y,
-                           labels={y: self.units[labely]},
+                           labels={y: yunits},
                            color=self.group,
                            color_discrete_sequence=px.colors.qualitative.Safe)
 
@@ -784,7 +835,7 @@ class Plots():
     def box(self):
         """Return a boxplot."""
         def fix_key(key, units):
-            """It can't display numbers and strings together."""
+            """Display numbers and strings together."""
             if is_number(key):
                 key = str(key) + units
             return key
@@ -793,7 +844,11 @@ class Plots():
         dfs = self.data
         df = dfs[list(dfs.keys())[0]]
         y = df.columns[1]
-        units = self.project_config["units"][y]
+
+        if self.yunits:
+            units = self.yunits
+        else:
+            units = self.project_config["units"][y]
 
         main_df = None
         for key, df in dfs.items():

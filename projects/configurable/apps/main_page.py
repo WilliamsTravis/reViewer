@@ -333,6 +333,11 @@ def cache_chart_tables(project, group, x, y, state, idx, *options):
     return dfs, name
 
 
+# @app.callback()
+# def set_project_options(x):
+#     """Update the project option list with the config file."""
+
+
 @app.callback([Output('chart_options_tab', 'children'),
                Output('chart_options_div', 'style'),
                Output('group_options_div', 'style'),

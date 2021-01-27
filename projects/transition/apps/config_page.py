@@ -293,7 +293,7 @@ def add_datasets(n_clicks, pattern, initialdir, files):
                Input("groups", "children")])
 def set_dataset_groups(files, proj_dir, groups):
     """For each file, set a group and value from the user inputs above."""
-    print_args(set_dataset_groups, files, proj_dir, groups)
+    # print_args(set_dataset_groups, files, proj_dir, groups)
     if files:
         files = json.loads(files)
         groups = json.loads(groups)
@@ -356,7 +356,7 @@ def set_dataset_groups(files, proj_dir, groups):
               [State("extra_fields", "children")])
 def find_extra_fields(files, groups, fields):
     """Use one of the files to infer extra fields and assign units."""
-    print_args(find_extra_fields, files, groups, fields)
+    # print_args(find_extra_fields, files, groups, fields)
 
     new_fields = []
     if files:

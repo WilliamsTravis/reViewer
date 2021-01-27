@@ -710,7 +710,7 @@ def build_spec_split(path):
 
 def build_title(df, path, path2, y, x,  difference, title_size=25):
     """Create chart title."""
-    print_args(build_title, df, path, path2, y, x,  difference, title_size)
+    # print_args(build_title, df, path, path2, y, x,  difference, title_size)
     config = Config("Transition")
     title = os.path.basename(path).replace("_sc.csv", "")
     title = " ".join(title.split("_")).capitalize()
@@ -1081,7 +1081,7 @@ def scenario_specs(scenario_a, scenario_b):
 def toggle_scenario_b(difference, mask):
     """Show scenario b if the difference option is on."""
     trig = dash.callback_context.triggered[0]["prop_id"].split(".")
-    print_args(toggle_scenario_b, difference, mask)
+    # print_args(toggle_scenario_b, difference, mask)
     if difference == "on":
         style = {}
     elif mask == "mask_on":
@@ -1151,14 +1151,14 @@ def toggle_rev_color_button(click):
                State("threshold_mask", "value")])
 def map_signal(submit, states, chart, threshold, threshold_field, path, path2,
                lchh_path, y, x, diff, lchh_toggle, mask):
-    """A signal for sharing data between map and chart with dependence."""
-    print_args(map_signal, submit, states, chart, threshold, threshold_field,
-               path, path2, lchh_path, y, x, diff, lchh_toggle, mask )
+    """Create signal for sharing data between map and chart with dependence."""
+    # print_args(map_signal, submit, states, chart, threshold, threshold_field,
+    #            path, path2, lchh_path, y, x, diff, lchh_toggle, mask)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + trig + "'")
 
     # Prevent the first trigger when difference is off
-    if "scenario_b" in trig and difference == "off":
+    if "scenario_b" in trig and diff == "off":
         raise PreventUpdate
 
     # Prevent the first trigger when mask is off
@@ -1216,10 +1216,9 @@ def make_map(signal, basemap, color, chartsel, point_size,
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    config = Config("Transition")
+    # print_args(make_map, signal, basemap, color, chartsel, point_size,
+    #            rev_color, uymin, uymax, mapview, mapsel)
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(make_map, signal, basemap, color, chartsel, point_size,
-                rev_color, uymin, uymax, mapview, mapsel)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal

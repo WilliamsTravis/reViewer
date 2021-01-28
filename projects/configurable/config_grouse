@@ -1,0 +1,200 @@
+{
+    "data": {
+        "file": {
+            "0": "/home/travis/nrel/wetosa/grouse/results/01_na_n_mid_sc.csv",
+            "1": "/home/travis/nrel/wetosa/grouse/results/02_oa_o_mid_sc.csv",
+            "2": "/home/travis/nrel/wetosa/grouse/results/05_b_b_mid_sc.csv"
+        },
+        "Scenario": {
+            "0": "limited",
+            "1": "open",
+            "2": "reference"
+        },
+        "name": {
+            "0": "01_na_n_mid_sc.csv",
+            "1": "02_oa_o_mid_sc.csv",
+            "2": "05_b_b_mid_sc.csv"
+        }
+    },
+    "directory": "",
+    "units": {
+        "detort_habitat_percent": "%",
+        "detort_range_percent": "%",
+        "grpchi_abundance": "N/A",
+        "grpchi_habitat_percent": "%",
+        "grpchi_range_percent": "%",
+        "lepchi_abundance": "N/A",
+        "lepchi_habitat_percent": "%",
+        "lepchi_range_percent": "%",
+        "saggro_abundance": "N/A",
+        "saggro_habitat_percent": "%",
+        "saggro_lek_percent": "%",
+        "saggro_range_percent": "%",
+        "shtgro_abundance": "N/A",
+        "shtgro_habitat_percent": "%",
+        "shtgro_range_percent": "%",
+        "usa_mrlc_nlcd2011": "category",
+        "area_sq_km": "square km",
+        "elevation": "m",
+        "capacity": "MW",
+        "dist_mi": "miles",
+        "lcot": "$/MWh",
+        "mean_cf": "ratio",
+        "mean_lcoe": "$/MWh",
+        "mean_res": "m/s",
+        "total_lcoe": "$/MWh",
+        "trans_capacity": "MW",
+        "trans_cap_cost": "$/MW",
+        "transmission_multiplier": "category",
+        "trans_type": "category"
+    },
+    "scales": {
+        "detort_habitat_percent": {
+            "min": 0.0,
+            "max": 1.0000000000000004
+        },
+        "detort_range_percent": {
+            "min": 0.0,
+            "max": 1.0000000000000009
+        },
+        "grpchi_abundance": {
+            "min": 0.0,
+            "max": 2.030717134475708
+        },
+        "grpchi_habitat_percent": {
+            "min": 0.0,
+            "max": 1.0000000000000004
+        },
+        "grpchi_range_percent": {
+            "min": 0.0,
+            "max": 1.0000000000000009
+        },
+        "lepchi_abundance": {
+            "min": 0.0,
+            "max": 1.1174557209014893
+        },
+        "lepchi_habitat_percent": {
+            "min": 0.0,
+            "max": 1.0000000000000002
+        },
+        "lepchi_range_percent": {
+            "min": 0.0,
+            "max": 1.0000000000000004
+        },
+        "saggro_abundance": {
+            "min": 0.0,
+            "max": 3.779954433441162
+        },
+        "saggro_habitat_percent": {
+            "min": 0.0,
+            "max": 1.0000000000000004
+        },
+        "saggro_lek_percent": {
+            "min": 0.0,
+            "max": 100.00000577881865
+        },
+        "saggro_range_percent": {
+            "min": 0.0,
+            "max": 1.0000000000000009
+        },
+        "shtgro_abundance": {
+            "min": 0.0,
+            "max": 1.8155654668807983
+        },
+        "shtgro_habitat_percent": {
+            "min": 0.0,
+            "max": 1.0000000000000004
+        },
+        "shtgro_range_percent": {
+            "min": 0.0,
+            "max": 1.0000000000000009
+        },
+        "area_sq_km": {
+            "min": 0.004455000096559524,
+            "max": 132.7104
+        },
+        "elevation": {
+            "min": -68.85713958740234,
+            "max": 3405.0
+        },
+        "capacity": {
+            "min": 0.013365000289678571,
+            "max": 600.0
+        },
+        "dist_mi": {
+            "min": 0.000162268196880378,
+            "max": 231.079005801231
+        },
+        "lcot": {
+            "min": 0.00030346242173185566,
+            "max": 142.05457494336304
+        },
+        "mean_cf": {
+            "min": 0.013162164017558098,
+            "max": 0.6489999890327454
+        },
+        "mean_lcoe": {
+            "min": 21.68354797363281,
+            "max": 1014.7214965820312
+        },
+        "mean_res": {
+            "min": 1.7047898769378662,
+            "max": 12.88900089263916
+        },
+        "total_lcoe": {
+            "min": 22.021480697195454,
+            "max": 1039.3690464267838
+        },
+        "trans_capacity": {
+            "min": 12.0,
+            "max": 25760.0
+        },
+        "trans_cap_cost": {
+            "min": 18.18845558166504,
+            "max": 1920575.125
+        },
+        "usa_mrlc_nlcd2011": {
+            "min": "na",
+            "max": "na"
+        },
+        "transmission_multiplier": {
+            "min": "na",
+            "max": "na"
+        },
+        "trans_type": {
+            "min": "na",
+            "max": "na"
+        }
+    },
+    "titles": {
+        "detort_habitat_percent": "Desert Tortoise Habitat Percent",
+        "detort_range_percent": "Desert Tortoise Range Percent",
+        "grpchi_abundance": "Greater Prairie Chicken Abundance",
+        "grpchi_habitat_percent": "Greater Prairie Chicken Habitat Percent",
+        "grpchi_range_percent": "Greater Prairie Chicken Range Percent",
+        "lepchi_abundance": "Lesser Prairie Chicken Abundance",
+        "lepchi_habitat_percent": "Lesser Prairie Chicken Habitat Percent",
+        "lepchi_range_percent": "Lesser Prairie Chicken Range Percent",
+        "saggro_abundance": "Greater Sage Grouse Abundance",
+        "saggro_habitat_percent": "Greater Sage Grouse Habitat Percent",
+        "saggro_lek_percent": "Greater Sage Grouse Lek Percent",
+        "saggro_range_percent": "Greater Sage Grouse Range Percent",
+        "shtgro_abundance": "Sharp-tailed Sage Grouse Abundance",
+        "shtgro_habitat_percent": "Sharpe-tailed Sage Grouse Habitat Percent",
+        "shtgro_range_percent": "Sharp-tailed Sage Grouse Range Percent",
+        "usa_mrlc_nlcd2011": "NLCD 2011",
+        "area_sq_km": "Supply Curve Point Area",
+        "capacity": "Total Generation Capacity",
+        "elevation": "Elevation",
+        "dist_mi": "Distance to Transmission",
+        "lcot": "LCOT",
+        "mean_cf": "Mean Capacity Factor",
+        "mean_lcoe": "Mean Site-Based LCOE",
+        "mean_res": "Mean Windspeed",
+        "total_lcoe": "Total LCOE",
+        "trans_capacity": "Total Transmission Capacity",
+        "trans_cap_cost": "Transmission Capital Costs",
+        "transmission_multiplier": "Transmission Cost Multiplier",
+        "trans_type": "Transmission Feature Type"
+    }
+}

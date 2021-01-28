@@ -439,8 +439,7 @@ def build_config(n_clicks, groups, project_name, directory, fields):
     titles = {**titles, **TITLES}
 
     # Find value ranges for color scales
-    fields = list(units.keys())
-    scales = get_scales(file_df, fields)
+    scales = get_scales(file_df, units)
 
     # Convert to a config entry
     config = {

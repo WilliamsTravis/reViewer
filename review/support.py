@@ -288,7 +288,7 @@ def config_div(config_path):
         dcc.Dropdown(
             id="project",
             options=options,
-            value=keys[2]
+            value=keys[1]
             )
         ], className="three columns"
     )
@@ -338,16 +338,19 @@ def get_dataframe_path(project, op_values):
 
 def get_scales(file_df, field_units):
     """Create a value scale dictionary for each field-unit pair."""
-    def get_range(arg):
-        file, fields = arg
+    def get_range(args):
+        file, fields = args
         ranges = {}
         df = pd.read_csv(file)
         for field in fields:
             ranges[field] = {}
             try:
-                ranges[field]["min"] = df[field].min()
-                ranges[field]["max"] = df[field].max()
+                values = df[field].dropna()
+                values = values[values != -np.inf]
+                ranges[field]["min"] = values.min()
+                ranges[field]["max"] = values.max()
             except KeyError:
+                print("KeyError")
                 del ranges[field]
         return ranges
 
@@ -357,10 +360,10 @@ def get_scales(file_df, field_units):
     categories = [k for k, v in field_units.items() if v == "category"]
 
     # Setup numeric scale runs
-    args = [[file, numbers] for file in files]
+    arg_list = [[file, numbers] for file in files]
     ranges = []
     with mp.Pool(mp.cpu_count()) as pool:
-        for rng in tqdm(pool.imap(get_range, args), total=len(args)):
+        for rng in tqdm(pool.imap(get_range, arg_list), total=len(arg_list)):
             ranges.append(rng)
 
     # Adjust
@@ -601,7 +604,10 @@ class Config:
         """Make a title for the map given a variable name and option values."""
         var_title = self.titles[variable]
         for op, val in op_values.items():
-            units = self.project_config["units"][op]
+            if op in self.project_config["units"]:
+                units = self.project_config["units"][op]
+            else:
+                units = ""
             op_title = str(val) + units + " " + op
             var_title = var_title + " - " + op_title
         if len(var_title.split(" - ")) > 3:

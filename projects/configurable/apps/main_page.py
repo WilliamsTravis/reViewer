@@ -35,6 +35,7 @@ from review.support import (BASEMAPS, BUTTON_STYLES, CHART_OPTIONS,
 from review.support import (chart_point_filter, config_div, get_dataframe_path,
                             sort_mixed, Config, Plots)
 
+
 layout = html.Div(
     children=[
         # Project selection - use id "project" to access
@@ -685,8 +686,8 @@ def make_chart(chart, signal, mapsel, point_size, reset, op_values, chartview,
                chartsel):
     """Make one of a variety of charts."""
     signal = json.loads(signal)
-    print_args(make_chart, chart, signal, mapsel, point_size, reset, op_values,
-               chartview, chartsel)
+    # print_args(make_chart, chart, signal, mapsel, point_size, reset, op_values,
+    #            chartview, chartsel)
 
     # Get the set of data frame using the stored signal
     project, group, y, x, state, *options = signal
@@ -757,7 +758,7 @@ def make_chart(chart, signal, mapsel, point_size, reset, op_values, chartview,
         title_font_size=title_size,
         font_size=15,
         margin=dict(l=70, r=20, t=70, b=20),
-        height=500,
+        height=700,
         hovermode="x unified",
         paper_bgcolor="#1663B5",
         legend_title_text=group,

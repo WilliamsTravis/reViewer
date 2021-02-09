@@ -14,7 +14,7 @@ dependencies:
   - matplotlib
   - pathos
   - pip
-  - rasterio
+#  - rasterio
   - scipy
   - spyder
   - tqdm

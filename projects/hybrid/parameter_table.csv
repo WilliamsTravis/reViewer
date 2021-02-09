@@ -1,0 +1,45 @@
+Scenario number,Scenario name,Rating (MW),Rotor diameter (m),RNA (including transport) ($/kW),Erection,Tower Type,Tower ($/kW),Transport # top sections,Transport # total tower sections,Tower Transport ($/kW),Hub Height (m),BOS ($/kW),Total Capex ($/kW),Wake steering benefit,Losses (%),FCR (%),O&M Crane,Opex ($/kW/yr),Exclusion layer,Aggregation ,Capacity density
+1,Baseline 90,2.43,116,566,Crawler cranes,Transportable factory CAN,166,4,4,21,90,432,1185,0%,20.8%,7.2%,Mobile or Crawler Crane,44.9,2018 COE exclusions,Typical 400MW,3
+2,Baseline 100,2.43,116,566,Crawler cranes,Transportable factory CAN,187,3,4,27,100,478,1258,0%,20.8%,7.2%,Mobile or Crawler Crane,45.7,2018 COE exclusions,Typical 400MW,3
+3,Baseline 120,2.43,116,566,Crawler cranes,Transportable factory CAN,272,2,5,43,120,616,1497,0%,20.8%,7.2%,Mobile or Crawler Crane,49.3,2030 ATB Mod Exclusions,Typical 400MW,3
+4,Baseline 140,2.43,116,566,Crawler cranes,Transportable factory CAN,397,2,7,64,140,934,1961,0%,20.8%,7.2%,Mobile or Crawler Crane,51.1,2030 ATB Mod Exclusions,Typical 400MW,3
+5,Baseline 160,2.43,116,566,Crawler cranes,Transportable factory CAN,563,2,9,86,160,976,2191,0%,20.8%,7.2%,Mobile or Crawler Crane,51.9,2030 ATB Mod Exclusions,Typical 400MW,3
+6,Baseline + Alternative erection 90,2.43,116,566,Liftra,Transportable factory CAN,166,4,4,21,90,388,1141,0%,20.8%,7.2%,Mobile or Crawler Crane,44.9,2018 COE exclusions,Typical 400MW,3
+7,Baseline + Alternative erection 120,2.43,116,566,Liftra,Transportable factory CAN,272,2,5,43,120,433,1314,0%,20.8%,7.2%,Mobile or Crawler Crane,49.3,2030 ATB Mod Exclusions,Typical 400MW,3
+8,Baseline + Alternative erection 160,2.43,116,566,Liftra,Transportable factory CAN,563,2,9,86,160,484,1699,0%,20.8%,7.2%,Mobile or Crawler Crane,51.9,2030 ATB Mod Exclusions,Typical 400MW,3
+9,Baseline + Alternative tower 90,2.43,116,566,Crawler cranes,KTS Factory,157,2,3,21,90,426,1170,0%,20.8%,7.2%,Mobile or Crawler Crane,44.9,2018 COE exclusions,Typical 400MW,3
+10,Baseline + Alternative tower 120,2.43,116,566,Crawler cranes,KTS Field,255,0,0,0,120,591,1412,0%,20.8%,7.2%,Mobile or Crawler Crane,49.3,2030 ATB Mod Exclusions,Typical 400MW,3
+11,Baseline + Alternative tower 160,2.43,116,566,Crawler cranes,KTS Field,340,0,0,0,160,765,1671,0%,20.8%,7.2%,Mobile or Crawler Crane,51.9,2030 ATB Mod Exclusions,Typical 400MW,3
+12,Baseline + Uptower O&M 90,2.43,116,566,Crawler cranes,Transportable factory CAN,166,4,4,21,90,432,1185,0%,20.8%,7.2%,Up-tower,43.5,2018 COE exclusions,Typical 400MW,3
+13,Baseline + Uptower O&M 120,2.43,116,566,Crawler cranes,Transportable factory CAN,272,2,5,43,120,616,1497,0%,20.8%,7.2%,Up-tower,44.0,2030 ATB Mod Exclusions,Typical 400MW,3
+14,Baseline + Uptower O&M 160,2.43,116,566,Crawler cranes,Transportable factory CAN,563,2,9,86,160,976,2191,0%,20.8%,7.2%,Up-tower,45.1,2030 ATB Mod Exclusions,Typical 400MW,3
+15,Baseline + Wake steering 90,2.43,116,566,Crawler cranes,Transportable factory CAN,166,4,4,21,90,432,1185,2%,18.8%,7.2%,Mobile or Crawler Crane,44.9,2018 COE exclusions,Typical 400MW,3
+16,Baseline + Wake steering 120,2.43,116,566,Crawler cranes,Transportable factory CAN,272,2,5,43,120,616,1497,2%,18.8%,7.2%,Mobile or Crawler Crane,49.3,2030 ATB Mod Exclusions,Typical 400MW,3
+17,Baseline + Wake steering 160,2.43,116,566,Crawler cranes,Transportable factory CAN,563,2,9,86,160,976,2191,2%,18.8%,7.2%,Mobile or Crawler Crane,51.9,2030 ATB Mod Exclusions,Typical 400MW,3
+18,Baseline with everything 90,2.43,116,566,Liftra,KTS Factory,157,2,3,21,90,388,1132,2%,18.8%,7.2%,Up-tower,43.5,2018 COE exclusions,Typical 400MW,3
+19,Baseline with everything 100,2.43,116,566,Liftra,KTS Factory,167,2,3,21,100,405,1159,2%,18.8%,7.2%,Up-tower,43.5,2018 COE exclusions,Typical 400MW,3
+20,Baseline with everything 120,2.43,116,566,Liftra,KTS Field,255,0,4,0,120,431,1252,2%,18.8%,7.2%,Up-tower,44.0,2030 ATB Mod Exclusions,Typical 400MW,3
+21,Baseline with everything 140,2.43,116,566,Liftra,KTS Field,290,0,5,0,140,453,1309,2%,18.8%,7.2%,Up-tower,45.1,2030 ATB Mod Exclusions,Typical 400MW,3
+22,Baseline with everything 160,2.43,116,566,Liftra,KTS Field,340,0,6,0,160,474,1380,2%,18.8%,7.2%,Up-tower,45.1,2030 ATB Mod Exclusions,Typical 400MW,3
+23,3MW 150RD 90,3,150,600,Crawler cranes,Transportable factory CAN,178,3,4,22,90,414,1214,0%,20.8%,7.2%,Mobile or Crawler Crane,44.9,2018 COE exclusions,Typical 400MW,3
+24,3MW 150RD 100,3,150,600,Crawler cranes,Transportable factory CAN,213,3,4,22,100,437,1272,0%,20.8%,7.2%,Mobile or Crawler Crane,45.7,2018 COE exclusions,Typical 400MW,3
+25,3MW 150RD 120,3,150,600,Crawler cranes,Transportable factory CAN,306,2,5,35,120,559,1500,0%,20.8%,7.2%,Mobile or Crawler Crane,49.3,2030 ATB Mod Exclusions,Typical 400MW,3
+26,3MW 150RD 140,3,150,600,Crawler cranes,Transportable factory CAN,456,2,7,52,140,682,1790,0%,20.8%,7.2%,Mobile or Crawler Crane,51.1,2030 ATB Mod Exclusions,Typical 400MW,3
+27,3MW 150RD 160,3,150,600,Crawler cranes,Transportable factory CAN,649,2,9,69,160,711,2029,0%,20.8%,7.2%,Mobile or Crawler Crane,51.9,2030 ATB Mod Exclusions,Typical 400MW,3
+28,3MW 150RD + Alternative erection 90,3,150,600,Liftra,Transportable factory CAN,178,4,4,17,90,382,1177,0%,20.8%,7.2%,Mobile or Crawler Crane,44.9,2018 COE exclusions,Typical 400MW,3
+29,3MW 150RD + Alternative erection 120,3,150,600,Liftra,Transportable factory CAN,306,2,5,35,120,427,1368,0%,20.8%,7.2%,Mobile or Crawler Crane,49.3,2030 ATB Mod Exclusions,Typical 400MW,3
+30,3MW 150RD + Alternative erection 160,3,150,600,Liftra,Transportable factory CAN,649,2,9,69,160,479,1797,0%,20.8%,7.2%,Mobile or Crawler Crane,51.9,2030 ATB Mod Exclusions,Typical 400MW,3
+31,3MW 150RD + Alternative tower 90,3,150,600,Crawler cranes,KTS Factory,134,2,3,17,90,414,1165,0%,20.8%,7.2%,Mobile or Crawler Crane,44.9,2018 COE exclusions,Typical 400MW,3
+32,3MW 150RD + Alternative tower 120,3,150,600,Crawler cranes,KTS Field,215,0,4,0,120,557,1372,0%,20.8%,7.2%,Mobile or Crawler Crane,49.3,2030 ATB Mod Exclusions,Typical 400MW,3
+33,3MW 150RD + Alternative tower 160,3,150,600,Crawler cranes,KTS Field,285,0,6,0,160,706,1591,0%,20.8%,7.2%,Mobile or Crawler Crane,51.9,2030 ATB Mod Exclusions,Typical 400MW,3
+34,3MW 150RD + Uptower O&M 90,3,150,600,Crawler cranes,Transportable factory CAN,178,4,4,17,90,414,1209,0%,20.8%,7.2%,Up-tower,43.5,2018 COE exclusions,Typical 400MW,3
+35,3MW 150RD + Uptower O&M 120,3,150,600,Crawler cranes,Transportable factory CAN,306,2,5,35,120,559,1500,0%,20.8%,7.2%,Up-tower,44.0,2030 ATB Mod Exclusions,Typical 400MW,3
+36,3MW 150RD + Uptower O&M 160,3,150,600,Crawler cranes,Transportable factory CAN,649,2,9,69,160,711,2029,0%,20.8%,7.2%,Up-tower,45.1,2030 ATB Mod Exclusions,Typical 400MW,3
+37,3MW 150RD + Wake steering 90,3,150,600,Crawler cranes,Transportable factory CAN,178,4,4,17,90,414,1209,2%,18.8%,7.2%,Mobile or Crawler Crane,44.9,2018 COE exclusions,Typical 400MW,3
+38,3MW 150RD + Wake steering 120,3,150,600,Crawler cranes,Transportable factory CAN,306,2,5,35,120,559,1500,2%,18.8%,7.2%,Mobile or Crawler Crane,49.3,2030 ATB Mod Exclusions,Typical 400MW,3
+39,3MW 150RD + Wake steering 160,3,150,600,Crawler cranes,Transportable factory CAN,649,2,9,69,160,711,2029,2%,18.8%,7.2%,Mobile or Crawler Crane,51.9,2030 ATB Mod Exclusions,Typical 400MW,3
+40,3MW 150RD with everything 90,3,150,600,Liftra,KTS Factory,134,2,3,17,90,382,1133,2%,18.8%,7.2%,Up-tower,43.5,2018 COE exclusions,Typical 400MW,3
+41,3MW 150RD with everything 100,3,150,600,Liftra,KTS Factory,139,2,3,17,100,404,1160,2%,18.8%,7.2%,Up-tower,43.5,2018 COE exclusions,Typical 400MW,3
+42,3MW 150RD with everything 120,3,150,600,Liftra,KTS Field,215,0,4,0,120,426,1241,2%,18.8%,7.2%,Up-tower,44.0,2030 ATB Mod Exclusions,Typical 400MW,3
+43,3MW 150RD with everything 140,3,150,600,Liftra,KTS Field,239,0,5,0,140,449,1288,2%,18.8%,7.2%,Up-tower,45.1,2030 ATB Mod Exclusions,Typical 400MW,3
+44,3MW 150RD with everything 160,3,150,600,Liftra,KTS Field,285,0,6,0,160,474,1359,2%,18.8%,7.2%,Up-tower,45.1,2030 ATB Mod Exclusions,Typical 400MW,3

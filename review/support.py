@@ -7,6 +7,7 @@ Created on Sat Aug 15 15:47:40 2020
 """
 import json
 import os
+import time
 
 from collections import Counter
 
@@ -215,6 +216,8 @@ SCALE_OVERRIDES = {
 }
 
 STATES = [{"label": s.name, "value": s.name} for s in us.STATES]
+STATES.append({"label": "Onshore", "value": "onshore"})
+STATES.append({"label": "Offshore", "value": "offshore"})
 
 STYLESHEET = "https://codepen.io/chriddyp/pen/bWLwgP.css"
 
@@ -423,11 +426,21 @@ def sort_mixed(values):
 class Config:
     """Class for handling configuration variables."""
 
-    def __init__(self, config_path, project):
+    def __init__(self, project=None, config_path="~/.review_config"):
         """Initialize plotting object for a reV project."""
-        self.config_path = config_path
+        self.config_path = os.path.expanduser(config_path)
         self.project = project
         self.title_size = 20
+        self._check_config()
+
+    def __repr__(self):
+        """Print the project and config path."""
+        path = self.config_path
+        project = self.project
+        files = len(self.project_config["data"]["file"])
+        msg = (f"<Config object: path='{path}', project='{project}', "
+               f"{files} files>")
+        return msg
 
     def map_title(self, variable, op_values):
         """Make a title for the map given a variable name and option values."""
@@ -466,6 +479,13 @@ class Config:
         return var_title
 
     @property
+    def config(self):
+        """Return the full config dictionary."""
+        with open(self.config_path, "r") as file:
+            config = json.load(file)
+        return config
+
+    @property
     def data(self):
         """Return a pandas data frame with fuill file paths."""
         data = pd.DataFrame(self.project_config["data"])
@@ -487,10 +507,8 @@ class Config:
 
     @property
     def project_config(self):
-        """Return the config dictionary."""
-        with open(self.config_path, "r") as file:
-            config = json.load(file)
-        return config[self.project]
+        """Return the project config dictionary."""
+        return self.config[self.project]
 
     @property
     def scales(self):
@@ -513,14 +531,90 @@ class Config:
         units = self.project_config["units"]
         return units
 
+    def _check_config(self):
+        """Print available projects if none given, other checks may come."""
+        if not self.project:
+            print("No Project Specified. Available Projects:")
+            for project in self.config.keys():
+                print(f"  '{project}'")
+            raise KeyError
+
+
+class Difference:
+    """Class to handle supply curve difference calculations."""
+
+    def diff(self, x):
+        """return the percent difference between two values."""
+        if x.shape[0] == 1:
+            return np.nan
+        else:
+            x1 = x.iloc[0]
+            x2 = x.iloc[1]
+            pct = (1 - (x2 / x1)) * 100
+            return pct
+
+    def calc(self, df1, df2, field):
+        """Calculate difference between each row in two data frames."""
+        print("Calculating difference...")
+        group = "sc_point_gid"
+        df = pd.concat([df1, df2])
+        pcts = df.groupby(group)[field].apply(self.diff)
+        ndf = df1.copy()
+        ndf.index = df1["sc_point_gid"]
+        del ndf[field]
+        ndf = ndf.merge(pcts.to_frame(), left_index=True, right_index=True)
+        print("Difference calculated.")
+        return ndf
+
+
+class Least_Cost:
+    """Class to handle various elements of calculating a least cost table."""
+
+    def least_cost(self, dfs, by="total_lcoe"):
+        """Return a single least cost df from a list dfs."""
+        # Make one big data frame
+        bdf = pd.concat(dfs)
+        bdf = bdf.reset_index(drop=True)
+
+        # Group, find minimum, and subset
+        idx = bdf.groupby("sc_point_gid")[by].idxmin()
+        df = bdf.iloc[idx]
+
+        return df
+
+    def calc(self, paths, dst, by="total_lcoe"):
+        """Build the single least cost table from a list of tables."""
+        # Not including an overwrite option for now
+        if not os.path.exists(dst):
+
+            # Collect all data frames - biggest lift of all
+            paths.sort()
+            dfs = []
+            with mp.Pool(10) as pool:
+                for df in tqdm(pool.imap(self.read_df, paths),
+                               total=len(paths)):
+                    dfs.append(df)
+    
+            # Make one big data frame and save
+            df = self.least_cost(dfs, by=by)
+            df.to_csv(dst, index=False)
+
+    def read_df(self, path):
+        """Retrieve a single data frame."""
+        scenario = os.path.basename(path).replace(".csv", "")
+        df = pd.read_csv(path, low_memory=False)
+        df["scenario"] = scenario
+        time.sleep(0.2)
+        return df
+
 
 class Plots(Config):
     """Class for handling grouped plots (needs work)."""
 
-    def __init__(self, config_path, project, datasets, group, point_size,
-                 yunits=None, xunits=None):
+    def __init__(self, project, datasets, group, point_size,
+                 yunits=None, xunits=None, config_path="~/.review_config"):
         """Initialize plotting object for a reV project."""
-        super().__init__(config_path, project)
+        super().__init__(project, config_path)
         self.datasets = datasets
         self.group = group
         self.point_size = point_size

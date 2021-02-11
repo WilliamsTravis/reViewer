@@ -22,7 +22,6 @@ import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 import pandas as pd
-import pathos.multiprocessing as mp
 
 from app import app, cache, cache2, cache3
 from dash.dependencies import Input, Output, State
@@ -31,17 +30,15 @@ from plotly.colors import sequential as seq_colors
 
 from review import print_args
 from review.support import (AGGREGATIONS, BASEMAPS, BUTTON_STYLES,
-                            CHART_OPTIONS, COLOR_OPTIONS, CONFIG_PATH,
-                            DEFAULT_MAPVIEW, MAP_LAYOUT, STATES,
-                            TAB_STYLE, TABLET_STYLE, VARIABLES)
-from review.support import chart_point_filter, Config, Data_Path, Plots
-from tqdm import tqdm
+                            CHART_OPTIONS, COLOR_OPTIONS, DEFAULT_MAPVIEW,
+                            MAP_LAYOUT, STATES, TAB_STYLE, TABLET_STYLE,
+                            VARIABLES)
+from review.support import (chart_point_filter, Config, Data_Path, Difference,
+                            Least_Cost, Plots)
 
 
 # Everything below needs to be made dynamic
-with open(CONFIG_PATH, "r") as file:
-    FULL_CONFIG = json.load(file)
-CONFIG = FULL_CONFIG["Transition"]
+CONFIG = Config("Transition").project_config
 
 DP = Data_Path(CONFIG["directory"])
 FILEDF = pd.DataFrame(CONFIG["data"])
@@ -588,6 +585,22 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
         df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
                       + df[y].round(2).astype(str) + " " + units)
 
+    # Offshore points will be nans, since they don't have states or counties
+    if any(df["text"].isnull()):
+        ondf = df[~pd.isnull(df["text"])]
+        offdf = df[pd.isnull(df["text"])]
+        if units == "category":
+            offdf["text"] = (offdf["latitude"].round(2).astype(str) + ", "
+                             + offdf["longitude"].round(2).astype(str)
+                             + ": <br>   "
+                             + offdf[y].astype(str) + " " + units)
+        else:
+            offdf["text"] = (offdf["latitude"].round(2).astype(str) + ", "
+                             + offdf["longitude"].round(2).astype(str)
+                             + ": <br>   "
+                             + offdf[y].round(2).astype(str) + " " + units)
+        df = pd.concat([ondf, offdf])
+
     if units == "category":
         cats = {cat: i for i, cat in enumerate(df[y].unique())}
         df["cat"] = df[y].map(cats)
@@ -678,31 +691,13 @@ def build_spec_split(path):
     scenarios, counts = np.unique(df["scenario"], return_counts=True)
     total = df.shape[0]
     percentages = [counts[i] / total for i in range(len(counts))]
-    percentages = [round(p * 100, 2)  for p in percentages]
+    percentages = [round(p * 100, 4)  for p in percentages]
+    pdf = pd.DataFrame(dict(p=percentages, s=scenarios))
+    pdf = pdf.sort_values("p", ascending=False)
     table = """| Scenario | Percentage |\n|----------|------------|\n"""
-
-    n = len(scenarios)
-    if n > 10:
-        table = """| Scenario | Percentage | Scenario | Percentage|\n"""
-        table = table + "|----------|------------|----------|------------|\n"
-        for i in np.arange(0, len(percentages), 2):
-            if i < n - 1:
-                s1 = scenarios[i]
-                s2 = scenarios[i + 1]
-                p1 = percentages[i]
-                p2 = percentages[i + 1]
-                row = "| {} | {}% | {} | {}% |\n".format(s1, p1, s2, p2)
-            else:
-                s1 = scenarios[n - 1]
-                s2 = ""
-                p1 = percentages[n - 1]
-                p2 = ""
-                row = "| {} | {}% | {} | {} |\n".format(s1, p1, s2, p2)
-            table = table + row
-    else:
-        for i in range(len(percentages)):
-            row = "| {} | {}% |\n".format(scenarios[i], percentages[i])
-            table = table + row
+    for _, row in pdf.iterrows():
+        row = "| {} | {}% |\n".format(row["s"], row["p"])
+        table = table + row
 
     return table
 
@@ -710,7 +705,7 @@ def build_spec_split(path):
 def build_title(df, path, path2, y, x,  difference, title_size=25):
     """Create chart title."""
     # print_args(build_title, df, path, path2, y, x,  difference, title_size)
-    config = Config(CONFIG_PATH, "Transition")
+    config = Config("Transition")
     title = os.path.basename(path).replace("_sc.csv", "")
     title = " ".join(title.split("_")).capitalize()
     title = title + "  |  " + config.titles[y]
@@ -749,100 +744,6 @@ def build_title(df, path, path2, y, x,  difference, title_size=25):
             title = title + ag_print
 
     return title
-
-
-def calc_difference(df1, df2, y, x, dst):
-    """Calculate the percent difference of a field between two dfs."""
-    if not os.path.exists(dst):
-        # We may have two differently shaped data frames
-        shapes = [df1.shape[0], df2.shape[0]]
-        if len(np.unique(shapes)) > 1:
-            # Several options, but here we are using just the overlapping gids
-            dfs = [df1, df2]
-            larger = dfs[np.where(shapes == np.max(shapes))[0][0]]
-            smaller = dfs[np.where(shapes == np.min(shapes))[0][0]]
-            sgids = smaller["sc_point_gid"].values
-            df1 = df1[df1["sc_point_gid"].isin(sgids)]
-            df2 = df2[df2["sc_point_gid"].isin(sgids)]
-
-            # Alternately, use the larger and set the difference 100%
-
-            # Also, should we keep the extra rows to filter by LCOE
-
-        # Calculate difference
-        df1[y] = (1 - (df2[y].values / df1[y].values)) * 100
-        df1.to_csv(dst, index=False)
-    else:
-        df1 = pd.read_csv(dst)
-    return df1
-
-
-def calc_low_cost(paths, dst, by="total_lcoe"):
-    """Calculate a single data frame by the lowest cost row from many."""
-    import time
-
-    # Separate function for a retrieving a single data frame
-    def retrieve(arg):
-        path, scenario = arg
-        df = cache_table(path)
-        df["scenario"] = scenario
-        time.sleep(0.2)
-        return df
-
-    # For each row, find which df has the lowest lcoes
-    def low_cost(dfs, by="total_lcoe"):
-        """Return a single df from a list of same-shaped dfs."""
-        value_list = [df[by].values for df in dfs]
-        values = np.stack(value_list)
-        df_indices = np.argmin(values, axis=0)
-        row_indices = [np.where(df_indices == i)[0] for i in range(len(dfs))]
-        dfs = [dfs[i].iloc[idx] for i, idx in enumerate(row_indices)]
-        df = pd.concat(dfs)
-        return df
-
-    # Retrieve a data frame and add scenario
-    if not os.path.exists(dst):
-        paths.sort()
-        scenarios = [os.path.basename(path).split("_")[1] for path in paths]
-        dfs = []
-        args = [[paths[i], scenarios[i]] for i in range(len(paths))]
-        with mp.Pool(10) as pool:
-            for df in tqdm(pool.imap(retrieve, args), total=len(paths)):
-                dfs.append(df)
-
-        # How to deal with mismatching grids?
-        shapes = [df.shape[0] for df in dfs]
-        if len(np.unique(shapes)) == 2:
-            # Get the gids of the larger and the missing gids of the smaller
-            larger = dfs[np.where(shapes == np.max(shapes))[0][0]]
-            smaller = dfs[np.where(shapes == np.min(shapes))[0][0]]
-            lgids = larger["sc_point_gid"].values
-            sgids = smaller["sc_point_gid"].values
-            mgids = set(lgids) - set(sgids)
-
-            # Now create three lists of data frames
-            sdfs = [df[df["sc_point_gid"].isin(sgids)] for df in dfs]
-            mdfs = [df[df["sc_point_gid"].isin(mgids)] for df in dfs]
-            mdfs = [df for df in mdfs if df.shape[0] > 0]
-            sdf = low_cost(sdfs, by=by)
-            mdf = low_cost(mdfs, by=by)
-            df = pd.concat([sdf, mdf])
-            df = df.sort_values("sc_point_gid")
-        elif len(np.unique(shapes)) > 2:
-            smallest = dfs[np.where(shapes == np.min(shapes))[0][0]]
-            gids = smallest["sc_point_gid"].values
-            dfs = [df[df["sc_point_gid"].isin(gids)] for df in dfs]
-            df = low_cost(dfs, by=by)
-        else:
-            df = low_cost(dfs, by=by)
-
-        # Save
-        del dfs
-        df.to_csv(dst, index=False)
-
-    
-
-    return dst
 
 
 def calc_mask(df1, df2, threshold, threshold_field):
@@ -916,16 +817,6 @@ def cache_map_data(signal):
 
     # If there's a second table, read/cache the difference
     if path2:
-        # Let's save these to file and speed this up
-        s1 = os.path.basename(path).replace("_sc.csv", "")
-        s1 = s1.replace("scenario", "s")
-        s1 = s1.replace("least_cost", "lc")
-        s2 = os.path.basename(path2).replace("_sc.csv", "")
-        s2 = s2.replace("scenario", "s")
-        s2 = s2.replace("least_cost", "lc")
-        fname = "difference_{}_{}_{}_sc.csv".format(y, s1, s2)
-        dst = DP.join("review_outputs", fname, mkdir=True)
-
         # Match the format of the first dataframe
         df2 = cache_table(path2)
         df2 = df2[keepers]
@@ -934,7 +825,8 @@ def cache_map_data(signal):
 
         # If the difference option is specified difference
         if difference == "on":
-            df = calc_difference(df1, df2, y, x, dst)
+            calculator = Difference()
+            df = calculator.calc(df1, df2, y)
         else:
             df = df1.copy()
 
@@ -951,7 +843,12 @@ def cache_map_data(signal):
 
     # Finally filter for states
     if states:
-        df = df[df["state"].isin(states)]
+        if "onshore" in states:
+            df = df[~pd.isnull(df["state"])]
+        elif "offshore" in states:
+            df = df[pd.isnull(df["state"])]
+        else:
+            df = df[df["state"].isin(states)]
 
     return df
 
@@ -968,7 +865,12 @@ def cache_chart_tables(signal, region="national", idx=None):
         df = df.iloc[idx]
 
     if states:
-        df = df[df["state"].isin(states)]
+        if "onshore" in states:
+            df = df[~pd.isnull(df["state"])]
+        elif "offshore" in states:
+            df = df[pd.isnull(df["state"])]
+        else:
+            df = df[df["state"].isin(states)]
 
     if region != "national":
         regions = df[region].unique()
@@ -993,7 +895,7 @@ def retrieve_low_cost(submit, how, lst, group, group_choice, options, by):
     # print_args(retrieve_low_cost, submit, how, lst, group, group_choice,
     #            options)
 
-    config = Config(CONFIG_PATH, "Transition")
+    config = Config("Transition")
 
     # Build the appropriate paths and target file name
     if how == "all":
@@ -1018,7 +920,8 @@ def retrieve_low_cost(submit, how, lst, group, group_choice, options, by):
     # Build full paths and create the target file
     paths = [os.path.join(config.directory, path) for path in paths]
     lchh_path = DP.join("review_outputs", fname, mkdir=True)
-    calc_low_cost(paths, lchh_path, by=by)
+    calculator = Least_Cost()
+    calculator.calc(paths, lchh_path, by=by)
 
     # Update the scenario file options
     label = " ".join([f.capitalize() for f in fname.split("_")[:-1]])
@@ -1069,14 +972,14 @@ def display_lchh_group_options(group):
 def scenario_specs(scenario_a, scenario_b):
     """Output the specs association with a chosen scenario."""
     print_args(scenario_specs, scenario_a, scenario_b)
-    scenario_a = scenario_a.replace("_sc.csv", "")
-    scenario_b = scenario_b.replace("_sc.csv", "")
     if "least_cost" not in scenario_a:
+        scenario_a = scenario_a.replace("_sc.csv", "")
         specs1 = build_specs(scenario_a)
     else:
         specs1 = build_spec_split(scenario_a)
 
     if "least_cost" not in scenario_b:
+        scenario_b = scenario_b.replace("_sc.csv", "")
         specs2 = build_specs(scenario_b)
     else:
         specs2 = build_spec_split(scenario_b)
@@ -1175,7 +1078,7 @@ def map_signal(submit, states, chart, threshold, threshold_field, path, path2,
         raise PreventUpdate
 
     # Get/build the value scale table
-    config = Config(CONFIG_PATH, project="Transition")
+    config = Config("Transition")
     scales = config.scales
 
     # Get the full path from the config
@@ -1230,8 +1133,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    # print_args(make_map, signal, basemap, color, chartsel, point_size,
-    #             rev_color, uymin, uymax, mapview, mapsel)
+    print_args(make_map, signal, basemap, color, chartsel, point_size,
+                rev_color, uymin, uymax, mapview, mapsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("'MAP'; trig = '" + str(trig) + "'")
 
@@ -1369,7 +1272,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
 
     # Get the data frames
     dfs = cache_chart_tables(signal, region, idx)
-    plotter = Plots(CONFIG_PATH, "Transition", dfs, group, point_size,
+    plotter = Plots("Transition", dfs, group, point_size,
                     yunits=units)
 
     if chart == "cumsum":

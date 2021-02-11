@@ -428,55 +428,59 @@ class Config:
 
     def __init__(self, project=None, config_path="~/.review_config"):
         """Initialize plotting object for a reV project."""
-        self.config_path = os.path.expanduser(config_path)
         self.project = project
+        self.config_path = os.path.expanduser(config_path)
         self.title_size = 20
-        self._check_config()
 
     def __repr__(self):
         """Print the project and config path."""
         path = self.config_path
         project = self.project
-        files = len(self.project_config["data"]["file"])
+        if project:
+            files = len(self.project_config["data"]["file"])
+        else:
+            files = 0
         msg = (f"<Config object: path='{path}', project='{project}', "
                f"{files} files>")
         return msg
 
     def map_title(self, variable, op_values):
         """Make a title for the map given a variable name and option values."""
-        var_title = self.titles[variable]
-        for op, val in op_values.items():
-            if op in self.project_config["units"]:
-                units = self.project_config["units"][op]
-            else:
-                units = ""
-            op_title = str(val) + units + " " + op
-            var_title = var_title + " - " + op_title
-        if len(var_title.split(" - ")) > 3:
-            self.title_size = 12
-        elif len(var_title.split(" - ")) > 5:
-            self.title_size = 10
-        elif len(var_title.split(" - ")) > 7:
-            self.title_size = 8
-        return var_title
+        if self.project:
+            var_title = self.titles[variable]
+            for op, val in op_values.items():
+                if op in self.project_config["units"]:
+                    units = self.project_config["units"][op]
+                else:
+                    units = ""
+                op_title = str(val) + units + " " + op
+                var_title = var_title + " - " + op_title
+            if len(var_title.split(" - ")) > 3:
+                self.title_size = 12
+            elif len(var_title.split(" - ")) > 5:
+                self.title_size = 10
+            elif len(var_title.split(" - ")) > 7:
+                self.title_size = 8
+            return var_title
 
     def chart_title(self, var_title, op_values, group):
         """Make a title for the chart with variable/group name and options."""
-        if group in op_values:
-            del op_values[group]
-        for op, val in op_values.items():
-            units = self.project_config["units"][op]
-            op_title = str(val) + units + " " + op
-            var_title = var_title + " - " + op_title
-        var_title = var_title + ", All " + group + "s"
-
-        if len(var_title.split(" - ")) > 3:
-            self.title_size = 12
-        elif len(var_title.split(" - ")) > 5:
-            self.title_size = 10
-        elif len(var_title.split(" - ")) > 7:
-            self.title_size = 8
-        return var_title
+        if self.project:
+            if group in op_values:
+                del op_values[group]
+            for op, val in op_values.items():
+                units = self.project_config["units"][op]
+                op_title = str(val) + units + " " + op
+                var_title = var_title + " - " + op_title
+            var_title = var_title + ", All " + group + "s"
+    
+            if len(var_title.split(" - ")) > 3:
+                self.title_size = 12
+            elif len(var_title.split(" - ")) > 5:
+                self.title_size = 10
+            elif len(var_title.split(" - ")) > 7:
+                self.title_size = 8
+            return var_title
 
     @property
     def config(self):
@@ -488,57 +492,61 @@ class Config:
     @property
     def data(self):
         """Return a pandas data frame with fuill file paths."""
-        data = pd.DataFrame(self.project_config["data"])
-        return data
+        if self.project:
+            data = pd.DataFrame(self.project_config["data"])
+            return data
 
     @property
     def directory(self):
         """Return the project directory."""
-        return self.project_config["directory"]
+        if self.project:
+            return self.project_config["directory"]
 
     @property
     def options(self):
         """Not all options will be available for every grouping variable."""
-        options = {}
-        data = pd.DataFrame(self.project_config["data"])
-        del data["file"]
-        for col in data.columns:
-            options[col] = list(data[col].unique())
+        if self.project:
+            options = {}
+            data = pd.DataFrame(self.project_config["data"])
+            del data["file"]
+            for col in data.columns:
+                options[col] = list(data[col].unique())
+            return options
+
+    @property
+    def projects(self):
+        """Return a list of available projects."""
+        return list(self.config.keys())
 
     @property
     def project_config(self):
         """Return the project config dictionary."""
-        return self.config[self.project]
+        if self.project:
+            return self.config[self.project]
 
     @property
     def scales(self):
         """Return a titles dictionary with extra fields."""
-        scales = self.project_config["scales"]
-        for override, scale in SCALE_OVERRIDES.items():
-            scales[override]["min"] = scale[0]
-            scales[override]["max"] = scale[1]
-        return scales
+        if self.project:
+            scales = self.project_config["scales"]
+            for override, scale in SCALE_OVERRIDES.items():
+                scales[override]["min"] = scale[0]
+                scales[override]["max"] = scale[1]
+            return scales
 
     @property
     def titles(self):
         """Return a titles dictionary with extra fields."""
-        titles = self.project_config["titles"]
-        return titles
+        if self.project:
+            titles = self.project_config["titles"]
+            return titles
 
     @property
     def units(self):
         """Return a units dictionary with extra fields."""
-        units = self.project_config["units"]
-        return units
-
-    def _check_config(self):
-        """Print available projects if none given, other checks may come."""
-        if not self.project:
-            print("No Project Specified. Available Projects:")
-            for project in self.config.keys():
-                print(f"  '{project}'")
-            raise KeyError
-
+        if self.project:
+            units = self.project_config["units"]
+            return units
 
 class Difference:
     """Class to handle supply curve difference calculations."""

@@ -37,7 +37,8 @@ from review.support import (chart_point_filter, Config, Data_Path, Difference,
                             Least_Cost, Plots)
 
 
-# Everything below needs to be made dynamic
+
+# Temporary
 CONFIG = Config("Transition").project_config
 
 DP = Data_Path(CONFIG["directory"])
@@ -65,6 +66,14 @@ SCENARIO_OPTIONS = [
 VARIABLE_OPTIONS = [
     {"label": v, "value": k} for k, v in CONFIG["titles"].items()
 ]
+# Temporary
+
+
+REGION_OPTIONS = [
+    {"label": "National", "value": "national"},
+    {"label": "NREL Regions", "value": "nrel_region"},
+    {"label": "States", "value": "state"}
+]
 
 TABLET_STYLE_CLOSED = {
     **TABLET_STYLE,
@@ -80,14 +89,38 @@ TAB_BOTTOM_SELECTED_STYLE = {
 DEFAULT_SIGNAL = json.dumps([FILEDF["file"].iloc[0], None, "capacity",
                              "mean_cf", "off", None, 0.0243, 398.1312,
                              ["mean_lcoe_threshold", 50], "MW"])
-# Everything above to be in a dynmic callback
 
 
 layout = html.Div(
     children=[
 
-        # Initial Options
+        # Constant info block
         html.Div([
+
+            # Project Selection
+            html.Div([
+                html.H4("Project"),
+                dcc.Dropdown(
+                    id="project"
+                )
+            ], className="three columns"),
+
+            # Print total capacity after all the filters are applied
+            html.Div([
+                html.H5("Remaining Generation Capacity: "),
+                html.H1(id="capacity_print", children="")
+            ], className="three columns")
+
+        ], className="row", style={"margin-bottom": "35px"}),
+
+        # Options Label
+        html.H4("Options"),
+        html.Hr(style={"height": "0px", "width": "98%", "border": "none",
+                       "border-top": "1px solid grey"}),
+
+        # Data Options
+        html.Div([
+
             # First Scenario
             html.Div([
                 html.H5("Scenario A"),
@@ -101,7 +134,7 @@ layout = html.Div(
                     style={"margin-left": "15px", "font-size": "9pt",
                            "height": "300px", "overflow-y": "scroll"}
                 )
-            ], className="three columns"),
+            ], className="three columns", style={"margin-left": "50px"}),
 
             # Second Scenario
             html.Div(
@@ -282,33 +315,28 @@ layout = html.Div(
                                 ]),
                         ]),
                 ]),
-
-            html.Hr(),
-
-            # Print total capacity after all the filters are applied
-            html.Div(
-                children=[
-                    html.H5("Remaining Generation Capacity: "),
-                    html.H1(id="capacity_print", children="")
-                ])
-
+                html.Hr(),
             ], className="four columns"),
 
-        ], className="row", style={"margin-bottom": "50px"}),
+        ], id="options", className="row", style={"margin-bottom": "50px"}),
 
         #Submit Button to avoid repeated callbacks
-        html.Button(
-            id="submit",
-            children="Submit",
-            style={"width": "10%", "margin-left": "0px",
-                   "padding": "0px", "background-color": "#F9F9F9",
-                   "margin-bottom": "50px"}
-        ),
+        html.Div([
+            html.Button(
+                id="submit",
+                children="Submit",
+                className="row",
+                style={"background-color": "#cccccc",
+                       "border-color": "#00000",
+                       "width": "125px",
+                       "height": "45px",
+                       "margin-bottom": "50px",
+                       "text-align": "center"}
+            ),
+        ], style={"margin-left": "50px"}),
 
-        # Print total capacity after all the filters
-        html.Div(id="total_capacity",
-                 style={"display": "none",
-                        "font-size": "20px", "font-weight": "bold"}),
+        html.Hr(style={"height": "0px", "width": "98%", "border": "none",
+                       "border-top": "1px solid grey"}),
 
         # The chart and map div
         html.Div([
@@ -546,12 +574,25 @@ layout = html.Div(
             style={"display": "none"}
             ),
 
+        # The filedf is used for group options
+        html.Div(
+            id="filedf",
+            style={"display": "none"}
+            ),
+
         # Interim way to share data between map and chart
         html.Div(
             id="map_signal",
             children=DEFAULT_SIGNAL,
             style={"display": "none"}
+            ),
+
+        # Because we can't have a callback with no output
+        html.Div(
+            id="catch_low_cost",
+            style={"dsiplay": "none"}
             )
+
     ]
 )
 
@@ -675,9 +716,11 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
     return data
 
 
-def build_specs(scenario):
+def build_specs(scenario, project):
     """Calculate the percentage of each scenario present."""
-    dct = SPECS[scenario]
+    config = Config(project)
+    specs = config.project_config["parameters"]
+    dct = specs[scenario]
     table = """| Variable | Value |\n|----------|------------|\n"""
     for variable, value in dct.items():
         row = "| {} | {} |\n".format(variable, value)
@@ -880,9 +923,200 @@ def cache_chart_tables(signal, region="national", idx=None):
 
     return dfs
 
+@app.callback([Output('chart_options_tab', 'children'),
+               Output('chart_options_div', 'style'),
+               Output('chart_xvariable_options_div', 'style'),
+               Output('chart_region_div', 'style')],
+              [Input('chart_options_tab', 'value'),
+               Input('chart_options', 'value')])
+def options_chart_tabs(tab_choice, chart_choice):
+    """Choose which map tab dropown to display."""
+    # print_args(chart_tab_options, tab_choice, chart_choice)
+    styles = [{'display': 'none'}] * 3
+    order = ["chart", "xvariable", "region"]
+    idx = order.index(tab_choice)
+    styles[idx] = {"width": "100%", "text-align": "center"}
+
+    # If Cumulative capacity only show the y variable
+    if chart_choice in ["cumsum", "histogram", "box"]:
+        children = [
+            dcc.Tab(value='chart',
+                    label='Chart Type',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE
+                ),
+            dcc.Tab(value='region',
+                    label='Region',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE)
+        ]
+    else:
+        children = [
+            dcc.Tab(value='chart',
+                    label='Chart Type',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE),
+            dcc.Tab(value='xvariable',
+                    label='X Variable',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE),
+            dcc.Tab(value='region',
+                    label='Region',
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE)
+        ]
+
+    return children, styles[0], styles[1], styles[2]
+
+@app.callback([Output("low_cost_split_group_options", "options"),
+               Output("low_cost_split_group_options", "value")],
+              [Input("low_cost_split_group", "value"),
+               Input("filedf", "children")])
+def options_lchh_group(group, filedf):
+    """Display the available options for a chosen group."""
+    filedf = json.loads(filedf)
+    filedf = pd.DataFrame(filedf)
+    options = filedf[group].unique()
+    option_list = [{"label": o, "value": o} for o in options]
+    return option_list, options[0]
+
+@app.callback([Output("low_cost_group_tab_div", "style"),
+               Output("low_cost_list", "style"),
+               Output("low_cost_split_group_div", "style")],
+              [Input("low_cost_tabs", "value"),
+               Input("low_cost_group_tab", "value")])
+def options_low_cost_toggle(choice, how):
+    """Show the grouping options for the low cost function."""
+    if choice == "on":
+        style1 = {}
+    else:
+        style1 = {"display": "none"}
+    if how == "all":
+        style2 = {"display": "none"}
+        style3 = {"display": "none"}
+    elif how == "list":
+        style2 = {}
+        style3 = {"display": "none"}
+    else:
+        style2 = {"display": "none"}
+        style3 = {}
+    return style1, style2, style3
+
+@app.callback([Output("state_options", "style"),
+               Output('basemap_options_div', 'style'),
+               Output('color_options_div', 'style')],
+              [Input('map_options_tab', 'value')])
+def options_map_tab(tab_choice):
+    """Choose which map tab dropdown to display."""
+    styles = [{'display': 'none'}] * 3
+    order = ["state", "basemap", "color"]
+    idx = order.index(tab_choice)
+    styles[idx] = {"width": "100%", "text-align": "center"}
+
+    return styles[0], styles[1], styles[2]
 
 @app.callback([Output("scenario_a", "options"),
-               Output("scenario_b", "options")],
+               Output("scenario_b", "options"),
+               Output("variable", "options"),
+               Output("low_cost_split_group", "options"),
+               Output("filedf", "children")],
+              [Input("project", "value")])
+def options_options(project):
+    """Update the options given a project."""
+    config = Config(project).project_config
+
+    DP = Data_Path(config["directory"])
+    filedf = pd.DataFrame(config["data"])
+    groups = [c for c in filedf.columns if c not in ["file", "name"]]
+    scneario_outputs = DP.contents("review_outputs", "least_cost*_sc.csv")
+    scenario_originals = list(filedf["file"].values)
+    files = scenario_originals + scneario_outputs
+    names = [os.path.basename(f).replace("_sc.csv", "") for f in files]
+    names = [" ".join([n.capitalize() for n in name.split("_")]) for name in names]
+    file_list = dict(zip(names, files))
+
+    group_options = [{"label": g, "value": g} for g in groups]
+    scenario_options = [
+        {"label": key, "value": file} for key, file in file_list.items()
+    ]
+    variable_options = [
+        {"label": v, "value": k} for k, v in config["titles"].items()
+    ]
+
+    return (scenario_options, scenario_options, variable_options,
+            group_options, json.dumps(filedf.to_dict()))
+
+
+@app.callback([Output("project", "options"),
+               Output("project", "value")],
+              [Input("url", "pathname")])
+def options_project(pathname):
+    """Update project options. Triggered by navbar."""
+    # Open config json
+    fconfig = Config()
+    options = []
+    for project in fconfig.projects:
+        pconfig = Config(project)
+        if "parameters" in pconfig.project_config:
+            options.append({"label": project, "value": project})
+    return options, "Transition"
+
+@app.callback([Output("options", "style"),
+               Output("toggle_options", "children"),
+               Output("toggle_options", "style"),
+               Output("submit", "style")],
+              [Input('toggle_options', 'n_clicks')])
+def options_toggle_options(click):
+    """Toggle options on/off."""
+    if not click:
+        click = 0
+    if click % 2 != 1:
+        block_style = {"display": "none"}
+        button_children = 'Options: Off'
+        button_style = BUTTON_STYLES["off"]
+        submit_style = {"display": "none"}
+    else:
+        block_style = {"margin-bottom": "50px"}
+        button_children = 'Options: On'
+        button_style = BUTTON_STYLES["on"]
+        submit_style = {"background-color": "#cccccc", "margin-bottom": "50px",
+                        "text-align": "center", "width": "125px",
+                        "height": "45px"}
+
+    return block_style, button_children, button_style, submit_style
+
+@app.callback(Output("scenario_b_div", "style"),
+              [Input("difference", "value"),
+               Input("threshold_mask", "value")])
+def options_toggle_scenario_b(difference, mask):
+    """Show scenario b if the difference option is on."""
+    # trig = dash.callback_context.triggered[0]["prop_id"].split(".")
+    # print_args(toggle_scenario_b, difference, mask)
+    if difference == "on":
+        style = {}
+    elif mask == "mask_on":
+        style = {}
+    else:
+        style = {"display": "none"}
+    return style
+
+@app.callback([Output('rev_color', 'children'),
+               Output('rev_color', 'style')],
+              [Input('rev_color', 'n_clicks')])
+def options_toggle_rev_color_button(click):
+    """Toggle Reverse Color on/off."""
+    if not click:
+        click = 0
+    if click % 2 == 1:
+        children = 'Reverse Map Color: Off'
+        style = BUTTON_STYLES["off"]
+    else:
+        children = 'Reverse Map Color: On'
+        style = BUTTON_STYLES["on"]
+
+    return children, style
+
+@app.callback(Output("catch_low_cost", "children"),
               [Input("submit", "n_clicks")],
               [State("low_cost_group_tab", "value"),
                State("low_cost_list", "value"),
@@ -928,79 +1162,29 @@ def retrieve_low_cost(submit, how, lst, group, group_choice, options, by):
     if label not in [o["label"] for o in options]:
         option = {"label": label, "value": lchh_path}
         options.append(option)
-    return options, options
-
-
-
-@app.callback([Output("low_cost_group_tab_div", "style"),
-               Output("low_cost_list", "style"),
-               Output("low_cost_split_group_div", "style")],
-              [Input("low_cost_tabs", "value"),
-               Input("low_cost_group_tab", "value")])
-def toggle_low_cost_options(choice, how):
-    """Show the grouping options for the low cost function."""
-    if choice == "on":
-        style1 = {}
-    else:
-        style1 = {"display": "none"}
-    if how == "all":
-        style2 = {"display": "none"}
-        style3 = {"display": "none"}
-    elif how == "list":
-        style2 = {}
-        style3 = {"display": "none"}
-    else:
-        style2 = {"display": "none"}
-        style3 = {}
-    return style1, style2, style3
-
-
-@app.callback([Output("low_cost_split_group_options", "options"),
-               Output("low_cost_split_group_options", "value")],
-              [Input("low_cost_split_group", "value")])
-def display_lchh_group_options(group):
-    """Display the available options for a chosen group."""
-    options = FILEDF[group].unique()
-    option_list = [{"label": o, "value": o} for o in options]
-    return option_list, options[0]
-
+    return " "
 
 @app.callback([Output("scenario_a_specs", "children"),
                Output("scenario_b_specs", "children")],
               [Input("scenario_a", "value"),
-               Input("scenario_b", "value")])
-def scenario_specs(scenario_a, scenario_b):
+               Input("scenario_b", "value"),
+               Input("project", "value")])
+def scenario_specs(scenario_a, scenario_b, project):
     """Output the specs association with a chosen scenario."""
     print_args(scenario_specs, scenario_a, scenario_b)
     if "least_cost" not in scenario_a:
         scenario_a = scenario_a.replace("_sc.csv", "")
-        specs1 = build_specs(scenario_a)
+        specs1 = build_specs(scenario_a, project)
     else:
         specs1 = build_spec_split(scenario_a)
 
     if "least_cost" not in scenario_b:
         scenario_b = scenario_b.replace("_sc.csv", "")
-        specs2 = build_specs(scenario_b)
+        specs2 = build_specs(scenario_b, project)
     else:
         specs2 = build_spec_split(scenario_b)
 
     return specs1, specs2
-
-
-@app.callback(Output("scenario_b_div", "style"),
-              [Input("difference", "value"),
-               Input("threshold_mask", "value")])
-def toggle_scenario_b(difference, mask):
-    """Show scenario b if the difference option is on."""
-    # trig = dash.callback_context.triggered[0]["prop_id"].split(".")
-    # print_args(toggle_scenario_b, difference, mask)
-    if difference == "on":
-        style = {}
-    elif mask == "mask_on":
-        style = {}
-    else:
-        style = {"display": "none"}
-    return style
 
 
 # Map callbacks
@@ -1008,44 +1192,12 @@ def toggle_scenario_b(difference, mask):
               [Input("variable", "value"),
                Input("chart_xvariable_options", "value"),
                Input("state_options", "value")])
-def get_chart_tables(y, x, state):
+def retrieve_chart_tables(y, x, state):
     """Store the signal used to get the set of tables needed for the chart."""
     # print_args(get_chart_tables, y, x, state)
     signal = json.dumps([y, x, state])
     print("signal = " + signal)
     return signal
-
-
-@app.callback([Output("state_options", "style"),
-               Output('basemap_options_div', 'style'),
-               Output('color_options_div', 'style')],
-              [Input('map_options_tab', 'value')])
-def map_tab_options(tab_choice):
-    """Choose which map tab dropdown to display."""
-    styles = [{'display': 'none'}] * 3
-    order = ["state", "basemap", "color"]
-    idx = order.index(tab_choice)
-    styles[idx] = {"width": "100%", "text-align": "center"}
-
-    return styles[0], styles[1], styles[2]
-
-
-@app.callback([Output('rev_color', 'children'),
-               Output('rev_color', 'style')],
-              [Input('rev_color', 'n_clicks')])
-def toggle_rev_color_button(click):
-    """Toggle Reverse Color on/off."""
-    if not click:
-        click = 0
-    if click % 2 == 1:
-        children = 'Reverse Map Color: Off'
-        style = BUTTON_STYLES["off"]
-    else:
-        children = 'Reverse Map Color: On'
-        style = BUTTON_STYLES["on"]
-
-    return children, style
-
 
 @app.callback(Output("map_signal", "children"),
               [Input("submit", "n_clicks"),
@@ -1061,11 +1213,12 @@ def toggle_rev_color_button(click):
                State("difference", "value"),
                State("low_cost_tabs", "value"),
                State("threshold_mask", "value")])
-def map_signal(submit, states, chart, threshold, threshold_field, path, path2,
-               lchh_path, y, x, diff, lchh_toggle, mask):
+def retrieve_map_signal(submit, states, chart, threshold, threshold_field,
+                        path, path2, lchh_path, y, x, diff, lchh_toggle, mask):
     """Create signal for sharing data between map and chart with dependence."""
-    print_args(map_signal, submit, states, chart, threshold, threshold_field,
-               path, path2, lchh_path, y, x, diff, lchh_toggle, mask)
+    print_args(retrieve_map_signal, submit, states, chart, threshold,
+               threshold_field, path, path2, lchh_path, y, x, diff,
+               lchh_toggle, mask)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + trig + "'")
 
@@ -1113,19 +1266,18 @@ def map_signal(submit, states, chart, threshold, threshold_field, path, path2,
                          threshold, units, mask])
     return signal
 
-
 @app.callback([Output("map", "figure"),
-                Output("mapview_store", "children")],
+               Output("mapview_store", "children")],
               [Input("map_signal", "children"),
-                Input("basemap_options", "value"),
-                Input("color_options", "value"),
-                Input("chart", "selectedData"),
-                Input("map_point_size", "value"),
-                Input("rev_color", "n_clicks"),
-                Input("map_color_min", "value"),
-                Input("map_color_max", "value")],
+               Input("basemap_options", "value"),
+               Input("color_options", "value"),
+               Input("chart", "selectedData"),
+               Input("map_point_size", "value"),
+               Input("rev_color", "n_clicks"),
+               Input("map_color_min", "value"),
+               Input("map_color_max", "value")],
               [State("map", "relayoutData"),
-                State("map", "selectedData")])
+               State("map", "selectedData")])
 def make_map(signal, basemap, color, chartsel, point_size,
               rev_color, uymin, uymax, mapview, mapsel):
     """Make the scatterplot map.
@@ -1171,12 +1323,6 @@ def make_map(signal, basemap, color, chartsel, point_size,
             ymax = max(ys)
             df = df[(df[y] >= ymin) & (df[y] <= ymax)]
 
-    # If triggered again and there's still a map selection, re-highlight
-    # if "selectedData" not in trig:
-    #     if mapsel:
-    #         idx = [p["pointIndex"] for p in mapsel["points"]]
-    #         # What goes here?
-
     # Build map elements
     data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
                           point_size)
@@ -1185,54 +1331,6 @@ def make_map(signal, basemap, color, chartsel, point_size,
     figure = dict(data=data, layout=layout)
 
     return figure, json.dumps(mapview)
-
-
-# Charts
-@app.callback([Output('chart_options_tab', 'children'),
-                Output('chart_options_div', 'style'),
-                Output('chart_xvariable_options_div', 'style'),
-                Output('chart_region_div', 'style')],
-              [Input('chart_options_tab', 'value'),
-                Input('chart_options', 'value')])
-def chart_tab_options(tab_choice, chart_choice):
-    """Choose which map tab dropown to display."""
-    # print_args(chart_tab_options, tab_choice, chart_choice)
-    styles = [{'display': 'none'}] * 3
-    order = ["chart", "xvariable", "region"]
-    idx = order.index(tab_choice)
-    styles[idx] = {"width": "100%", "text-align": "center"}
-
-    # If Cumulative capacity only show the y variable
-    if chart_choice in ["cumsum", "histogram", "box"]:
-        children = [
-            dcc.Tab(value='chart',
-                    label='Chart Type',
-                    style=TABLET_STYLE,
-                    selected_style=TABLET_STYLE
-                ),
-            dcc.Tab(value='region',
-                    label='Region',
-                    style=TABLET_STYLE,
-                    selected_style=TABLET_STYLE)
-        ]
-    else:
-        children = [
-            dcc.Tab(value='chart',
-                    label='Chart Type',
-                    style=TABLET_STYLE,
-                    selected_style=TABLET_STYLE),
-            dcc.Tab(value='xvariable',
-                    label='X Variable',
-                    style=TABLET_STYLE,
-                    selected_style=TABLET_STYLE),
-            dcc.Tab(value='region',
-                    label='Region',
-                    style=TABLET_STYLE,
-                    selected_style=TABLET_STYLE)
-        ]
-
-    return children, styles[0], styles[1], styles[2]
-
 
 @app.callback(Output('chart', 'figure'),
               [Input("map_signal", "children"),

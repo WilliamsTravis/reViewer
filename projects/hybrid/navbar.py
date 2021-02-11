@@ -50,6 +50,15 @@ NAVBAR = html.Nav(
                 ),
 
               ]),
+    
+          html.Button(
+                id="toggle_options",
+                children="Options: Off",
+                n_clicks=0,
+                type="button",
+                title=("Click to display options"),
+                style=BUTTON_STYLES["off"]
+                ),
 
           # Move this to the map
           html.Button(
@@ -59,7 +68,7 @@ NAVBAR = html.Nav(
                 type="button",
                 title=("Click to render the map with the inverse of "
                        "the chosen color ramp."),
-                style=BUTTON_STYLES["on"]
+                style=BUTTON_STYLES["off"]
                 ),
 
           # Not implemented yet

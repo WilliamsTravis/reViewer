@@ -548,17 +548,19 @@ class Config:
             units = self.project_config["units"]
             return units
 
+
 class Difference:
     """Class to handle supply curve difference calculations."""
 
     def diff(self, x):
-        """return the percent difference between two values."""
+        """Return the percent difference between two values."""
         if x.shape[0] == 1:
             return np.nan
         else:
             x1 = x.iloc[0]
             x2 = x.iloc[1]
-            pct = (1 - (x2 / x1)) * 100
+            pct = 100 * ((x1 - x2) / x2)
+
             return pct
 
     def calc(self, df1, df2, field):
@@ -602,7 +604,7 @@ class Least_Cost:
                 for df in tqdm(pool.imap(self.read_df, paths),
                                total=len(paths)):
                     dfs.append(df)
-    
+
             # Make one big data frame and save
             df = self.least_cost(dfs, by=by)
             df.to_csv(dst, index=False)

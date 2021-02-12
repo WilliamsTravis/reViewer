@@ -3,15 +3,10 @@
 View reV results using a configuration file.
 
 Things to do:
-    - Fix charts when the same x- and y-axis variables are selected
-    - Add more configurations
-    - Fix custom color ramp format
-    - Fix ordering of number boxplot groups
-    - Fix variable axis ranges in charts
-    - Add point selection reset button
-    - Add link to GDS page
-    - Customize CSS, remove internal styling
-    - Deal with long titles
+    - Add in recalculations of LCOE figures with parameterized FCRs
+      (useful life built in to this figure.)
+    - Actually, what can we postprocess? Think about what is simple to quickly
+      recalculate and parameterize that.
 """
 import copy
 import json
@@ -37,14 +32,11 @@ from review.support import (chart_point_filter, Config, Data_Path, Difference,
                             Least_Cost, Plots)
 
 
-
-# Temporary
+# Temporary for initial options
 CONFIG = Config("Transition").project_config
-
 DP = Data_Path(CONFIG["directory"])
 FILEDF = pd.DataFrame(CONFIG["data"])
 SPECS = CONFIG["parameters"]
-
 GROUPS = [c for c in FILEDF.columns if c not in ["file", "name"]]
 GROUP_OPTIONS = [
     {"label": g, "value": g} for g in GROUPS
@@ -101,7 +93,8 @@ layout = html.Div(
             html.Div([
                 html.H4("Project"),
                 dcc.Dropdown(
-                    id="project"
+                    id="project",
+                    value="Transition"
                 )
             ], className="three columns"),
 
@@ -968,6 +961,7 @@ def options_chart_tabs(tab_choice, chart_choice):
 
     return children, styles[0], styles[1], styles[2]
 
+
 @app.callback([Output("low_cost_split_group_options", "options"),
                Output("low_cost_split_group_options", "value")],
               [Input("low_cost_split_group", "value"),
@@ -1017,6 +1011,8 @@ def options_map_tab(tab_choice):
 
 @app.callback([Output("scenario_a", "options"),
                Output("scenario_b", "options"),
+               Output("scenario_a", "value"),
+               Output("scenario_b", "value"),
                Output("variable", "options"),
                Output("low_cost_split_group", "options"),
                Output("filedf", "children")],
@@ -1032,9 +1028,9 @@ def options_options(project):
     scenario_originals = list(filedf["file"].values)
     files = scenario_originals + scneario_outputs
     names = [os.path.basename(f).replace("_sc.csv", "") for f in files]
-    names = [" ".join([n.capitalize() for n in name.split("_")]) for name in names]
+    names = [" ".join([n.capitalize() for n in name.split("_")])
+             for name in names]
     file_list = dict(zip(names, files))
-
     group_options = [{"label": g, "value": g} for g in groups]
     scenario_options = [
         {"label": key, "value": file} for key, file in file_list.items()
@@ -1043,8 +1039,15 @@ def options_options(project):
         {"label": v, "value": k} for k, v in config["titles"].items()
     ]
 
-    return (scenario_options, scenario_options, variable_options,
-            group_options, json.dumps(filedf.to_dict()))
+    # Lots of returns here, abbreviating for space
+    so = scenario_options
+    sva = so[0]["value"]
+    svb = so[1]["value"]
+    vo = variable_options
+    go = group_options
+    fdf = json.dumps(filedf.to_dict())
+
+    return so, so, sva, svb, vo, go, fdf
 
 
 @app.callback([Output("project", "options"),
@@ -1171,7 +1174,7 @@ def retrieve_low_cost(submit, how, lst, group, group_choice, options, by):
                Input("project", "value")])
 def scenario_specs(scenario_a, scenario_b, project):
     """Output the specs association with a chosen scenario."""
-    print_args(scenario_specs, scenario_a, scenario_b)
+    # print_args(scenario_specs, scenario_a, scenario_b)
     if "least_cost" not in scenario_a:
         scenario_a = scenario_a.replace("_sc.csv", "")
         specs1 = build_specs(scenario_a, project)
@@ -1199,11 +1202,13 @@ def retrieve_chart_tables(y, x, state):
     print("signal = " + signal)
     return signal
 
+
 @app.callback(Output("map_signal", "children"),
               [Input("submit", "n_clicks"),
                Input("state_options", "value"),
                Input("chart_options", "value")],
-              [State("upper_lcoe_threshold", "value"),
+              [State("project", "value"),
+               State("upper_lcoe_threshold", "value"),
                State("threshold_field", "value"),
                State("scenario_a", "value"),
                State("scenario_b", "value"),
@@ -1213,10 +1218,11 @@ def retrieve_chart_tables(y, x, state):
                State("difference", "value"),
                State("low_cost_tabs", "value"),
                State("threshold_mask", "value")])
-def retrieve_map_signal(submit, states, chart, threshold, threshold_field,
-                        path, path2, lchh_path, y, x, diff, lchh_toggle, mask):
+def retrieve_map_signal(submit, states, chart, project, threshold,
+                        threshold_field, path, path2, lchh_path, y, x, diff,
+                        lchh_toggle, mask):
     """Create signal for sharing data between map and chart with dependence."""
-    print_args(retrieve_map_signal, submit, states, chart, threshold,
+    print_args(retrieve_map_signal, submit, states, chart, project, threshold,
                threshold_field, path, path2, lchh_path, y, x, diff,
                lchh_toggle, mask)
     trig = dash.callback_context.triggered[0]['prop_id']
@@ -1231,8 +1237,8 @@ def retrieve_map_signal(submit, states, chart, threshold, threshold_field,
         raise PreventUpdate
 
     # Get/build the value scale table
-    config = Config("Transition")
-    scales = config.scales
+    config = Config(project)
+    scales = config.project_config["scales"]
 
     # Get the full path from the config
     path = os.path.join(config.directory, path)
@@ -1266,6 +1272,7 @@ def retrieve_map_signal(submit, states, chart, threshold, threshold_field,
                          threshold, units, mask])
     return signal
 
+
 @app.callback([Output("map", "figure"),
                Output("mapview_store", "children")],
               [Input("map_signal", "children"),
@@ -1279,14 +1286,14 @@ def retrieve_map_signal(submit, states, chart, threshold, threshold_field,
               [State("map", "relayoutData"),
                State("map", "selectedData")])
 def make_map(signal, basemap, color, chartsel, point_size,
-              rev_color, uymin, uymax, mapview, mapsel):
+             rev_color, uymin, uymax, mapview, mapsel):
     """Make the scatterplot map.
 
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    print_args(make_map, signal, basemap, color, chartsel, point_size,
-                rev_color, uymin, uymax, mapview, mapsel)
+    # print_args(make_map, signal, basemap, color, chartsel, point_size,
+    #             rev_color, uymin, uymax, mapview, mapsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("'MAP'; trig = '" + str(trig) + "'")
 
@@ -1294,7 +1301,7 @@ def make_map(signal, basemap, color, chartsel, point_size,
     df = cache_map_data(signal)
     df.index = df["index"]
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-      units, mask] = json.loads(signal)
+     units, mask] = json.loads(signal)
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -1325,35 +1332,36 @@ def make_map(signal, basemap, color, chartsel, point_size,
 
     # Build map elements
     data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
-                          point_size)
+                         point_size)
     title = build_title(df, path, path2, y, x, diff, title_size=20)
     layout = build_map_layout(mapview, title, basemap, title_size=20)
     figure = dict(data=data, layout=layout)
 
     return figure, json.dumps(mapview)
 
+
 @app.callback(Output('chart', 'figure'),
               [Input("map_signal", "children"),
-                Input("chart_options", "value"),
-                Input("map", "selectedData"),
-                Input("chart_point_size", "value"),
-                Input("chosen_map_options", "children"),
-                Input("chart_region", "value"),
-                Input("map_color_min", "value"),
-                Input("map_color_max", "value")],
+               Input("chart_options", "value"),
+               Input("map", "selectedData"),
+               Input("chart_point_size", "value"),
+               Input("chosen_map_options", "children"),
+               Input("chart_region", "value"),
+               Input("map_color_min", "value"),
+               Input("map_color_max", "value")],
               [State("chart", "relayoutData"),
-                State("chart", "selectedData")])
+               State("chart", "selectedData")])
 def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
-                uymax, chartview, chartsel):
+               uymax, chartview, chartsel):
     """Make one of a variety of charts."""
-    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-                region, chartview, chartsel)
+    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+    #            region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 
     # Unpack the signal
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-      units, mask] = json.loads(signal)
+     units, mask] = json.loads(signal)
 
     # Turn the map selection object into indices
     if mapsel:

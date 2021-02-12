@@ -13,17 +13,13 @@ import os
 import pandas as pd
 import pathos.multiprocessing as mp
 
-from revruns import rr
+from review.support import Config, Data_Path
 from tqdm import tqdm
 
 
-CONFIG = os.path.expanduser("~/.review_config")
-DP = rr.Data_Path(".")
+CONFIG = Config("ATB 2020")
+DP = Data_Path(CONFIG.directory)
 FILES = DP.contents("*sc.csv")
-KEEPERS =  ["mean_cf", "mean_lcoe", "mean_res", "capacity", "area_sq_km",
-            "latitude", "longitude", "country", "state", "county", "elevation",
-            "timezone", "sc_point_gid", "transmission_multiplier",
-            "trans_capacity", "trans_type", "trans_cap_cost"]
 REGIONS = {
     "Pacific": [
         "Oregon",
@@ -103,13 +99,13 @@ def reshape_regions():
     return regions
 
 
-def update_file(arg):
+def update_file(path):
     """Add fields to a single file."""
-    path, config = arg
+    config = CONFIG.project_config
 
     # Get scenario from path
     name = os.path.basename(path)
-    scenario = name.split("_")[1]
+    scenario = name.replace("_sc.csv", "")
 
     # Get the extra fields from the project configuration
     file_df = pd.DataFrame(config["data"])
@@ -134,12 +130,8 @@ def update_file(arg):
 
 
 def update_files():
-    with open(CONFIG, "r") as file:
-        full_config = json.load(file)
-    config = full_config["Transition"]
-    args = [(file, config) for file in FILES]
     with mp.Pool(mp.cpu_count()) as pool:
-        for _ in tqdm(pool.imap(update_file, args), total=len(args)):
+        for _ in tqdm(pool.imap(update_file, FILES), total=len(FILES)):
             pass
 
 if __name__ == "__main__":

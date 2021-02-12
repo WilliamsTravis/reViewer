@@ -286,9 +286,7 @@ layout = html.Div(
                                 children=[
                                     dcc.Dropdown(
                                         id="low_cost_list",
-                                        multi=True,
-                                        options=SCENARIO_OPTIONS,
-                                        value=SCENARIO_OPTIONS[0]["value"]
+                                        multi=True
                                     )
                                 ]
                             ),
@@ -583,7 +581,7 @@ layout = html.Div(
         # Because we can't have a callback with no output
         html.Div(
             id="catch_low_cost",
-            style={"dsiplay": "none"}
+            style={"display": "none"}
             )
 
     ]
@@ -738,10 +736,10 @@ def build_spec_split(path):
     return table
 
 
-def build_title(df, path, path2, y, x,  difference, title_size=25):
+def build_title(df, project, path, path2, y, x,  difference, title_size=25):
     """Create chart title."""
     # print_args(build_title, df, path, path2, y, x,  difference, title_size)
-    config = Config("Transition")
+    config = Config(project)
     title = os.path.basename(path).replace("_sc.csv", "")
     title = " ".join(title.split("_")).capitalize()
     title = title + "  |  " + config.titles[y]
@@ -1011,19 +1009,26 @@ def options_map_tab(tab_choice):
 
 @app.callback([Output("scenario_a", "options"),
                Output("scenario_b", "options"),
+               Output("low_cost_list", "options"),
                Output("scenario_a", "value"),
                Output("scenario_b", "value"),
+               Output("low_cost_list", "value"),
                Output("variable", "options"),
                Output("low_cost_split_group", "options"),
                Output("filedf", "children")],
-              [Input("project", "value")])
-def options_options(project):
-    """Update the options given a project."""
+              [Input("project", "value"),
+               Input("catch_low_cost", "children")])
+def options_options(project, lc_update):
+    """Update the options given a project."""  # <----------------------------- Clean this up
+    # Catch the trigger
+    trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
+
+    # We need the project configuration
     config = Config(project).project_config
 
+    # Find the files
     DP = Data_Path(config["directory"])
     filedf = pd.DataFrame(config["data"])
-    groups = [c for c in filedf.columns if c not in ["file", "name"]]
     scneario_outputs = DP.contents("review_outputs", "least_cost*_sc.csv")
     scenario_originals = list(filedf["file"].values)
     files = scenario_originals + scneario_outputs
@@ -1031,6 +1036,11 @@ def options_options(project):
     names = [" ".join([n.capitalize() for n in name.split("_")])
              for name in names]
     file_list = dict(zip(names, files))
+
+    # Infer the groups
+    groups = [c for c in filedf.columns if c not in ["file", "name"]]
+
+    # Build the options lists
     group_options = [{"label": g, "value": g} for g in groups]
     scenario_options = [
         {"label": key, "value": file} for key, file in file_list.items()
@@ -1047,7 +1057,12 @@ def options_options(project):
     go = group_options
     fdf = json.dumps(filedf.to_dict())
 
-    return so, so, sva, svb, vo, go, fdf
+    # Update options and value if least cost was just used
+    if "catch_low_cost" in trig:
+        so = json.loads(lc_update)
+        sva = so[-1]["value"]
+
+    return so, so, so, svb, sva, svb, vo, go, fdf
 
 
 @app.callback([Output("project", "options"),
@@ -1062,7 +1077,7 @@ def options_project(pathname):
         pconfig = Config(project)
         if "parameters" in pconfig.project_config:
             options.append({"label": project, "value": project})
-    return options, "Transition"
+    return options, project
 
 @app.callback([Output("options", "style"),
                Output("toggle_options", "children"),
@@ -1121,18 +1136,21 @@ def options_toggle_rev_color_button(click):
 
 @app.callback(Output("catch_low_cost", "children"),
               [Input("submit", "n_clicks")],
-              [State("low_cost_group_tab", "value"),
+              [State("project", "value"),
+               State("low_cost_group_tab", "value"),
                State("low_cost_list", "value"),
                State("low_cost_split_group", "value"),
                State("low_cost_split_group_options", "value"),
                State("scenario_a", "options"),
                State("low_cost_by", "value")])
-def retrieve_low_cost(submit, how, lst, group, group_choice, options, by):
+def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
+                      by):
     """Calculate low cost fields based on user decision."""
-    # print_args(retrieve_low_cost, submit, how, lst, group, group_choice,
-    #            options)
+    print_args(retrieve_low_cost, submit, project, how, lst, group,
+               group_choice, options, by)
 
-    config = Config("Transition")
+    config = Config(project)
+    DP = Data_Path(config.directory)
 
     # Build the appropriate paths and target file name
     if how == "all":
@@ -1155,8 +1173,9 @@ def retrieve_low_cost(submit, how, lst, group, group_choice, options, by):
         paths = FILEDF["file"][FILEDF[group] == group_choice].values
 
     # Build full paths and create the target file
-    paths = [os.path.join(config.directory, path) for path in paths]
+    paths = [DP.join(path) for path in paths]
     lchh_path = DP.join("review_outputs", fname, mkdir=True)
+    print("calculating" + " " + lchh_path + "...")
     calculator = Least_Cost()
     calculator.calc(paths, lchh_path, by=by)
 
@@ -1165,7 +1184,8 @@ def retrieve_low_cost(submit, how, lst, group, group_choice, options, by):
     if label not in [o["label"] for o in options]:
         option = {"label": label, "value": lchh_path}
         options.append(option)
-    return " "
+    return json.dumps(options)
+
 
 @app.callback([Output("scenario_a_specs", "children"),
                Output("scenario_b_specs", "children")],
@@ -1283,10 +1303,11 @@ def retrieve_map_signal(submit, states, chart, project, threshold,
                Input("rev_color", "n_clicks"),
                Input("map_color_min", "value"),
                Input("map_color_max", "value")],
-              [State("map", "relayoutData"),
+              [State("project", "value"),
+               State("map", "relayoutData"),
                State("map", "selectedData")])
 def make_map(signal, basemap, color, chartsel, point_size,
-             rev_color, uymin, uymax, mapview, mapsel):
+             rev_color, uymin, uymax, project, mapview, mapsel):
     """Make the scatterplot map.
 
     To fix the point selection issue check this out:
@@ -1333,7 +1354,7 @@ def make_map(signal, basemap, color, chartsel, point_size,
     # Build map elements
     data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
                          point_size)
-    title = build_title(df, path, path2, y, x, diff, title_size=20)
+    title = build_title(df, project, path, path2, y, x, diff, title_size=20)
     layout = build_map_layout(mapview, title, basemap, title_size=20)
     figure = dict(data=data, layout=layout)
 
@@ -1349,10 +1370,11 @@ def make_map(signal, basemap, color, chartsel, point_size,
                Input("chart_region", "value"),
                Input("map_color_min", "value"),
                Input("map_color_max", "value")],
-              [State("chart", "relayoutData"),
+              [State("project", "value"),
+               State("chart", "relayoutData"),
                State("chart", "selectedData")])
-def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
-               uymax, chartview, chartsel):
+def make_chart(signal, chart, mapsel, point_size, op_values, region,
+               uymin, uymax, project, chartview, chartsel):
     """Make one of a variety of charts."""
     # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
     #            region, chartview, chartsel)
@@ -1378,8 +1400,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
 
     # Get the data frames
     dfs = cache_chart_tables(signal, region, idx)
-    plotter = Plots("Transition", dfs, group, point_size,
-                    yunits=units)
+    plotter = Plots(project, dfs, group, point_size, yunits=units)
 
     if chart == "cumsum":
         fig = plotter.ccap()
@@ -1392,7 +1413,8 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
         fig = plotter.box()
 
     # Whats the total capacity at this point?
-    title = build_title(dfs, path, path2, y, x, diff, title_size=title_size)
+    title = build_title(dfs, project, path, path2, y, x, diff,
+                        title_size=title_size)
 
     # User defined y-axis limits
     if uymin:

@@ -42,13 +42,13 @@ def recalc():
     fom = params["Opex ($/kW/yr)"] * capacity
     cf = sample["mean_cf"]
 
-    # Okay we know the denominator
-    denominator = sample["mean_cf"] * 8760
-
-    # And so we know the numerator
-    numerator = slcoe * denominator
+    capacity /= 1000
 
     # But we might still need to use the figures from the paramters
-    lcoe = ((FCR * capex) + fom) / (cf * 8760)
+    lcoe = ((FCR * capex) + fom) / (capacity * cf * 8760)
 
-    # Not quite, what are we missing?
+    # Now let's do that same for every row
+    lcoe1 = df["mean_lcoe"].mean()
+
+    lcoe2 = df.apply(lmbda x: ((FCR * capex = x["Total Capex ($/kW)"]) + fom) / (capacity * cf * 8760))
+

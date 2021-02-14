@@ -24,15 +24,15 @@ from dash.exceptions import PreventUpdate
 from plotly.colors import sequential as seq_colors
 
 from review import print_args
-from review.support import (AGGREGATIONS, BASEMAPS, BUTTON_STYLES,
-                            CHART_OPTIONS, COLOR_OPTIONS, DEFAULT_MAPVIEW,
-                            MAP_LAYOUT, STATES, TAB_STYLE, TABLET_STYLE,
-                            VARIABLES)
+from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
+                            BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
+                            DEFAULT_MAPVIEW, MAP_LAYOUT, STATES, TAB_STYLE,
+                            TABLET_STYLE, VARIABLES)
 from review.support import (chart_point_filter, Config, Data_Path, Difference,
-                            Least_Cost, Plots)
+                            LCOE, Least_Cost, Plots)
 
 
-# Temporary for initial options
+############## Temporary for initial layout ###################################
 CONFIG = Config("Transition").project_config
 DP = Data_Path(CONFIG["directory"])
 FILEDF = pd.DataFrame(CONFIG["data"])
@@ -58,9 +58,10 @@ SCENARIO_OPTIONS = [
 VARIABLE_OPTIONS = [
     {"label": v, "value": k} for k, v in CONFIG["titles"].items()
 ]
-# Temporary
+############## Temporary ######################################################
 
 
+############## Everything below goes into css ################################
 REGION_OPTIONS = [
     {"label": "National", "value": "national"},
     {"label": "NREL Regions", "value": "nrel_region"},
@@ -81,6 +82,17 @@ TAB_BOTTOM_SELECTED_STYLE = {
 DEFAULT_SIGNAL = json.dumps([FILEDF["file"].iloc[0], None, "capacity",
                              "mean_cf", "off", None, 0.0243, 398.1312,
                              ["mean_lcoe_threshold", 50], "MW"])
+
+# Reverse Color button styles
+RC_STYLES = copy.deepcopy(BUTTON_STYLES)
+RC_STYLES["off"]["border-color"] =  RC_STYLES["on"]["border-color"] = "#1663b5"
+RC_STYLES["off"]["border-width"] =  RC_STYLES["on"]["border-width"] = "3px"
+RC_STYLES["off"]["border-top-width"] = "0px"
+RC_STYLES["on"]["border-top-width"] = "0px"
+RC_STYLES["off"]["border-radius-top-left"] = "0px"
+RC_STYLES["on"]["border-radius-top-right"] = "0px"
+RC_STYLES["off"]["float"] = RC_STYLES["on"]["float"] = "right"
+############## Everything above goes into css ################################
 
 
 layout = html.Div(
@@ -108,8 +120,9 @@ layout = html.Div(
 
         # Options Label
         html.H4("Options"),
-        html.Hr(style={"height": "0px", "width": "98%", "border": "none",
-                       "border-top": "1px solid grey"}),
+        html.Hr(style={"width": "98%",
+                       "border-bottom": "2px solid #fccd34",
+                       "border-top": "3px solid #1663b5"}),
 
         # Data Options
         html.Div([
@@ -309,6 +322,15 @@ layout = html.Div(
                 html.Hr(),
             ], className="four columns"),
 
+            # LCOE Recalc
+            html.Div([
+                html.H5("Fixed Charge Rate"),
+                dcc.Input(
+                    id="fcr",
+                    placeholder="Original"
+                )
+            ], className="two columns"),
+
         ], id="options", className="row", style={"margin-bottom": "50px"}),
 
         #Submit Button to avoid repeated callbacks
@@ -317,17 +339,13 @@ layout = html.Div(
                 id="submit",
                 children="Submit",
                 className="row",
-                style={"background-color": "#cccccc",
-                       "border-color": "#00000",
-                       "width": "125px",
-                       "height": "45px",
-                       "margin-bottom": "50px",
-                       "text-align": "center"}
+                style=BUTTON_STYLES["on"]
             ),
         ], style={"margin-left": "50px"}),
 
-        html.Hr(style={"height": "0px", "width": "98%", "border": "none",
-                       "border-top": "1px solid grey"}),
+        html.Hr(style={"width": "98%",
+                       "border-top": "2px solid #fccd34",
+                       "border-bottom": "3px solid #1663b5"}),
 
         # The chart and map div
         html.Div([
@@ -405,35 +423,51 @@ layout = html.Div(
                         }
                     ),
 
-                # Point Size
-                html.Div(
-                    id="map_point_size_div",
-                    children=[
-                        html.H6("Point Size:", className="two columns"),
+                # Below Map Options
+                html.Div([
+                    
+                    # Left options
+                    html.Div([
+                        html.H6("Point Size:",
+                            style={"margin-left": 5},
+                            className="three columns"),
                         dcc.Input(
                             id="map_point_size",
                             value=5,
                             type="number",
                             className="two columns",
-                            style={"margin-left": -5, "width": "7%"}
+                            style={"width": "11%", "margin-left": "-20px"}
                         ),
-                        html.H6("Color Min: ", className="two columns"),
+                        html.H6("Color Min: ", className="three columns"),
                         dcc.Input(
                             id="map_color_min",
                             placeholder="",
                             type="number",
                             className="two columns",
-                            style={"margin-left": -5, "width": "7%"}
+                            style={"width": "11%", "margin-left": "-20px"}
                         ),
-                        html.H6("Color Max: ", className="two columns"),
+                        html.H6("Color Max: ", className="three columns"),
                         dcc.Input(
                             id="map_color_max",
                             placeholder="",
                             type="number",
                             className="two columns",
-                            style={"margin-left": -5, "width": "7%"}
-                        ),
-                    ], className="row"),
+                            style={"width": "11%", "margin-left": "-20px"}
+                        )
+                    ], className="seven columns", style=BOTTOM_DIV_STYLE),
+
+                    # Right option
+                    html.Button(
+                        id="rev_color",
+                        children="Reverse Map Color: Off",
+                        n_clicks=0,
+                        type="button",
+                        title=("Click to render the map with the inverse of "
+                               "the chosen color ramp."),
+                        style=RC_STYLES["on"], className="one column"
+                    )
+    
+                    ]),
                 ], className="six columns"),
 
             # The chart div
@@ -517,15 +551,20 @@ layout = html.Div(
                     id="chart_point_size_div",
                     children=[
                         html.H6("Point Size:",
-                                className="two columns"),
+                                className="seven columns",
+                                style={"margin-left": 7}
+                                ),
                         dcc.Input(
                             id="chart_point_size",
                             value=5,
                             type="number",
                             className="two columns",
-                            style={"margin-left": -5, "width": "7%"}
+                            style={"width": "35%", "margin-left": "-5px"}
                         ),
-                    ], className="row"),
+                    ],
+                    className="row",
+                    style={**BOTTOM_DIV_STYLE, **{"width": "18%"}}
+                    ),
                 ], className="six columns"),
         ], className="row"),
 
@@ -640,8 +679,8 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
         showlegend = True
         data = []
 
-        # How to allow optionality for categorical colors?
-        colors = seq_colors.__dict__[color][::len(cats)]
+        # We'll need to change the color drop down options for categorical
+        # colors = seq_colors.__dict__[color][::len(cats)]
 
         for cat, value in cats.items():
             # Create a sub data frame
@@ -694,15 +733,20 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
              )
 
         # Create data object
-        data = [dict(type='scattermapbox',
-                     lon=df['longitude'],
-                     lat=df['latitude'],
-                     text=df['text'],
-                     mode='markers',
-                     hoverinfo='text',
-                     hovermode='closest',
-                     showlegend=showlegend,
-                     marker=marker)]
+        data = [
+            dict(
+                type='scattermapbox',
+                lon=df['longitude'],
+                lat=df['latitude'],
+                text=df['text'],
+                mode='markers',
+                hoverinfo='text',
+                hovermode='closest',
+                showlegend=showlegend,
+                marker=marker,
+                render_mode="webgl"
+            )
+        ]
 
     return data
 
@@ -798,7 +842,7 @@ def calc_total_capacity(signal, mapsel, chartsel):
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
     df = cache_map_data(signal)
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask] = json.loads(signal)
+     units, mask, fcr, project] = json.loads(signal)
     if trig == "map":
         if mapsel:
             idx = [d["pointIndex"] for d in mapsel["points"]]
@@ -812,9 +856,33 @@ def calc_total_capacity(signal, mapsel, chartsel):
 
 
 @cache.memoize()
-def cache_table(path):
+def cache_table(path, fcr=None):
     """Read in just a single table."""
+    # Read in table
     df = pd.read_csv(path, low_memory=False)
+
+    # Recalculate FCR
+    if fcr:
+        # It would be a string
+        fcr = float(fcr)
+        fcr = fcr / 100
+
+        # Infer scenario
+        scenario = os.path.basename(path).replace("_sc.csv", "")
+
+        # Find its parameters
+        for project in Config().projects:
+            config = Config(project).project_config
+            if "parameters" in config:
+                params = config["parameters"]
+                if scenario in params:
+                    break
+
+        # Recalculate
+        calculator = LCOE(project)
+        df = calculator.recalc(scenario, fcr)
+        
+    # We want some consistent fields
     df["index"] = df.index
     if not "print_capacity" in df.columns:
         df["print_capacity"] = df["capacity"].copy()
@@ -829,10 +897,10 @@ def cache_map_data(signal):
     """Read and store a data frame from the config and options given."""
     # Get signal elements
     [path, path2, y, x, difference, states, ymin, ymax, threshold,
-     units, mask] = json.loads(signal)
+     units, mask, fcr, project] = json.loads(signal)
 
     # Read and cache first table
-    df1 = cache_table(path)
+    df1 = cache_table(path, fcr)
 
     # Separate the threshold values out
     threshold_field = threshold[0]
@@ -840,9 +908,8 @@ def cache_map_data(signal):
 
     # Is it faster to subset columns before rows?
     keepers = [y, x, "print_capacity", "total_lcoe_threshold",
-               "mean_lcoe_threshold", "state",
-               "nrel_region", "county", "latitude", "longitude",
-               "sc_point_gid", "index"]
+               "mean_lcoe_threshold", "state", "nrel_region", "county",
+               "latitude", "longitude", "sc_point_gid", "index"]
     df1 = df1[keepers]
 
     # For other functions this data frame needs an x field
@@ -891,7 +958,7 @@ def cache_map_data(signal):
 def cache_chart_tables(signal, region="national", idx=None):
     """Read and store a data frame from the config and options given."""
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask] = json.loads(signal)
+     units, mask, fcr, project] = json.loads(signal)
     df = cache_map_data(signal)
     df = df[[x, y, "state", "nrel_region", "print_capacity", "index"]]
 
@@ -1062,7 +1129,7 @@ def options_options(project, lc_update):
         so = json.loads(lc_update)
         sva = so[-1]["value"]
 
-    return so, so, so, svb, sva, svb, vo, go, fdf
+    return so, so, so, sva, svb, sva, vo, go, fdf
 
 
 @app.callback([Output("project", "options"),
@@ -1097,9 +1164,7 @@ def options_toggle_options(click):
         block_style = {"margin-bottom": "50px"}
         button_children = 'Options: On'
         button_style = BUTTON_STYLES["on"]
-        submit_style = {"background-color": "#cccccc", "margin-bottom": "50px",
-                        "text-align": "center", "width": "125px",
-                        "height": "45px"}
+        submit_style = BUTTON_STYLES["on"]
 
     return block_style, button_children, button_style, submit_style
 
@@ -1127,10 +1192,10 @@ def options_toggle_rev_color_button(click):
         click = 0
     if click % 2 == 1:
         children = 'Reverse Map Color: Off'
-        style = BUTTON_STYLES["off"]
+        style = RC_STYLES["off"]
     else:
         children = 'Reverse Map Color: On'
-        style = BUTTON_STYLES["on"]
+        style = RC_STYLES["on"]
 
     return children, style
 
@@ -1237,14 +1302,15 @@ def retrieve_chart_tables(y, x, state):
                State("chart_xvariable_options", "value"),
                State("difference", "value"),
                State("low_cost_tabs", "value"),
-               State("threshold_mask", "value")])
+               State("threshold_mask", "value"),
+               State("fcr", "value")])
 def retrieve_map_signal(submit, states, chart, project, threshold,
                         threshold_field, path, path2, lchh_path, y, x, diff,
-                        lchh_toggle, mask):
+                        lchh_toggle, mask, fcr):
     """Create signal for sharing data between map and chart with dependence."""
     print_args(retrieve_map_signal, submit, states, chart, project, threshold,
                threshold_field, path, path2, lchh_path, y, x, diff,
-               lchh_toggle, mask)
+               lchh_toggle, mask, fcr)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + trig + "'")
 
@@ -1289,7 +1355,7 @@ def retrieve_map_signal(submit, states, chart, project, threshold,
 
     # Let's just recycle all this for the chart
     signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
-                         threshold, units, mask])
+                         threshold, units, mask, fcr, project])
     return signal
 
 
@@ -1322,7 +1388,7 @@ def make_map(signal, basemap, color, chartsel, point_size,
     df = cache_map_data(signal)
     df.index = df["index"]
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask] = json.loads(signal)
+     units, mask, fcr, project] = json.loads(signal)
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -1383,7 +1449,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
 
     # Unpack the signal
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask] = json.loads(signal)
+     units, mask, fcr, project] = json.loads(signal)
 
     # Turn the map selection object into indices
     if mapsel:

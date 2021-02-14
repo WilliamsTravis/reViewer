@@ -60,17 +60,6 @@ NAVBAR = html.Nav(
                 style=BUTTON_STYLES["off"]
                 ),
 
-          # Move this to the map
-          html.Button(
-                id="rev_color",
-                children="Reverse Map Color: Off",
-                n_clicks=0,
-                type="button",
-                title=("Click to render the map with the inverse of "
-                       "the chosen color ramp."),
-                style=BUTTON_STYLES["off"]
-                ),
-
           # Not implemented yet
           html.Button(
                 id="reset_chart",

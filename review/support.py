@@ -60,6 +60,7 @@ BUTTON_STYLES = {
         "padding": "4px",
         "background-color": "#FCCD34",
         "border-radius": "4px",
+        "border-color": "#1663b5",
         "font-family": "Times New Roman",
         "font-size": "12px",
         "margin-top": "-2px"
@@ -68,6 +69,7 @@ BUTTON_STYLES = {
         "height": "45px",
         "width": "200px",
         "padding": "4px",
+        "border-color": "#1663b5",
         "background-color": "#b89627",
         "border-radius": "4px",
         "font-family": "Times New Roman",
@@ -75,6 +77,19 @@ BUTTON_STYLES = {
         "margin-top": "-2px"
         }
     }
+
+BOTTOM_DIV_STYLE = {
+    "height": "45px",
+    "float": "left",
+    "margin-top": "-2px",
+    "border": "3px solid #1663b5",
+    "border-radius": "4px",
+    "border-width": "3px",
+    "border-top-width": "0px",
+    "border-radius-top-left": "0px",
+    "border-radius-top-right": "0px"
+}
+
 
 CHART_OPTIONS = [{"label": "Cumulative Capacity", "value": "cumsum"},
                  {"label": "Scatterplot", "value": "scatter"},
@@ -575,6 +590,61 @@ class Difference:
         ndf = ndf.merge(pcts.to_frame(), left_index=True, right_index=True)
         print("Difference calculated.")
         return ndf
+
+
+class LCOE(Config):  # <------------------------------------------------------- This will only work for the Transition project, the parameter names are standardized yet
+    """Class to recalculate LCOE with different parameters."""
+
+    def __init__(self, project):
+        super().__init__(project)
+
+    def lcoe(self, row, capex, fom, fcr):
+        """Calculate LCOE for a single row."""
+        capacity = row["capacity"] * 1000
+        cc = capex * capacity
+        om = fom * capacity
+        return ((fcr * cc) + om) / (row["capacity"] * row["mean_cf"] * 8760)
+
+    def lcot(self, row, fcr):
+        """Calculate LCOT for a single row."""
+        cc = row["trans_cap_cost"]
+        cf = row["mean_cf"]
+        return (cc * fcr) / (cf * 8760)
+        
+    def recalc(self, scenario, fcr=0.072):
+        """Recalculate LCOE for a data frame given a specific FCR."""
+        # Get our constants
+        capex_field, opex_field = self._find_fields(scenario)
+        config = self.project_config
+        params = config["parameters"][scenario]
+        capex = params[capex_field]
+        fom = params[opex_field]
+    
+        # Read in the table
+        files = pd.DataFrame(config["data"])
+        fname = files["file"][files["file"].str.contains(scenario)].values[0]
+        directory = config["directory"]
+        path = os.path.join(directory, fname)
+        df = pd.read_csv(path, low_memory=False)
+    
+        # Recalculate LCOE figures
+        df["mean_lcoe"] = df.apply(self.lcoe, capex=capex, fom=fom, fcr=fcr,
+                                   axis=1)
+        df["lcot"] = df.apply(self.lcot, fcr=fcr, axis=1)
+        df["total_lcoe"] = df["mean_lcoe"] + df["lcot"]
+
+        return df
+
+    def _find_fields(self, scenario):
+        """Find input fields with pattern recognition."""
+        config = self.project_config
+        params = config["parameters"][scenario]
+        patterns = {k.lower().replace(" ", ""): k for k in params.keys()}
+        matches = []
+        for key in ["capex", "opex"]:
+            match = [v for k, v in patterns.items() if key in str(k)][0]
+            matches.append(match)
+        return matches
 
 
 class Least_Cost:

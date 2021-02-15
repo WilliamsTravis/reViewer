@@ -760,7 +760,8 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
                 hovermode='closest',
                 showlegend=showlegend,
                 marker=marker,
-                render_mode="webgl"
+                render_mode="webgl",
+                editable="true"
             )
         ]
 

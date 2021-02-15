@@ -29,7 +29,7 @@ from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
                             DEFAULT_MAPVIEW, MAP_LAYOUT, STATES, TAB_STYLE,
                             TABLET_STYLE, VARIABLES)
 from review.support import (chart_point_filter, Config, Data_Path, Difference,
-                            LCOE, Least_Cost, Plots)
+                            find_scenario, LCOE, Least_Cost, Plots)
 
 
 ############## Temporary for initial layout ###################################
@@ -59,7 +59,6 @@ VARIABLE_OPTIONS = [
     {"label": v, "value": k} for k, v in CONFIG["titles"].items()
 ]
 ############## Temporary ######################################################
-
 
 ############## Everything below goes into css ################################
 REGION_OPTIONS = [
@@ -317,8 +316,18 @@ layout = html.Div(
                                         id="low_cost_split_group_options"
                                     )
                                 ]),
-                        ]),
+                            ]),
+                    ]),
+
+                # Submit Button to avoid repeated callbacks
+                html.Div([
+                    html.Button(
+                        id="low_cost_submit",
+                        children="Submit",
+                        className="row"
+                    ),
                 ]),
+
                 html.Hr(),
             ], className="four columns"),
 
@@ -333,15 +342,24 @@ layout = html.Div(
 
         ], id="options", className="row", style={"margin-bottom": "50px"}),
 
-        #Submit Button to avoid repeated callbacks
+        # Submit Button to avoid repeated callbacks
         html.Div([
+            html.Button(
+                  id="toggle_options",
+                  children="Options: Off",
+                  n_clicks=0,
+                  type="button",
+                  title=("Click to display options"),
+                  style=BUTTON_STYLES["off"],
+                  className="two columns"),
             html.Button(
                 id="submit",
                 children="Submit",
-                className="row",
-                style=BUTTON_STYLES["on"]
+                style=BUTTON_STYLES["on"],
+                title=("Click to submit options"),
+                className="two columns"
             ),
-        ], style={"margin-left": "50px"}),
+        ], style={"margin-left": "50px"}, className="row"),
 
         html.Hr(style={"width": "98%",
                        "border-top": "2px solid #fccd34",
@@ -425,7 +443,7 @@ layout = html.Div(
 
                 # Below Map Options
                 html.Div([
-                    
+
                     # Left options
                     html.Div([
                         html.H6("Point Size:",
@@ -466,9 +484,8 @@ layout = html.Div(
                                "the chosen color ramp."),
                         style=RC_STYLES["on"], className="one column"
                     )
-    
-                    ]),
-                ], className="six columns"),
+                ]),
+            ], className="six columns"),
 
             # The chart div
             html.Div([
@@ -610,19 +627,18 @@ layout = html.Div(
             style={"display": "none"}
             ),
 
+        # Because we can't have a callback with no output
+        html.Div(
+            id="catch_low_cost",
+            style={"display": "none"}
+            ),
+
         # Interim way to share data between map and chart
         html.Div(
             id="map_signal",
             children=DEFAULT_SIGNAL,
             style={"display": "none"}
             ),
-
-        # Because we can't have a callback with no output
-        html.Div(
-            id="catch_low_cost",
-            style={"display": "none"}
-            )
-
     ]
 )
 
@@ -833,9 +849,9 @@ def calc_mask(df1, df2, threshold, threshold_field):
 
 
 @app.callback(Output("capacity_print", "children"),
-             [Input("map_signal", "children"),
-              Input("map", "selectedData"),
-              Input("chart", "selectedData")])
+              [Input("map_signal", "children"),
+               Input("map", "selectedData"),
+               Input("chart", "selectedData")])
 def calc_total_capacity(signal, mapsel, chartsel):
     """Calculate total remaining capacity after all filters are applied."""
     # print_args(calc_total_capacity, signal, mapsel, chartsel)
@@ -859,34 +875,25 @@ def calc_total_capacity(signal, mapsel, chartsel):
 def cache_table(path, fcr=None):
     """Read in just a single table."""
     # Read in table
-    df = pd.read_csv(path, low_memory=False)
+    if fcr and "fcr" not in path:
+        # We'll need these
+        project, scenario = find_scenario(path)
 
-    # Recalculate FCR
-    if fcr:
         # It would be a string
         fcr = float(fcr)
         fcr = fcr / 100
 
-        # Infer scenario
-        scenario = os.path.basename(path).replace("_sc.csv", "")
-
-        # Find its parameters
-        for project in Config().projects:
-            config = Config(project).project_config
-            if "parameters" in config:
-                params = config["parameters"]
-                if scenario in params:
-                    break
-
         # Recalculate
         calculator = LCOE(project)
         df = calculator.recalc(scenario, fcr)
-        
+    else:
+        df = pd.read_csv(path, low_memory=False)
+
     # We want some consistent fields
     df["index"] = df.index
-    if not "print_capacity" in df.columns:
+    if "print_capacity" not in df.columns:
         df["print_capacity"] = df["capacity"].copy()
-    if not "total_lcoe_threshold" in df.columns:
+    if "total_lcoe_threshold" not in df.columns:
         df["total_lcoe_threshold"] = df["total_lcoe"].copy()
         df["mean_lcoe_threshold"] = df["mean_lcoe"].copy()
     return df
@@ -1039,27 +1046,41 @@ def options_lchh_group(group, filedf):
     option_list = [{"label": o, "value": o} for o in options]
     return option_list, options[0]
 
+
 @app.callback([Output("low_cost_group_tab_div", "style"),
                Output("low_cost_list", "style"),
-               Output("low_cost_split_group_div", "style")],
+               Output("low_cost_split_group_div", "style"),
+               Output("low_cost_submit", "style")],
               [Input("low_cost_tabs", "value"),
                Input("low_cost_group_tab", "value")])
 def options_low_cost_toggle(choice, how):
-    """Show the grouping options for the low cost function."""
+    """Show the grouping options for the low cost function.
+
+    (Make container Div.)
+    """
+    submit_style = {
+        **BUTTON_STYLES["on"],
+        **{"background-color": "#F9F9F9", "border-color": "#D6D6D6",
+           "margin": "0 auto"}}
+
     if choice == "on":
         style1 = {}
     else:
         style1 = {"display": "none"}
+        submit_style = {"display": "none"}
+
     if how == "all":
         style2 = {"display": "none"}
         style3 = {"display": "none"}
+
     elif how == "list":
         style2 = {}
         style3 = {"display": "none"}
     else:
         style2 = {"display": "none"}
         style3 = {}
-    return style1, style2, style3
+    return style1, style2, style3, submit_style
+
 
 @app.callback([Output("state_options", "style"),
                Output('basemap_options_div', 'style'),
@@ -1074,6 +1095,7 @@ def options_map_tab(tab_choice):
 
     return styles[0], styles[1], styles[2]
 
+
 @app.callback([Output("scenario_a", "options"),
                Output("scenario_b", "options"),
                Output("low_cost_list", "options"),
@@ -1086,9 +1108,10 @@ def options_map_tab(tab_choice):
               [Input("project", "value"),
                Input("catch_low_cost", "children")])
 def options_options(project, lc_update):
-    """Update the options given a project."""  # <----------------------------- Clean this up
+    """Update the options given a project."""
     # Catch the trigger
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
+    print_args(options_options, project, lc_update, trig=trig)
 
     # We need the project configuration
     config = Config(project).project_config
@@ -1144,12 +1167,13 @@ def options_project(pathname):
         pconfig = Config(project)
         if "parameters" in pconfig.project_config:
             options.append({"label": project, "value": project})
+    project = options[0]["value"]
     return options, project
+
 
 @app.callback([Output("options", "style"),
                Output("toggle_options", "children"),
-               Output("toggle_options", "style"),
-               Output("submit", "style")],
+               Output("toggle_options", "style")],
               [Input('toggle_options', 'n_clicks')])
 def options_toggle_options(click):
     """Toggle options on/off."""
@@ -1159,14 +1183,13 @@ def options_toggle_options(click):
         block_style = {"display": "none"}
         button_children = 'Options: Off'
         button_style = BUTTON_STYLES["off"]
-        submit_style = {"display": "none"}
     else:
         block_style = {"margin-bottom": "50px"}
         button_children = 'Options: On'
         button_style = BUTTON_STYLES["on"]
-        submit_style = BUTTON_STYLES["on"]
 
-    return block_style, button_children, button_style, submit_style
+    return block_style, button_children, button_style
+
 
 @app.callback(Output("scenario_b_div", "style"),
               [Input("difference", "value"),
@@ -1182,6 +1205,7 @@ def options_toggle_scenario_b(difference, mask):
     else:
         style = {"display": "none"}
     return style
+
 
 @app.callback([Output('rev_color', 'children'),
                Output('rev_color', 'style')],
@@ -1199,49 +1223,68 @@ def options_toggle_rev_color_button(click):
 
     return children, style
 
+
 @app.callback(Output("catch_low_cost", "children"),
-              [Input("submit", "n_clicks")],
+              [Input("low_cost_submit", "n_clicks")],
               [State("project", "value"),
                State("low_cost_group_tab", "value"),
                State("low_cost_list", "value"),
                State("low_cost_split_group", "value"),
                State("low_cost_split_group_options", "value"),
                State("scenario_a", "options"),
-               State("low_cost_by", "value")])
+               State("low_cost_by", "value"),
+               State("fcr", "value")])
 def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
-                      by):
+                      by, fcr):
     """Calculate low cost fields based on user decision."""
     print_args(retrieve_low_cost, submit, project, how, lst, group,
-               group_choice, options, by)
+               group_choice, options, by, fcr)
+
+    if not submit:
+        raise PreventUpdate
 
     config = Config(project)
     DP = Data_Path(config.directory)
 
+    # it won't be possible to recalculate LCOE after this
+    if fcr:
+        fcr_key = fcr.replace(".", "_")
+
+        # It would be a string
+        fcr = float(fcr)
+        fcr = fcr / 100
+
     # Build the appropriate paths and target file name
     if how == "all":
         # Just one output
-        fname = "least_cost_by_{}_all_sc.csv".format(by)
+        if fcr:
+            fname = f"least_cost_by_{by}_{fcr_key}fcr_all_sc.csv"
+        else:
+            fname = f"least_cost_by_{by}_all_sc.csv"
         paths = FILEDF["file"].values
     elif how == "list":
         # Just one output
         paths = lst
         scenarios = [os.path.basename(path).split("_")[1] for path in paths]
         scen_key = "_".join(scenarios)
-        fname = "least_cost_by_{}_{}_sc.csv".format(by, scen_key)
+        if fcr:
+            fname = f"least_cost_by_{by}_{scen_key}_{fcr_key}fcr_sc.csv"
+        else:
+            fname = f"least_cost_by_{by}_{scen_key}_sc.csv"
     else:
         # This could create multiple outputs, but we'll do one at a time
-        fname = "least_cost_by_{}_{}_{}_sc.csv".format(
-                                                 by,
-                                                 group,
-                                                 group_choice.replace(".", "")
-                                                 )
+        grp_key = group_choice.replace(".", "")
+        if fcr:
+            fname = f"least_cost_by_{by}_{group}_{grp_key}_{fcr_key}fcr_sc.csv"
+        else:
+            fname = f"least_cost_by_{by}_{group}_{grp_key}_sc.csv"
         paths = FILEDF["file"][FILEDF[group] == group_choice].values
 
     # Build full paths and create the target file
     paths = [DP.join(path) for path in paths]
     lchh_path = DP.join("review_outputs", fname, mkdir=True)
     print("calculating" + " " + lchh_path + "...")
-    calculator = Least_Cost()
+    calculator = Least_Cost(fcr=fcr)
     calculator.calc(paths, lchh_path, by=by)
 
     # Update the scenario file options
@@ -1308,9 +1351,9 @@ def retrieve_map_signal(submit, states, chart, project, threshold,
                         threshold_field, path, path2, lchh_path, y, x, diff,
                         lchh_toggle, mask, fcr):
     """Create signal for sharing data between map and chart with dependence."""
-    print_args(retrieve_map_signal, submit, states, chart, project, threshold,
-               threshold_field, path, path2, lchh_path, y, x, diff,
-               lchh_toggle, mask, fcr)
+    # print_args(retrieve_map_signal, submit, states, chart, project, threshold,
+    #            threshold_field, path, path2, lchh_path, y, x, diff,
+    #            lchh_toggle, mask, fcr)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + trig + "'")
 
@@ -1442,8 +1485,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
 def make_chart(signal, chart, mapsel, point_size, op_values, region,
                uymin, uymax, project, chartview, chartsel):
     """Make one of a variety of charts."""
-    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-    #            region, chartview, chartsel)
+    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+                region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 

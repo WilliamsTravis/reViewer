@@ -50,15 +50,6 @@ NAVBAR = html.Nav(
                 ),
 
               ]),
-    
-          html.Button(
-                id="toggle_options",
-                children="Options: Off",
-                n_clicks=0,
-                type="button",
-                title=("Click to display options"),
-                style=BUTTON_STYLES["off"]
-                ),
 
           # Not implemented yet
           html.Button(
@@ -68,7 +59,7 @@ NAVBAR = html.Nav(
                 # style=BUTTON_STYLES["on"],
                 style={"display": "none"}
                 ),
-        
+
           dcc.Link(
               html.Button(
                 id="scenario_link_button",

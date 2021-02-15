@@ -41,6 +41,7 @@ AGGREGATIONS = {
     "trans_capacity": "sum",
     "trans_cap_cost": "mean",
     "trans_multiplier": "mean",
+    "transmission_multiplier": "mean",
     "Hub Height": "mean"
 }
 
@@ -253,6 +254,7 @@ TITLES = {
     "trans_capacity": "Total Transmission Capacity",
     "trans_cap_cost": "Transmission Capital Costs",
     "transmission_multiplier": "Transmission Cost Multiplier",
+    "trans_multiplier": "Transmission Cost Multiplier",
     "trans_type": "Transmission Feature Type"
 }
 
@@ -270,6 +272,7 @@ UNITS = {
     "trans_capacity": "MW",
     "trans_cap_cost": "$/MW",
     "transmission_multiplier": "category",
+    "trans_multiplier": "category",
     "trans_type": "category"
 }
 
@@ -285,7 +288,7 @@ VARIABLES = [
     {"label": "Total LCOE", "value": "total_lcoe"},
     {"label": "Total Transmission Capacity", "value": "trans_capacity"},
     {"label": 'Transmission Capital Costs', "value": 'trans_cap_cost'},
-    {"label": "Transmission Cost Multiplier", "value": "trans_ultiplier"},
+    {"label": "Transmission Cost Multiplier", "value": "trans_multiplier"},
     {"label": "Tranmission Feature Type", "value": "trans_type"},
 ]
 
@@ -320,6 +323,21 @@ def chart_point_filter(df, chartsel, chartvar):
     idx = [p["pointIndex"] for p in points]
     df = df.iloc[idx]
     return df
+
+
+def find_scenario(path):
+    """Find a scenario in the config from its path."""
+    # Infer scenario
+    scenario = os.path.basename(path).replace("_sc.csv", "")
+
+    # Find its scenario
+    for project in Config().projects:
+        config = Config(project).project_config
+        if "parameters" in config:
+            params = config["parameters"]
+            if scenario in params:
+                break
+    return project, scenario
 
 
 def get_dataframe_path(project, op_values):
@@ -488,7 +506,6 @@ class Config:
                 op_title = str(val) + units + " " + op
                 var_title = var_title + " - " + op_title
             var_title = var_title + ", All " + group + "s"
-    
             if len(var_title.split(" - ")) > 3:
                 self.title_size = 12
             elif len(var_title.split(" - ")) > 5:
@@ -561,6 +578,10 @@ class Config:
         """Return a units dictionary with extra fields."""
         if self.project:
             units = self.project_config["units"]
+
+            # In case we update the standard set
+            addons = {k: u for k, u in UNITS.items() if k not in units}
+            units = {**units, **addons}
             return units
 
 
@@ -592,7 +613,7 @@ class Difference:
         return ndf
 
 
-class LCOE(Config):  # <------------------------------------------------------- This will only work for the Transition project, the parameter names are standardized yet
+class LCOE(Config):  # <------------------------------------------------------- This will only work for the Transition/ATB projects, the parameter names are standardized yet
     """Class to recalculate LCOE with different parameters."""
 
     def __init__(self, project):
@@ -610,23 +631,23 @@ class LCOE(Config):  # <------------------------------------------------------- 
         cc = row["trans_cap_cost"]
         cf = row["mean_cf"]
         return (cc * fcr) / (cf * 8760)
-        
+
     def recalc(self, scenario, fcr=0.072):
         """Recalculate LCOE for a data frame given a specific FCR."""
         # Get our constants
         capex_field, opex_field = self._find_fields(scenario)
         config = self.project_config
         params = config["parameters"][scenario]
-        capex = params[capex_field]
-        fom = params[opex_field]
-    
+        capex = self._fix_format(params[capex_field])
+        fom = self._fix_format(params[opex_field])
+
         # Read in the table
         files = pd.DataFrame(config["data"])
         fname = files["file"][files["file"].str.contains(scenario)].values[0]
         directory = config["directory"]
         path = os.path.join(directory, fname)
         df = pd.read_csv(path, low_memory=False)
-    
+
         # Recalculate LCOE figures
         df["mean_lcoe"] = df.apply(self.lcoe, capex=capex, fom=fom, fcr=fcr,
                                    axis=1)
@@ -646,9 +667,19 @@ class LCOE(Config):  # <------------------------------------------------------- 
             matches.append(match)
         return matches
 
+    def _fix_format(self, value):
+        """Remove commas and dollar signs from value, return as float."""
+        if isinstance(value, str):
+            value = float(value.replace(",", "").replace("$", ""))
+        return value
+
 
 class Least_Cost:
     """Class to handle various elements of calculating a least cost table."""
+
+    def __init__(self, fcr=None):
+        """Initialize Least_Cost object."""
+        self.fcr = fcr
 
     def least_cost(self, dfs, by="total_lcoe"):
         """Return a single least cost df from a list dfs."""
@@ -681,8 +712,12 @@ class Least_Cost:
 
     def read_df(self, path):
         """Retrieve a single data frame."""
-        scenario = os.path.basename(path).replace(".csv", "")
-        df = pd.read_csv(path, low_memory=False)
+        project, scenario = find_scenario(path)
+        if self.fcr:
+            calculator = LCOE(project)
+            df = calculator.recalc(scenario, self.fcr)
+        else:
+            df = pd.read_csv(path, low_memory=False)
         df["scenario"] = scenario
         time.sleep(0.2)
         return df

@@ -14,12 +14,15 @@ from glob import glob
 
 
 # FUNCTIONS
-def print_args(func, *args):
+def print_args(func, *args, **kwargs):
     """Print a functions key word argument inputs for easy assignment."""
     print("\nARGUMENTS for " + func.__name__ + ":")
     sig = inspect.signature(func)
     keys = sig.parameters.keys()
-    kwargs = dict(zip(keys, args))
+    if kwargs:
+        kwargs = {**dict(zip(keys, args)), **kwargs}
+    else:
+        kwargs = dict(zip(keys, args))
     for key, arg in kwargs.items():
         if isinstance(arg, str):
             arg = "'" + arg + "'"

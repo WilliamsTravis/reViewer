@@ -927,7 +927,7 @@ def cache_map_data(signal):
     # If there's a second table, read/cache the difference
     if path2:
         # Match the format of the first dataframe
-        df2 = cache_table(path2)
+        df2 = cache_table(path2, fcr)
         df2 = df2[keepers]
         if y == x:
             df2 = df2.iloc[:, 1:]
@@ -1423,8 +1423,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    # print_args(make_map, signal, basemap, color, chartsel, point_size,
-    #             rev_color, uymin, uymax, mapview, mapsel)
+    print_args(make_map, signal, basemap, color, chartsel, point_size,
+                rev_color, uymin, uymax, mapview, mapsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("'MAP'; trig = '" + str(trig) + "'")
 

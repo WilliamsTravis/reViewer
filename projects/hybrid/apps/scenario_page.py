@@ -21,7 +21,7 @@ import pandas as pd
 from app import app, cache, cache2, cache3
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-from plotly.colors import sequential as seq_colors
+#from plotly.colors import sequential as seq_colors
 
 from review import print_args
 from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
@@ -122,6 +122,19 @@ layout = html.Div(
         html.Hr(style={"width": "98%",
                        "border-bottom": "2px solid #fccd34",
                        "border-top": "3px solid #1663b5"}),
+
+        # Toggle Options
+
+        html.Div([
+            html.Button(
+                  id="toggle_options",
+                  children="Options: Off",
+                  n_clicks=0,
+                  type="button",
+                  title=("Click to display options"),
+                  style=BUTTON_STYLES["off"],
+                  className="two columns"),
+        ], style={"margin-left": "50px"}, className="row"),
 
         # Data Options
         html.Div([
@@ -333,25 +346,49 @@ layout = html.Div(
 
             # LCOE Recalc
             html.Div([
-                html.H5("Fixed Charge Rate"),
-                dcc.Input(
-                    id="fcr",
-                    placeholder="Original"
-                )
-            ], className="two columns"),
+                html.H5("Fixed Charge Rate (%)"),
+                html.Div(
+                    children=[
+                        html.Div(
+                            children="Scenario A",
+                            style={"text-align": "center",
+                                   "width":  "49%",
+                                   "display": "inline-block",
+                                   "margin": "0px",
+                                   "padding": "0px",
+                                   "border": "1px solid #CCCCCC"}),
+                        html.Div(
+                            children="Scenario B",
+                            style={"text-align": "center",
+                                   "width": "49%",
+                                   "display": "inline-block",
+                                   "border": "1px solid #CCCCCC"}),
+                        ]
+                    ),
 
+                    html.Div([
+                        dcc.Input(
+                            id="fcr",
+                            placeholder="Original",
+                            value=None,
+                            className="six columns",
+                            style={"width": "50%", "text-align": "center"}
+                        )
+                    ]),
+                    html.Div([
+                        dcc.Input(
+                            id="fcr2",
+                            placeholder="Original",
+                            value=None,
+                            className="six columns",
+                            style={"width": "49%", "text-align": "center"}
+                        )
+                    ])
+            ], className="three columns"),
         ], id="options", className="row", style={"margin-bottom": "50px"}),
 
         # Submit Button to avoid repeated callbacks
         html.Div([
-            html.Button(
-                  id="toggle_options",
-                  children="Options: Off",
-                  n_clicks=0,
-                  type="button",
-                  title=("Click to display options"),
-                  style=BUTTON_STYLES["off"],
-                  className="two columns"),
             html.Button(
                 id="submit",
                 children="Submit",
@@ -797,12 +834,18 @@ def build_spec_split(path):
     return table
 
 
-def build_title(df, project, path, path2, y, x,  difference, title_size=25):
+def build_title(df, project, path, path2, y, x,  diff, fcr=None, fcr2=None,
+                title_size=20):
     """Create chart title."""
     # print_args(build_title, df, path, path2, y, x,  difference, title_size)
     config = Config(project)
     title = os.path.basename(path).replace("_sc.csv", "")
     title = " ".join(title.split("_")).capitalize()
+
+    # User specified FCR?
+    if fcr:
+        title += " (" + str(fcr) + "% FCR)" 
+
     title = title + "  |  " + config.titles[y]
     if y in AGGREGATIONS:
         ag_fun = AGGREGATIONS[y]
@@ -811,26 +854,32 @@ def build_title(df, project, path, path2, y, x,  difference, title_size=25):
         else:
             conditioner = "Total"
 
-        if difference == "on":
+        # Difference title
+        if diff == "on":
             ag = "mean"
             s1 = os.path.basename(path).replace("_sc.csv", "")
             s2 = os.path.basename(path2).replace("_sc.csv", "")
             s1 = " ".join([s.capitalize() for s in s1.split("_")])
             s2 = "  ".join([s.capitalize() for s in s2.split("_")])
+            if fcr:
+                s1 += " (" + str(fcr) + "% FCR)" 
+            if fcr2:
+                s2 += " (" + str(fcr2) + "% FCR)" 
             title = "{} vs {} |  ".format(s1, s2) + config.titles[y]
             conditioner = "% Difference | Average"
             units = ""
 
+        # Map title (not chart)
         if isinstance(df, pd.core.frame.DataFrame):
             if y == "capacity":
                 ag = round(df[y].apply(ag_fun) / 1_000_000, 2)
-                if difference == "on":
+                if diff == "on":
                     units = ""
                 else:
                     units = "TW"
             else:
                 ag = round(df[y].apply(ag_fun), 2)
-                if difference == "on":
+                if diff == "on":
                     units = ""
                 else:
                     units = config.units[y]
@@ -859,7 +908,7 @@ def calc_total_capacity(signal, mapsel, chartsel):
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
     df = cache_map_data(signal)
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, fcr, project] = json.loads(signal)
+     units, mask, fcr, fcr2, project] = json.loads(signal)
     if trig == "map":
         if mapsel:
             idx = [d["pointIndex"] for d in mapsel["points"]]
@@ -877,16 +926,27 @@ def cache_table(path, fcr=None):
     """Read in just a single table."""
     # Read in table
     if fcr and "fcr" not in path:
-        # We'll need these
-        project, scenario = find_scenario(path)
+        # Create file path
+        fcr_tag = str(fcr).replace(".", "")
+        fname = os.path.basename(path)
+        fname = fname.replace("_sc.csv", fcr_tag + "fcr_sc.csv")
+        dst = DP.join("review_outputs", fname, mkdir=True)
 
-        # It would be a string
-        fcr = float(fcr)
-        fcr = fcr / 100
-
-        # Recalculate
-        calculator = LCOE(project)
-        df = calculator.recalc(scenario, fcr)
+        # Read in if available
+        if os.path.exists(dst):
+            df = pd.read_csv(dst, low_memory=False)
+        else:
+            # We'll need these
+            project, scenario = find_scenario(path)
+    
+            # It would be a string
+            fcr = float(fcr)
+            fcr = fcr / 100
+    
+            # Recalculate
+            calculator = LCOE(project)
+            df = calculator.recalc(scenario, fcr)
+            df.to_csv(dst, index=False)
     else:
         df = pd.read_csv(path, low_memory=False)
 
@@ -905,7 +965,7 @@ def cache_map_data(signal):
     """Read and store a data frame from the config and options given."""
     # Get signal elements
     [path, path2, y, x, difference, states, ymin, ymax, threshold,
-     units, mask, fcr, project] = json.loads(signal)
+     units, mask, fcr, fcr2, project] = json.loads(signal)
 
     # Read and cache first table
     df1 = cache_table(path, fcr)
@@ -927,7 +987,7 @@ def cache_map_data(signal):
     # If there's a second table, read/cache the difference
     if path2:
         # Match the format of the first dataframe
-        df2 = cache_table(path2, fcr)
+        df2 = cache_table(path2, fcr2)
         df2 = df2[keepers]
         if y == x:
             df2 = df2.iloc[:, 1:]
@@ -966,7 +1026,7 @@ def cache_map_data(signal):
 def cache_chart_tables(signal, region="national", idx=None):
     """Read and store a data frame from the config and options given."""
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, fcr, project] = json.loads(signal)
+     units, mask, fcr, fcr2, project] = json.loads(signal)
     df = cache_map_data(signal)
     df = df[[x, y, "state", "nrel_region", "print_capacity", "index"]]
 
@@ -1187,7 +1247,7 @@ def options_toggle_options(click):
     else:
         block_style = {"margin-bottom": "50px"}
         button_children = 'Options: On'
-        button_style = BUTTON_STYLES["on"]
+        button_style = {**BUTTON_STYLES["on"], **{"margin-bottom": "35px"}}
 
     return block_style, button_children, button_style
 
@@ -1347,14 +1407,15 @@ def retrieve_chart_tables(y, x, state):
                State("difference", "value"),
                State("low_cost_tabs", "value"),
                State("threshold_mask", "value"),
-               State("fcr", "value")])
+               State("fcr", "value"),
+               State("fcr2", "value")])
 def retrieve_map_signal(submit, states, chart, project, threshold,
                         threshold_field, path, path2, lchh_path, y, x, diff,
-                        lchh_toggle, mask, fcr):
+                        lchh_toggle, mask, fcr, fcr2):
     """Create signal for sharing data between map and chart with dependence."""
-    # print_args(retrieve_map_signal, submit, states, chart, project, threshold,
-    #            threshold_field, path, path2, lchh_path, y, x, diff,
-    #            lchh_toggle, mask, fcr)
+#    print_args(retrieve_map_signal, submit, states, chart, project, threshold,
+#                threshold_field, path, path2, lchh_path, y, x, diff,
+#                lchh_toggle, mask, fcr, fcr2)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + trig + "'")
 
@@ -1399,7 +1460,7 @@ def retrieve_map_signal(submit, states, chart, project, threshold,
 
     # Let's just recycle all this for the chart
     signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
-                         threshold, units, mask, fcr, project])
+                         threshold, units, mask, fcr, fcr2, project])
     return signal
 
 
@@ -1432,7 +1493,7 @@ def make_map(signal, basemap, color, chartsel, point_size,
     df = cache_map_data(signal)
     df.index = df["index"]
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, fcr, project] = json.loads(signal)
+     units, mask, fcr, fcr2, project] = json.loads(signal)
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -1464,7 +1525,7 @@ def make_map(signal, basemap, color, chartsel, point_size,
     # Build map elements
     data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
                          point_size)
-    title = build_title(df, project, path, path2, y, x, diff, title_size=20)
+    title = build_title(df, project, path, path2, y, x, diff, fcr, fcr2)  # <---------------------------------------- Temporary Title fix
     layout = build_map_layout(mapview, title, basemap, title_size=20)
     figure = dict(data=data, layout=layout)
 
@@ -1486,14 +1547,14 @@ def make_map(signal, basemap, color, chartsel, point_size,
 def make_chart(signal, chart, mapsel, point_size, op_values, region,
                uymin, uymax, project, chartview, chartsel):
     """Make one of a variety of charts."""
-    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-                region, chartview, chartsel)
+#    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+#                region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 
     # Unpack the signal
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, fcr, project] = json.loads(signal)
+     units, mask, fcr, fcr2, project] = json.loads(signal)
 
     # Turn the map selection object into indices
     if mapsel:
@@ -1523,8 +1584,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
         fig = plotter.box()
 
     # Whats the total capacity at this point?
-    title = build_title(dfs, project, path, path2, y, x, diff,
-                        title_size=title_size)
+    title = build_title(dfs, project, path, path2, y, x, diff, fcr, fcr2)
 
     # User defined y-axis limits
     if uymin:

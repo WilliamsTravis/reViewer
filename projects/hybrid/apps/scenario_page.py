@@ -102,7 +102,7 @@ layout = html.Div(
 
             # Project Selection
             html.Div([
-                html.H4("Project"),
+                html.H4("Base Project"),
                 dcc.Dropdown(
                     id="project",
                     value="Transition"

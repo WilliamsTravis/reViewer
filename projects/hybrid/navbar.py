@@ -73,16 +73,16 @@ NAVBAR = html.Nav(
           ),
 
           # dcc.Link(
-          #     html.Button(
-          #       id="variable_link_button",
-          #       children="Variable-based Page",
-          #       type="button",
-          #       title=("Go to the scenario-based project page."),
-          #       style={"display": "none"},
-          #       ),
-          #     id="variable_link",
-          #     href="/apps/variable_page",
-          # ),
+          #      html.Button(
+          #        id="variable_link_button",
+          #        children="Variable-based Page",
+          #        type="button",
+          #        title=("Go to the scenario-based project page."),
+          #        style={"display": "none"},
+          #        ),
+          #      id="variable_link",
+          #      href="/apps/variable_page",
+          #  ),
 
           dcc.Link(
               html.Button(

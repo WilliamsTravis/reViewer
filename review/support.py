@@ -596,6 +596,7 @@ class Difference:
             x1 = x.iloc[0]
             x2 = x.iloc[1]
             pct = 100 * ((x1 - x2) / x2)
+            # pct = 100 * ((x1 - x2) / x1)
 
             return pct
 
@@ -619,12 +620,22 @@ class LCOE(Config):  # <------------------------------------------------------- 
     def __init__(self, project):
         super().__init__(project)
 
-    def lcoe(self, row, capex, fom, fcr):
+    def __repr__(self):
+        msg = f"<LCOE object: path={self.config_path}, project={self.project}>"
+        return msg
+
+    def lcoe(self, row, capex, fom, fcr, ofcr):
         """Calculate LCOE for a single row."""
+        # These can stay as is
         capacity = row["capacity"] * 1000
         cc = capex * capacity
         om = fom * capacity
-        return ((fcr * cc) + om) / (row["capacity"] * row["mean_cf"] * 8760)
+
+        # But we need to back out the original cf from reV's mean_lcoe
+        olcoe = row["mean_lcoe"]
+        cf = ((ofcr * cc) + om) / (olcoe * row["capacity"] * 8760)
+        nlcoe = ((fcr * cc) + om) / (row["capacity"] * cf * 8760)
+        return nlcoe
 
     def lcot(self, row, fcr):
         """Calculate LCOT for a single row."""
@@ -635,11 +646,12 @@ class LCOE(Config):  # <------------------------------------------------------- 
     def recalc(self, scenario, fcr=0.072):
         """Recalculate LCOE for a data frame given a specific FCR."""
         # Get our constants
-        capex_field, opex_field = self._find_fields(scenario)
+        capex_field, opex_field, ofcr_field = self._find_fields(scenario)
         config = self.project_config
         params = config["parameters"][scenario]
         capex = self._fix_format(params[capex_field])
         fom = self._fix_format(params[opex_field])
+        ofcr = self._fix_format(params[ofcr_field]) / 100
 
         # Read in the table
         files = pd.DataFrame(config["data"])
@@ -650,7 +662,7 @@ class LCOE(Config):  # <------------------------------------------------------- 
 
         # Recalculate LCOE figures
         df["mean_lcoe"] = df.apply(self.lcoe, capex=capex, fom=fom, fcr=fcr,
-                                   axis=1)
+                                   ofcr=ofcr, axis=1)
         df["lcot"] = df.apply(self.lcot, fcr=fcr, axis=1)
         df["total_lcoe"] = df["mean_lcoe"] + df["lcot"]
 
@@ -662,15 +674,17 @@ class LCOE(Config):  # <------------------------------------------------------- 
         params = config["parameters"][scenario]
         patterns = {k.lower().replace(" ", ""): k for k in params.keys()}
         matches = []
-        for key in ["capex", "opex"]:
+        for key in ["capex", "opex", "fcr"]:
             match = [v for k, v in patterns.items() if key in str(k)][0]
             matches.append(match)
+
         return matches
 
     def _fix_format(self, value):
         """Remove commas and dollar signs from value, return as float."""
         if isinstance(value, str):
-            value = float(value.replace(",", "").replace("$", ""))
+            value = value.replace(",", "").replace("$", "").replace("%", "")
+            value = float(value)
         return value
 
 

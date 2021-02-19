@@ -697,7 +697,7 @@ class LCOE(Config):  # <------------------------------------------------------- 
         df["mean_lcoe"] = df.apply(self.lcoe, nvalues=nvalues, ovalues=ovalues,
                                    axis=1)
         df["lcot"] = df.apply(self.lcot, nvalues=nvalues, ovalues=ovalues,
-                              axis=1).mean()
+                              axis=1)
         df["total_lcoe"] = df["mean_lcoe"] + df["lcot"]
 
         return df

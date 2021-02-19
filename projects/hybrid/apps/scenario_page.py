@@ -1010,7 +1010,7 @@ def cache_table(path, fcr=None):
     # Read in table
     if fcr and "fcr" not in path:
         # Create file path
-        fcr_tag = "{:05d}".format(round(float(fcr) * 1000))
+        fcr_tag = "_{:05d}".format(round(float(fcr) * 1000))
         fname = os.path.basename(path)
         fname = fname.replace("_sc.csv", fcr_tag + "fcr_sc.csv")
         dst = DP.join("review_outputs", fname, mkdir=True)
@@ -1028,7 +1028,7 @@ def cache_table(path, fcr=None):
             # Recalculate
             calculator = LCOE(project)
             df = calculator.recalc(scenario, fcr)
-#            df.to_csv(dst, index=False)
+            df.to_csv(dst, index=False)
     else:
         df = pd.read_csv(path, low_memory=False)
 
@@ -1265,7 +1265,7 @@ def options_options(project, lc_update):
     """Update the options given a project."""
     # Catch the trigger
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
-    print_args(options_options, project, lc_update, trig=trig)
+    # print_args(options_options, project, lc_update, trig=trig)
 
     # We need the project configuration
     config = Config(project).project_config
@@ -1402,7 +1402,7 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
 
     # it won't be possible to recalculate LCOE after this
     if fcr:
-        fcr_key = fcr.replace(".", "_")
+        fcr_tag = "_{:05d}".format(round(float(fcr) * 1000))
 
         # It would be a string
         fcr = float(fcr)
@@ -1412,7 +1412,7 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
     if how == "all":
         # Just one output
         if fcr:
-            fname = f"least_cost_by_{by}_{fcr_key}fcr_all_sc.csv"
+            fname = f"least_cost_by_{by}_{fcr_tag}fcr_all_sc.csv"
         else:
             fname = f"least_cost_by_{by}_all_sc.csv"
         paths = FILEDF["file"].values
@@ -1422,14 +1422,14 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
         scenarios = [os.path.basename(path).split("_")[1] for path in paths]
         scen_key = "_".join(scenarios)
         if fcr:
-            fname = f"least_cost_by_{by}_{scen_key}_{fcr_key}fcr_sc.csv"
+            fname = f"least_cost_by_{by}_{scen_key}_{fcr_tag}fcr_sc.csv"
         else:
             fname = f"least_cost_by_{by}_{scen_key}_sc.csv"
     else:
         # This could create multiple outputs, but we'll do one at a time
         grp_key = group_choice.replace(".", "")
         if fcr:
-            fname = f"least_cost_by_{by}_{group}_{grp_key}_{fcr_key}fcr_sc.csv"
+            fname = f"least_cost_by_{by}_{group}_{grp_key}_{fcr_tag}fcr_sc.csv"
         else:
             fname = f"least_cost_by_{by}_{group}_{grp_key}_sc.csv"
         paths = FILEDF["file"][FILEDF[group] == group_choice].values
@@ -1577,8 +1577,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    print_args(make_map, signal, basemap, color, chartsel, point_size,
-                rev_color, uymin, uymax, project, mapview, mapsel)
+    # print_args(make_map, signal, basemap, color, chartsel, point_size,
+                # rev_color, uymin, uymax, project, mapview, mapsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("'MAP'; trig = '" + str(trig) + "'")
 

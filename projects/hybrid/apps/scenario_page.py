@@ -102,7 +102,7 @@ layout = html.Div(
 
             # Project Selection
             html.Div([
-                html.H4("Base Project"),
+                html.H4("Project"),
                 dcc.Dropdown(
                     id="project",
                     value="Transition"
@@ -124,7 +124,6 @@ layout = html.Div(
                        "border-top": "3px solid #1663b5"}),
 
         # Toggle Options
-
         html.Div([
             html.Button(
                   id="toggle_options",
@@ -344,12 +343,80 @@ layout = html.Div(
                 html.Hr(),
             ], className="four columns"),
 
+
+
             # LCOE Recalc
             html.Div([
-                html.H5("Fixed Charge Rate (%)"),
-                html.Div(
+                html.H5("Recalculate - New Costs (Not implemented)"),
+                dcc.Tabs(
+                    id="recalc_tab",
+                    value="off",
+                    style=TAB_STYLE,
                     children=[
-                        html.Div(
+                      dcc.Tab(value='on',
+                              label='On',
+                              style=TABLET_STYLE,
+                              selected_style=TABLET_STYLE_CLOSED),
+                      dcc.Tab(value='off',
+                              label='Off',
+                              style=TABLET_STYLE,
+                              selected_style=TABLET_STYLE_CLOSED),          
+                    ]
+                ),
+
+                html.Div(
+                    id="recalc_tab_options",
+                    children=[
+                       dcc.Tabs(
+                            id="recalc_scenario",
+                            value="scenario_a",
+                            style=TAB_STYLE,
+                            children=[
+                              dcc.Tab(value='scenario_a',
+                                      label='Scenario A',
+                                      style=TABLET_STYLE,
+                                      selected_style=TABLET_STYLE_CLOSED),
+                              dcc.Tab(value='scenario_b',
+                                      label='Scenario B',
+                                      style=TABLET_STYLE,
+                                      selected_style=TABLET_STYLE_CLOSED),
+                            ]
+                        ),
+                        dcc.Tabs(
+                            id="recalc_variables",
+                            value="fcr_tab",
+                            style=TAB_STYLE,
+                            children=[
+                              dcc.Tab(value='fcr_tab',
+                                      label='FCR (%)',
+                                      style=TABLET_STYLE,
+                                      selected_style=TABLET_STYLE_CLOSED),
+                              dcc.Tab(value='capex_tab',
+                                      label='CAPEX ($/KW)',
+                                      style=TABLET_STYLE,
+                                      selected_style=TABLET_STYLE_CLOSED),
+                              dcc.Tab(value='opex_tab',
+                                      label='OPEX ($/KW)',
+                                      style=TABLET_STYLE,
+                                      selected_style=TABLET_STYLE_CLOSED),
+                              dcc.Tab(value='loss_tab',
+                                      label='Losses (%)',
+                                      style=TABLET_STYLE,
+                                      selected_style=TABLET_STYLE_CLOSED),  
+                            ]
+                        ),
+                        dcc.Input(id="recalc_input", 
+                                  placeholder="Original Value",
+                                  style={"width": "100%"}),
+                ]),
+
+                html.Hr(),
+                
+                html.Div(
+                    
+                    children=[
+                       html.H5("Recalculate - New FCR (Implemented)"),
+                       html.Div(
                             children="Scenario A",
                             style={"text-align": "center",
                                    "width":  "49%",
@@ -384,8 +451,19 @@ layout = html.Div(
                             style={"width": "49%", "text-align": "center"}
                         )
                     ])
-            ], className="three columns"),
+
+            ], className="four columns"),
         ], id="options", className="row", style={"margin-bottom": "50px"}),
+
+
+
+
+
+
+
+
+
+
 
         # Submit Button to avoid repeated callbacks
         html.Div([
@@ -927,7 +1005,7 @@ def cache_table(path, fcr=None):
     # Read in table
     if fcr and "fcr" not in path:
         # Create file path
-        fcr_tag = str(fcr).replace(".", "")
+        fcr_tag = "{:05d}".format(round(float(fcr) * 1000))
         fname = os.path.basename(path)
         fname = fname.replace("_sc.csv", fcr_tag + "fcr_sc.csv")
         dst = DP.join("review_outputs", fname, mkdir=True)
@@ -938,15 +1016,14 @@ def cache_table(path, fcr=None):
         else:
             # We'll need these
             project, scenario = find_scenario(path)
-    
+
             # It would be a string
             fcr = float(fcr)
-            fcr = fcr / 100
-    
+
             # Recalculate
             calculator = LCOE(project)
             df = calculator.recalc(scenario, fcr)
-            df.to_csv(dst, index=False)
+#            df.to_csv(dst, index=False)
     else:
         df = pd.read_csv(path, low_memory=False)
 
@@ -1141,6 +1218,17 @@ def options_low_cost_toggle(choice, how):
         style2 = {"display": "none"}
         style3 = {}
     return style1, style2, style3, submit_style
+
+
+@app.callback(Output("recalc_tab_options", "style"),
+              [Input("recalc_tab", "value")])
+def options_recalc_toggle(recalc):
+    """Toggle the recalc options on and off."""
+    if recalc == "off":
+        style = {"display": "none"}
+    else:
+        style={}
+    return style
 
 
 @app.callback([Output("state_options", "style"),
@@ -1485,7 +1573,7 @@ def make_map(signal, basemap, color, chartsel, point_size,
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
     print_args(make_map, signal, basemap, color, chartsel, point_size,
-                rev_color, uymin, uymax, mapview, mapsel)
+                rev_color, uymin, uymax, project, mapview, mapsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("'MAP'; trig = '" + str(trig) + "'")
 

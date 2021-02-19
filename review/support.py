@@ -614,44 +614,74 @@ class Difference:
         return ndf
 
 
+class CF(Config):
+    """Class to recalculate capacity factor with user-specified losses."""
+
+    def __init__(self, project):
+        super().__init__(project)
+
+    def __repr__(self):
+        msg = f"<CF object: path={self.config_path}, project={self.project}>"
+        return msg
+
+
 class LCOE(Config):  # <------------------------------------------------------- This will only work for the Transition/ATB projects, the parameter names are standardized yet
     """Class to recalculate LCOE with different parameters."""
 
-    def __init__(self, project):
+    def __init__(self, project):  # <------------------------------------------ Move losses functions to CF object and inherit both Config and CF classes
         super().__init__(project)
 
     def __repr__(self):
         msg = f"<LCOE object: path={self.config_path}, project={self.project}>"
         return msg
 
-    def lcoe(self, row, capex, fom, fcr, ofcr):
-        """Calculate LCOE for a single row."""
-        # These can stay as is
+    def lcoe(self, row, nvalues, ovalues):
+        """Calculate LCOE for a single row.
+        
+        Parameters
+        ----------
+        row: pd.core.series.Series
+            A row in a pandas data frame.
+        nvalues: dict
+            A dictionary with new entries for capex, opex, and fcr.
+        ovalues: dict
+            A dicitonary with the original entries for capex, opex, and fcr   .         
+        """
         capacity = row["capacity"] * 1000
-        cc = capex * capacity
-        om = fom * capacity
+        cc = nvalues["capex"] * capacity
+        om = nvalues["opex"] * capacity
+        fcr = nvalues["fcr"]
+        cf = self._get_cf(row, ovalues)
+        lcoe = ((fcr * cc) + om) / (row["capacity"] * cf * 8760)
+        return lcoe
 
-        # But we need to back out the original cf from reV's mean_lcoe
-        olcoe = row["mean_lcoe"]
-        cf = ((ofcr * cc) + om) / (olcoe * row["capacity"] * 8760)
-        nlcoe = ((fcr * cc) + om) / (row["capacity"] * cf * 8760)
-        return nlcoe
-
-    def lcot(self, row, fcr):
+    def lcot(self, row, nvalues, ovalues):
         """Calculate LCOT for a single row."""
+        fcr = nvalues["fcr"]
         cc = row["trans_cap_cost"]
-        cf = row["mean_cf"]
+        cf = self._get_cf(row, ovalues)
         return (cc * fcr) / (cf * 8760)
 
-    def recalc(self, scenario, fcr=0.072):
+    def recalc(self, scenario, fcr=None, capex=None, opex=None, losses=None):
         """Recalculate LCOE for a data frame given a specific FCR."""
         # Get our constants
-        capex_field, opex_field, ofcr_field = self._find_fields(scenario)
+        fields = self._find_fields(scenario)
         config = self.project_config
         params = config["parameters"][scenario]
-        capex = self._fix_format(params[capex_field])
-        fom = self._fix_format(params[opex_field])
-        ofcr = self._fix_format(params[ofcr_field]) / 100
+
+        # initiate new and original values dictionaries
+        nvalues = dict(fcr=fcr, capex=capex, opex=opex, losses=losses)
+        ovalues = dict()
+
+        # If any or all of these are specified, use the user-specified version
+        for key, value in nvalues.items():
+            ovalues[key] = self._fix_format(params[fields[key]])
+            if not value:
+                nvalues[key] = ovalues[key]
+
+        # Have to give FCR in percent and convert to ratio
+        ovalues["fcr"] = ovalues["fcr"] / 100
+        nvalues["fcr"] = nvalues["fcr"] / 100
 
         # Read in the table
         files = pd.DataFrame(config["data"])
@@ -661,9 +691,18 @@ class LCOE(Config):  # <------------------------------------------------------- 
         df = pd.read_csv(path, low_memory=False)
 
         # Recalculate LCOE figures
-        df["mean_lcoe"] = df.apply(self.lcoe, capex=capex, fom=fom, fcr=fcr,
-                                   ofcr=ofcr, axis=1)
-        df["lcot"] = df.apply(self.lcot, fcr=fcr, axis=1)
+        df["mean_lcoe"] = df.apply(
+                self.lcoe,
+                nvalues=nvalues,
+                ovalues=ovalues,
+                axis=1
+        )
+        df["lcot"] = df.apply(
+                self.lcot,
+                nvalues=nvalues,
+                ovalues=ovalues,
+                axis=1
+        )
         df["total_lcoe"] = df["mean_lcoe"] + df["lcot"]
 
         return df
@@ -673,11 +712,10 @@ class LCOE(Config):  # <------------------------------------------------------- 
         config = self.project_config
         params = config["parameters"][scenario]
         patterns = {k.lower().replace(" ", ""): k for k in params.keys()}
-        matches = []
-        for key in ["capex", "opex", "fcr"]:
+        matches = {}
+        for key in ["capex", "opex", "fcr", "losses"]:
             match = [v for k, v in patterns.items() if key in str(k)][0]
-            matches.append(match)
-
+            matches[key] = match
         return matches
 
     def _fix_format(self, value):
@@ -686,6 +724,15 @@ class LCOE(Config):  # <------------------------------------------------------- 
             value = value.replace(",", "").replace("$", "").replace("%", "")
             value = float(value)
         return value
+
+    def _get_cf(self, row, ovalues):
+        """Return a properly rounded capacity factor from a table row."""
+        capacity = row["capacity"] * 1000
+        cc = ovalues["capex"] * capacity
+        om = ovalues["opex"] * capacity
+        fcr = ovalues["fcr"]
+        lcoe = row["mean_lcoe"]
+        return ((fcr * cc) + om) / (lcoe * row["capacity"] * 8760)
 
 
 class Least_Cost:

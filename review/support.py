@@ -657,10 +657,13 @@ class LCOE(Config):  # <------------------------------------------------------- 
 
     def lcot(self, row, nvalues, ovalues):
         """Calculate LCOT for a single row."""
+        capacity = row["capacity"]
         fcr = nvalues["fcr"]
-        cc = row["trans_cap_cost"]
-        cf = self._get_cf(row, ovalues)
-        return (cc * fcr) / (cf * 8760)
+        cc = row["trans_cap_cost"] * capacity
+#        cf = self._get_cf(row, ovalues)  # <---------------------------------- LCOT uses the table's cf (not as accurate), lcoe uses the original unrounded cf (more accurate)
+        cf = row["mean_cf"]
+        lcot = (cc * fcr) / (capacity * cf * 8760)
+        return lcot
 
     def recalc(self, scenario, fcr=None, capex=None, opex=None, losses=None):
         """Recalculate LCOE for a data frame given a specific FCR."""
@@ -691,18 +694,10 @@ class LCOE(Config):  # <------------------------------------------------------- 
         df = pd.read_csv(path, low_memory=False)
 
         # Recalculate LCOE figures
-        df["mean_lcoe"] = df.apply(
-                self.lcoe,
-                nvalues=nvalues,
-                ovalues=ovalues,
-                axis=1
-        )
-        df["lcot"] = df.apply(
-                self.lcot,
-                nvalues=nvalues,
-                ovalues=ovalues,
-                axis=1
-        )
+        df["mean_lcoe"] = df.apply(self.lcoe, nvalues=nvalues, ovalues=ovalues,
+                                   axis=1)
+        df["lcot"] = df.apply(self.lcot, nvalues=nvalues, ovalues=ovalues,
+                              axis=1).mean()
         df["total_lcoe"] = df["mean_lcoe"] + df["lcot"]
 
         return df

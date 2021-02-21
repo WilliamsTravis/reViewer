@@ -28,8 +28,8 @@ from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
                             BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
                             DEFAULT_MAPVIEW, MAP_LAYOUT, STATES, TAB_STYLE,
                             TABLET_STYLE, VARIABLES)
-from review.support import (chart_point_filter, Config, Data_Path, Difference,
-                            find_scenario, LCOE, Least_Cost, Plots)
+from review.support import (chart_point_filter, Config, Data, Data_Path,
+                            Difference, Least_Cost, Plots)
 
 
 ############## Temporary for initial layout ###################################
@@ -52,12 +52,25 @@ FILES = SCENARIO_ORIGINALS + SCENARIO_OUTPUTS
 NAMES = [os.path.basename(f).replace("_sc.csv", "") for f in FILES]
 NAMES = [" ".join([n.capitalize() for n in name.split("_")]) for name in NAMES]
 FILE_LIST = dict(zip(NAMES, FILES))
+PROJECT_OPTIONS = []
+for project in Config().projects:
+    if "parameters" in Config(project).project_config:
+        option = {"label": project, "value": project}
+        PROJECT_OPTIONS.append(option)
 SCENARIO_OPTIONS = [
     {"label": key, "value": file} for key, file in FILE_LIST.items()
 ]
 VARIABLE_OPTIONS = [
     {"label": v, "value": k} for k, v in CONFIG["titles"].items()
 ]
+RECALC_TABLE = {
+    "scenario_a": {
+        "fcr": None, "capex": None, "opex": None, "losses": None
+    },
+    "scenario_b": {
+        "fcr": None, "capex": None, "opex": None, "losses": None
+    }
+}
 ############## Temporary ######################################################
 
 ############## Everything below goes into css ################################
@@ -105,6 +118,7 @@ layout = html.Div(
                 html.H4("Project"),
                 dcc.Dropdown(
                     id="project",
+                    options=PROJECT_OPTIONS,
                     value="Transition"
                 )
             ], className="three columns"),
@@ -344,15 +358,13 @@ layout = html.Div(
             ], className="four columns"),
 
 
-
-
-
-
-
-
             # LCOE Recalc
             html.Div([
-                html.H5("Recalculate - New Costs (Not implemented)"),
+                html.H5("Recalculate With New Costs*",
+                        title=("Recalculating will not re-sort transmission "
+                               "connections so there will be some error with "
+                               "Transmission Capital Costs, LCOT, and Total "
+                               "LCOE.")),
                 dcc.Tabs(
                     id="recalc_tab",
                     value="off",
@@ -387,87 +399,106 @@ layout = html.Div(
                                       selected_style=TABLET_STYLE_CLOSED),
                             ]
                         ),
-                        dcc.Tabs(
-                            id="recalc_variables",
-                            value="fcr_tab",
-                            style=TAB_STYLE,
+
+                        # Long table of scenario A recalc parameters
+                        html.Div(
+                            id="recalc_a_options",
                             children=[
-                              dcc.Tab(value='fcr_tab',
-                                      label='FCR (%)',
-                                      style=TABLET_STYLE,
-                                      selected_style=TABLET_STYLE_CLOSED),
-                              dcc.Tab(value='capex_tab',
-                                      label='CAPEX ($/KW)',
-                                      style=TABLET_STYLE,
-                                      selected_style=TABLET_STYLE_CLOSED),
-                              dcc.Tab(value='opex_tab',
-                                      label='OPEX ($/KW)',
-                                      style=TABLET_STYLE,
-                                      selected_style=TABLET_STYLE_CLOSED),
-                              dcc.Tab(value='loss_tab',
-                                      label='Losses (%)',
-                                      style=TABLET_STYLE,
-                                      selected_style=TABLET_STYLE_CLOSED),  
-                            ]
-                        ),
-                        dcc.Input(id="recalc_input", 
-                                  placeholder="Original Value",
-                                  style={"width": "100%"}),
+                                # FCR A
+                                html.Div([
+                                    html.P("FCR % (A): ",
+                                           className="three columns",
+                                           style={"height": "60%"}),
+                                    dcc.Input(id="fcr1", type="number",
+                                              className="nine columns",
+                                              style={"height": "60%"},
+                                              value=None),
+                                ], className="row"),
+
+                                # CAPEX A
+                                html.Div([
+                                    html.P("CAPEX $/KW (A): ",
+                                           className="three columns",
+                                           style={"height": "60%"}),
+                                    dcc.Input(id="capex1", type="number",
+                                              className="nine columns",
+                                              style={"height": "60%"}),
+                                ], className="row"),
+                        
+                                # OPEX A
+                                html.Div([
+                                    html.P("OPEX $/KW (A): ",
+                                           className="three columns",
+                                           style={"height": "60%"}),
+                                    dcc.Input(id="opex1", type="number",
+                                              className="nine columns",
+                                              style={"height": "60%"}),
+                                ], className="row"),
+
+                                # Losses A
+                                html.Div([
+                                    html.P("Losses % (A): ",
+                                           className="three columns",
+                                           style={"height": "60%"}),
+                                    dcc.Input(id="losses1", type="number",
+                                              className="nine columns",
+                                              style={"height": "60%"}),
+                                ], className="row")
+                        ]),
+    
+                    html.Div(
+                        id="recalc_b_options",
+                        children=[
+                            # FCR B
+                            html.Div([
+                                html.P("FCR % (B): ",
+                                       className="three columns",
+                                       style={"height": "60%"}),
+                                dcc.Input(id="fcr2", type="number",
+                                          className="nine columns",
+                                          style={"height": "60%"}),
+                            ], className="row"),
+                    
+                            # CAPEX B
+                            html.Div([
+                                html.P("CAPEX $/KW (B): ",
+                                       className="three columns",
+                                       style={"height": "60%"}),
+                                dcc.Input(id="capex2", type="number",
+                                          className="nine columns",
+                                          style={"height": "60%"}),
+                            ], className="row"),
+                    
+                            # OPEX B
+                            html.Div([
+                                html.P("OPEX $/KW (B): ",
+                                       className="three columns",
+                                       style={"height": "60%"}),
+                                dcc.Input(id="opex2", type="number",
+                                          className="nine columns",
+                                          style={"height": "60%"}),
+                            ], className="row"),
+
+                            # Losses B
+                            html.Div([
+                                html.P("Losses % (B): ",
+                                       className="three columns",
+                                       style={"height": "60%"}),
+                                dcc.Input(id="losses2", type="number",
+                                          className="nine columns",
+                                          style={"height": "60%"}),
+                            ], className="row")
+                    ]),
                 ]),
 
                 html.Hr(),
-                
-                html.Div(
-                    
-                    children=[
-                       html.H5("Recalculate - New FCR (Implemented)"),
-                       html.Div(
-                            children="Scenario A",
-                            style={"text-align": "center",
-                                   "width":  "49%",
-                                   "display": "inline-block",
-                                   "margin": "0px",
-                                   "padding": "0px",
-                                   "border": "1px solid #CCCCCC"}),
-                        html.Div(
-                            children="Scenario B",
-                            style={"text-align": "center",
-                                   "width": "49%",
-                                   "display": "inline-block",
-                                   "border": "1px solid #CCCCCC"}),
-                        ]
-                    ),
-
-                    html.Div([
-                        dcc.Input(
-                            id="fcr",
-                            placeholder="Original",
-                            value=None,
-                            className="six columns",
-                            style={"width": "50%", "text-align": "center"}
-                        )
-                    ]),
-                    html.Div([
-                        dcc.Input(
-                            id="fcr2",
-                            placeholder="Original",
-                            value=None,
-                            className="six columns",
-                            style={"width": "49%", "text-align": "center"}
-                        )
-                    ])
 
             ], className="four columns"),
+
+
+
+
         ], id="options", className="row", style={"margin-bottom": "50px"}),
-
-
-
-
-
-
-
-
-
 
 
         # Submit Button to avoid repeated callbacks
@@ -759,12 +790,20 @@ layout = html.Div(
             children=DEFAULT_SIGNAL,
             style={"display": "none"}
             ),
+
+        # This table of recalc parameters
+        html.Div(
+            id="recalc_table",
+            children=json.dumps(RECALC_TABLE),
+            style={"display": "none"}
+            ),
+
     ]
 )
 
 
 # Support functions
-def build_map_layout(mapview, title, basemap, title_size=25):
+def build_map_layout(mapview, title, basemap, title_size=18):
     """Build the map data layout dictionary."""
     layout = copy.deepcopy(MAP_LAYOUT)
     layout['mapbox']['center'] = mapview['mapbox.center']
@@ -917,19 +956,26 @@ def build_spec_split(path):
     return table
 
 
-def build_title(df, project, path, path2, y, x,  diff, fcr=None, fcr2=None,
-                title_size=20):
+def build_title(df, project, path, path2, y, x,  diff, recalc_table=None):
     """Create chart title."""
-    # print_args(build_title, df, path, path2, y, x,  difference, title_size)
+    # print_args(build_title, df, path, path2, y, x,  difference, recalc,
+#                title_size)
     config = Config(project)
-    title = os.path.basename(path).replace("_sc.csv", "")
-    title = " ".join(title.split("_")).capitalize()
+    s1 = os.path.basename(path).replace("_sc.csv", "")
+    s1 = " ".join(s1.split("_")).capitalize()
 
     # User specified FCR?
-    if fcr:
-        title += " (" + str(fcr) + "% FCR)" 
+    if recalc_table:
+        msgs = []
+        for k, v in recalc_table["scenario_a"].items():
+            if v:
+                msgs.append(f"{k}: {v}")
+        if msgs:
+            reprint = ", ".join(msgs)
+            s1 += f" ({reprint})" 
 
-    title = title + "  |  " + config.titles[y]
+    title = s1 + "  |  " + config.titles[y]
+
     if y in AGGREGATIONS:
         ag_fun = AGGREGATIONS[y]
         if ag_fun == "mean":
@@ -940,15 +986,20 @@ def build_title(df, project, path, path2, y, x,  diff, fcr=None, fcr2=None,
         # Difference title
         if diff == "on":
             ag = "mean"
-            s1 = os.path.basename(path).replace("_sc.csv", "")
             s2 = os.path.basename(path2).replace("_sc.csv", "")
-            s1 = " ".join([s.capitalize() for s in s1.split("_")])
             s2 = "  ".join([s.capitalize() for s in s2.split("_")])
-            if fcr:
-                s1 += " (" + str(fcr) + "% FCR)" 
-            if fcr2:
-                s2 += " (" + str(fcr2) + "% FCR)" 
-            title = "{} vs {} |  ".format(s1, s2) + config.titles[y]
+            if recalc_table:
+                msgs = []
+                for k, v in recalc_table["scenario_b"].items():
+                    if v:
+                        msgs.append(f"{k}: {v}")
+                if msgs:
+                    reprint = ", ".join(msgs)
+                    s2 += f" ({reprint})" 
+
+                title = "{} vs <br>{} | ".format(s1, s2) + config.titles[y]
+            else:
+                title = "{} vs {} | ".format(s1, s2) + config.titles[y]
             conditioner = "% Difference | Average"
             units = ""
 
@@ -966,7 +1017,6 @@ def build_title(df, project, path, path2, y, x,  diff, fcr=None, fcr2=None,
                     units = ""
                 else:
                     units = config.units[y]
-
             ag_print = "     <br> {}: {} {}".format(conditioner, ag, units)
             title = title + ag_print
 
@@ -991,7 +1041,7 @@ def calc_total_capacity(signal, mapsel, chartsel):
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
     df = cache_map_data(signal)
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, fcr, fcr2, project] = json.loads(signal)
+     units, mask, recalc_table, recalc, project] = json.loads(signal)
     if trig == "map":
         if mapsel:
             idx = [d["pointIndex"] for d in mapsel["points"]]
@@ -1005,32 +1055,15 @@ def calc_total_capacity(signal, mapsel, chartsel):
 
 
 @cache.memoize()
-def cache_table(path, fcr=None):
+def cache_table(project, path, recalc_table=None, recalc="off"):
     """Read in just a single table."""
-    # Read in table
-    if fcr and "fcr" not in path:
-        # Create file path
-        fcr_tag = "_{:05d}".format(round(float(fcr) * 1000))
-        fname = os.path.basename(path)
-        fname = fname.replace("_sc.csv", fcr_tag + "fcr_sc.csv")
-        dst = DP.join("review_outputs", fname, mkdir=True)
-
-        # Read in if available
-        if os.path.exists(dst):
-            df = pd.read_csv(dst, low_memory=False)
-        else:
-            # We'll need these
-            project, scenario = find_scenario(path)
-
-            # It would be a string
-            fcr = float(fcr)
-
-            # Recalculate
-            calculator = LCOE(project)
-            df = calculator.recalc(scenario, fcr)
-            df.to_csv(dst, index=False)
+    # Get the table
+    data = Data(project)
+    if recalc == "on":
+        df = data.build(path, **recalc_table)
     else:
-        df = pd.read_csv(path, low_memory=False)
+        scenario = os.path.basename(path).replace("_sc.csv", "")
+        df = data.read(scenario)
 
     # We want some consistent fields
     df["index"] = df.index
@@ -1047,10 +1080,14 @@ def cache_map_data(signal):
     """Read and store a data frame from the config and options given."""
     # Get signal elements
     [path, path2, y, x, difference, states, ymin, ymax, threshold,
-     units, mask, fcr, fcr2, project] = json.loads(signal)
+     units, mask, recalc_table, recalc, project] = json.loads(signal)
+
+    # Unpack recalc table
+    recalc_a = recalc_table["scenario_a"]
+    recalc_b = recalc_table["scenario_b"]
 
     # Read and cache first table
-    df1 = cache_table(path, fcr)
+    df1 = cache_table(project, path, recalc_a, recalc)
 
     # Separate the threshold values out
     threshold_field = threshold[0]
@@ -1069,7 +1106,7 @@ def cache_map_data(signal):
     # If there's a second table, read/cache the difference
     if path2:
         # Match the format of the first dataframe
-        df2 = cache_table(path2, fcr2)
+        df2 = cache_table(project, path2, recalc_b)
         df2 = df2[keepers]
         if y == x:
             df2 = df2.iloc[:, 1:]
@@ -1108,7 +1145,7 @@ def cache_map_data(signal):
 def cache_chart_tables(signal, region="national", idx=None):
     """Read and store a data frame from the config and options given."""
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, fcr, fcr2, project] = json.loads(signal)
+     units, mask, recalc_table, recalc, project] = json.loads(signal)
     df = cache_map_data(signal)
     df = df[[x, y, "state", "nrel_region", "print_capacity", "index"]]
 
@@ -1183,11 +1220,16 @@ def options_chart_tabs(tab_choice, chart_choice):
                Input("filedf", "children")])
 def options_lchh_group(group, filedf):
     """Display the available options for a chosen group."""
-    filedf = json.loads(filedf)
-    filedf = pd.DataFrame(filedf)
-    options = filedf[group].unique()
-    option_list = [{"label": o, "value": o} for o in options]
-    return option_list, options[0]
+    trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
+    if filedf:
+#        print_args(options_lchh_group, group, filedf, trig=trig)
+        filedf = json.loads(filedf)
+        filedf = pd.DataFrame(filedf)
+        options = filedf[group].unique()
+        option_list = [{"label": o, "value": o} for o in options]
+        return option_list, options[0]
+    else:
+        raise PreventUpdate
 
 
 @app.callback([Output("low_cost_group_tab_div", "style"),
@@ -1225,17 +1267,6 @@ def options_low_cost_toggle(choice, how):
     return style1, style2, style3, submit_style
 
 
-@app.callback(Output("recalc_tab_options", "style"),
-              [Input("recalc_tab", "value")])
-def options_recalc_toggle(recalc):
-    """Toggle the recalc options on and off."""
-    if recalc == "off":
-        style = {"display": "none"}
-    else:
-        style={}
-    return style
-
-
 @app.callback([Output("state_options", "style"),
                Output('basemap_options_div', 'style'),
                Output('color_options_div', 'style')],
@@ -1265,7 +1296,7 @@ def options_options(project, lc_update):
     """Update the options given a project."""
     # Catch the trigger
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
-    # print_args(options_options, project, lc_update, trig=trig)
+#    print_args(options_options, project, lc_update, trig=trig)
 
     # We need the project configuration
     config = Config(project).project_config
@@ -1323,6 +1354,125 @@ def options_project(pathname):
             options.append({"label": project, "value": project})
     project = options[0]["value"]
     return options, project
+
+
+@app.callback([Output("recalc_a_options", "children"),
+               Output("recalc_b_options", "children")],
+              [Input("project", "value"),
+               Input("scenario_a", "value"),
+               Input("scenario_b", "value")],
+              [State("recalc_table", "children")])
+def options_recalc(project, scenario_a, scenario_b, recalc_table):
+    """Update the drop down options for each scenario."""
+    print_args(options_recalc, project, scenario_a, scenario_b, recalc_table)
+    data = Data(project)
+    recalc_table = json.loads(recalc_table)
+
+    # Scenario A
+    scenario = os.path.basename(scenario_a).replace("_sc.csv", "")
+    table = recalc_table["scenario_a"]
+    otable = data.original_parameters(scenario)
+    children_a = [
+        # FCR A
+        html.Div([
+            html.P("FCR % (A): ", className="three columns",
+                   style={"height": "60%"}),
+            dcc.Input(id="fcr1", type="number", className="nine columns",
+                      style={"height": "60%"},
+                      value=table["fcr"], placeholder=otable["fcr"]),
+        ], className="row"),
+
+        # CAPEX A
+        html.Div([
+            html.P("CAPEX $/KW (A): ", className="three columns",
+                   style={"height": "60%"}),
+            dcc.Input(id="capex1", type="number", className="nine columns",
+                      style={"height": "60%"},
+                      value=table["capex"], placeholder=otable["capex"]),
+        ], className="row"),
+
+        # OPEX A
+        html.Div([
+            html.P("OPEX $/KW (A): ", className="three columns",
+                   style={"height": "60%"}),
+            dcc.Input(id="opex1", type="number", className="nine columns",
+                      style={"height": "60%"},
+                      value=table["opex"], placeholder=otable["opex"]),
+        ], className="row"),
+
+        # Losses A
+        html.Div([
+            html.P("Losses % (A): ", className="three columns",
+                   style={"height": "60%"}),
+            dcc.Input(id="losses1", type="number", className="nine columns",
+                      value=table["losses"], placeholder=otable["losses"],
+                      style={"height": "60%"}),
+        ], className="row")]
+
+    # Scenario B
+    scenario = os.path.basename(scenario_b).replace("_sc.csv", "")
+    table = recalc_table["scenario_b"]
+    otable = data.original_parameters(scenario)
+    children_b = [
+        # FCR B
+        html.Div([
+            html.P("FCR % (B): ", className="three columns",
+                   style={"height": "60%"}),
+            dcc.Input(id="fcr2", type="number", className="nine columns",
+                      style={"height": "60%"},
+                      value=table["fcr"], placeholder=otable["fcr"]),
+        ], className="row"),
+
+        # CAPEX B
+        html.Div([
+            html.P("CAPEX $/KW (B): ", className="three columns",
+                   style={"height": "60%"}),
+            dcc.Input(id="capex2", type="number", className="nine columns",
+                      style={"height": "60%"},
+                      value=table["capex"], placeholder=otable["capex"]),
+        ], className="row"),
+
+        # OPEX B
+        html.Div([
+            html.P("OPEX $/KW (B): ", className="three columns",
+                   style={"height": "60%"}),
+            dcc.Input(id="opex2", type="number", className="nine columns",
+                      style={"height": "60%"},
+                      value=table["opex"], placeholder=otable["opex"]),
+        ], className="row"),
+
+        # Losses B
+        html.Div([
+            html.P("Losses % (B): ", className="three columns",
+                   style={"height": "60%"}),
+            dcc.Input(id="losses2", type="number", className="nine columns",
+                      value=table["losses"], placeholder=otable["losses"],
+                      style={"height": "60%"}),
+        ], className="row")]
+
+    return children_a, children_b
+
+
+@app.callback([Output("recalc_tab_options", "style"),
+               Output("recalc_a_options", "style"),
+               Output("recalc_b_options", "style")],
+              [Input("recalc_tab", "value"),
+               Input("recalc_scenario", "value")])
+def options_recalc_toggle(recalc, scenario):
+    """Toggle the recalc options on and off."""
+    tab_style = {}
+    recalc_a_style = {}
+    recalc_b_style = {}
+
+    # Toggle all options
+    if recalc == "off":
+        tab_style = {"display": "none"}
+    if scenario == "scenario_a":
+        recalc_b_style = {"display": "none"}
+    else:
+        recalc_a_style = {"display": "none"}    
+
+    return tab_style, recalc_a_style, recalc_b_style
 
 
 @app.callback([Output("options", "style"),
@@ -1391,8 +1541,8 @@ def options_toggle_rev_color_button(click):
 def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
                       by, fcr):
     """Calculate low cost fields based on user decision."""
-    print_args(retrieve_low_cost, submit, project, how, lst, group,
-               group_choice, options, by, fcr)
+#    print_args(retrieve_low_cost, submit, project, how, lst, group,
+#               group_choice, options, by, fcr)
 
     if not submit:
         raise PreventUpdate
@@ -1449,29 +1599,6 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
     return json.dumps(options)
 
 
-@app.callback([Output("scenario_a_specs", "children"),
-               Output("scenario_b_specs", "children")],
-              [Input("scenario_a", "value"),
-               Input("scenario_b", "value"),
-               Input("project", "value")])
-def scenario_specs(scenario_a, scenario_b, project):
-    """Output the specs association with a chosen scenario."""
-    # print_args(scenario_specs, scenario_a, scenario_b)
-    if "least_cost" not in scenario_a:
-        scenario_a = scenario_a.replace("_sc.csv", "")
-        specs1 = build_specs(scenario_a, project)
-    else:
-        specs1 = build_spec_split(scenario_a)
-
-    if "least_cost" not in scenario_b:
-        scenario_b = scenario_b.replace("_sc.csv", "")
-        specs2 = build_specs(scenario_b, project)
-    else:
-        specs2 = build_spec_split(scenario_b)
-
-    return specs1, specs2
-
-
 # Map callbacks
 @app.callback(Output("chart_data_signal", "children"),
               [Input("variable", "value"),
@@ -1500,15 +1627,15 @@ def retrieve_chart_tables(y, x, state):
                State("difference", "value"),
                State("low_cost_tabs", "value"),
                State("threshold_mask", "value"),
-               State("fcr", "value"),
-               State("fcr2", "value")])
+               State("recalc_table", "children"),
+               State("recalc_tab", "value")])
 def retrieve_map_signal(submit, states, chart, project, threshold,
                         threshold_field, path, path2, lchh_path, y, x, diff,
-                        lchh_toggle, mask, fcr, fcr2):
+                        lchh_toggle, mask, recalc_table, recalc):
     """Create signal for sharing data between map and chart with dependence."""
-#    print_args(retrieve_map_signal, submit, states, chart, project, threshold,
-#                threshold_field, path, path2, lchh_path, y, x, diff,
-#                lchh_toggle, mask, fcr, fcr2)
+    print_args(retrieve_map_signal, submit, states, chart, project, threshold,
+                threshold_field, path, path2, lchh_path, y, x, diff,
+                lchh_toggle, mask, recalc_table, recalc)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + trig + "'")
 
@@ -1551,10 +1678,79 @@ def retrieve_map_signal(submit, states, chart, project, threshold,
     if chart == "cumsum":
         x = "capacity"
 
+    # Unpack recalc table
+    if recalc_table:
+        recalc_table = json.loads(recalc_table)
+
     # Let's just recycle all this for the chart
     signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
-                         threshold, units, mask, fcr, fcr2, project])
+                         threshold, units, mask, recalc_table, recalc, project])
     return signal
+
+
+@app.callback(Output("recalc_table", "children"),
+              [Input("fcr1", "value"),
+               Input("capex1", "value"),
+               Input("opex1", "value"),
+               Input("losses1", "value"),
+               Input("fcr2", "value"),
+               Input("capex2", "value"),
+               Input("opex2", "value"),
+               Input("losses2", "value"),
+               Input("project", "value")])
+def retrieve_recalc_parameters(fcr1, capex1, opex1, losses1,
+                               fcr2, capex2, opex2, losses2,
+                               project):
+    """Retrive all given recalc values and store them."""
+    trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
+    if "project" == trig:
+        recalc_table = {
+            "scenario_a": {
+                "fcr": None, "capex": None, "opex": None, "losses": None
+            },
+            "scenario_b": {
+                "fcr": None, "capex": None, "opex": None, "losses": None
+            }
+        }
+    else:
+        recalc_table = {
+            "scenario_a":{
+                "fcr": fcr1,
+                "capex": capex1,
+                "opex": opex1,
+                "losses": losses1,
+            },
+            "scenario_b": {
+                "fcr": fcr2,
+                "capex": capex2,
+                "opex": opex2,
+                "losses": losses2
+            }
+        }
+    return json.dumps(recalc_table)
+
+
+@app.callback([Output("scenario_a_specs", "children"),
+               Output("scenario_b_specs", "children")],
+              [Input("scenario_a", "value"),
+               Input("scenario_b", "value"),
+               Input("project", "value")])
+def scenario_specs(scenario_a, scenario_b, project):
+    """Output the specs association with a chosen scenario."""
+    # print_args(scenario_specs, scenario_a, scenario_b)
+    if "least_cost" not in scenario_a:
+        scenario_a = scenario_a.replace("_sc.csv", "")
+        specs1 = build_specs(scenario_a, project)
+    else:
+        specs1 = build_spec_split(scenario_a)
+
+    if "least_cost" not in scenario_b:
+        scenario_b = scenario_b.replace("_sc.csv", "")
+        specs2 = build_specs(scenario_b, project)
+    else:
+        specs2 = build_spec_split(scenario_b)
+
+    return specs1, specs2
 
 
 @app.callback([Output("map", "figure"),
@@ -1577,8 +1773,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    # print_args(make_map, signal, basemap, color, chartsel, point_size,
-                # rev_color, uymin, uymax, project, mapview, mapsel)
+    print_args(make_map, signal, basemap, color, chartsel, point_size,
+               rev_color, uymin, uymax, project, mapview, mapsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("'MAP'; trig = '" + str(trig) + "'")
 
@@ -1586,7 +1782,7 @@ def make_map(signal, basemap, color, chartsel, point_size,
     df = cache_map_data(signal)
     df.index = df["index"]
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, fcr, fcr2, project] = json.loads(signal)
+     units, mask, recalc_table, recalc, project] = json.loads(signal)
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -1616,10 +1812,12 @@ def make_map(signal, basemap, color, chartsel, point_size,
             df = df[(df[y] >= ymin) & (df[y] <= ymax)]
 
     # Build map elements
+    if recalc == "off":
+        recalc_table = None
     data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
                          point_size)
-    title = build_title(df, project, path, path2, y, x, diff, fcr, fcr2)  # <---------------------------------------- Temporary Title fix
-    layout = build_map_layout(mapview, title, basemap, title_size=20)
+    title = build_title(df, project, path, path2, y, x, diff, recalc_table)
+    layout = build_map_layout(mapview, title, basemap)
     figure = dict(data=data, layout=layout)
 
     return figure, json.dumps(mapview)
@@ -1647,7 +1845,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
 
     # Unpack the signal
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, fcr, fcr2, project] = json.loads(signal)
+     units, mask, recalc_table, recalc, project] = json.loads(signal)
 
     # Turn the map selection object into indices
     if mapsel:
@@ -1660,7 +1858,6 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
 
     # And generate on of these plots
     group = "Map Data"
-    title_size = 20
 
     # Get the data frames
     dfs = cache_chart_tables(signal, region, idx)
@@ -1677,7 +1874,9 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
         fig = plotter.box()
 
     # Whats the total capacity at this point?
-    title = build_title(dfs, project, path, path2, y, x, diff, fcr, fcr2)
+    if recalc == "off":
+        recalc_table = None
+    title = build_title(dfs, project, path, path2, y, x, diff, recalc_table)
 
     # User defined y-axis limits
     if uymin:
@@ -1692,20 +1891,22 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
         title_font_family="Times New Roman",
         legend_title_font_color="black",
         font_color="white",
-        title_font_size=title_size,
         font_size=15,
-        margin=dict(l=70, r=20, t=70, b=20),
+        margin=dict(l=70, r=20, t=115, b=20),
         height=700,
         hovermode="x unified",
         paper_bgcolor="#1663B5",
         legend_title_text=group,
         dragmode="select",
         yaxis=dict(range=ylim),
+        titlefont=dict(color="white",
+                       size=18,
+                       family="Time New Roman"),
         title=dict(
                 text=title,
-                yref="paper",
-                y=1,
-                x=0.1,
+                yref="container",
+                x=0.05,
+                y=0.94,
                 yanchor="bottom",
                 pad=dict(b=10)
                 ),

@@ -195,19 +195,19 @@ MAP_LAYOUT = dict(
     font=dict(color="white",
               fontweight="bold"),
     titlefont=dict(color="white",
-                   size=35,
+                   size=18,
                    family="Time New Roman",
                    fontweight="bold"),
-    margin=dict(l=20, r=115, t=90, b=20),
+    margin=dict(l=20, r=115, t=115, b=20),
     hovermode="closest",
     plot_bgcolor="#083C04",
     paper_bgcolor="#1663B5",
     legend=dict(font=dict(size=10, fontweight="bold"), orientation="h"),
     title=dict(
-        yref="paper",
-        x=0.1,
-        y=1.4,
-        yanchor="bottom",
+        yref="container",
+        x=0.05,
+        y=0.95,
+        yanchor="top",
         pad=dict(b=10)
     ),
     mapbox=dict(
@@ -425,12 +425,6 @@ def get_scales(file_df, field_units):
     return scales
 
 
-def get_variables(project_config):
-    """Create a dictionary of variables given the extras in the config."""
-    variables = project_config["titles"]
-    return variables
-
-
 def is_number(x):
     """check if a string is a number."""
     try:
@@ -473,7 +467,7 @@ class Config:
             files = len(self.project_config["data"]["file"])
         else:
             files = 0
-        msg = (f"<Config object: path='{path}', project='{project}', "
+        msg = (f"<reView Config object: path='{path}', project='{project}', "
                f"{files} files>")
         return msg
 
@@ -535,6 +529,15 @@ class Config:
             return self.project_config["directory"]
 
     @property
+    def files(self):
+        """Return a dictionary of scenario with full paths to files."""
+        files = {}
+        for file in self.data["file"]:
+            scenario = file.replace("_sc.csv", "")
+            files[scenario] = os.path.join(self.directory, file) 
+        return files
+
+    @property
     def options(self):
         """Not all options will be available for every grouping variable."""
         if self.project:
@@ -567,6 +570,14 @@ class Config:
             return scales
 
     @property
+    def scenarios(self):
+        """Return just a list of scenario names."""
+        scenarios = []
+        for file in self.data["file"]:
+            scenarios.append(file.replace("_sc.csv", ""))
+        return scenarios
+            
+    @property
     def titles(self):
         """Return a titles dictionary with extra fields."""
         if self.project:
@@ -585,6 +596,248 @@ class Config:
             return units
 
 
+class Data(Config):
+    """Class to handle data access and recalculations."""
+
+    def __init__(self, project, config_path="~/.review_config"):
+        """Initialize Data object."""
+        super().__init__(project)
+
+    def __repr__(self):
+        """Build representation string."""
+        path = self.config_path
+        project = self.project
+        files = len(self.project_config["data"]["file"])
+        msg = (f"<reView Data object: path='{path}', project='{project}', "
+               f"{files} files>")
+        return msg
+
+    def lcoe(self, capacity, mean_cf, recalcs, ovalues):
+        """Recalculate LCOE.
+        
+        Parameters
+        ----------
+        capacity : pd.core.series.Series | np.ndarray
+            A series of capacity values.
+        mean_cf : pd.core.series.Series | np.ndarray
+            A series of capacity factor values.
+        recalcs : dict
+            A dictionary with new entries for capex, opex, and fcr.
+        ovalues : dict
+            A dicitonary with the original values for capex, opex, and fcr.
+
+        Returns
+        -------
+        np.ndarray
+            A series of LCOE values.
+        """
+        capacity_kw = capacity * 1000
+        cc = recalcs["capex"] * capacity_kw
+        om = recalcs["opex"] * capacity_kw
+        fcr = recalcs["fcr"]
+        lcoe = ((fcr * cc) + om) / (capacity * mean_cf * 8760)
+        return lcoe
+
+    def lcot(self, capacity, trans_cap_cost, mean_cf, recalcs, ovalues):
+        """Recalculate LCOT.
+
+        Parameters
+        ----------
+        capacity : pd.core.series.Series | np.ndarray
+            A series of capacity values.
+        trans_cap_cost : pd.core.series.Series | np.ndarray
+            A series of transmission capital cost values.
+        mean_cf : pd.core.series.Series | np.ndarray
+            A series of capacity factor values.
+        recalcs : dict
+            A dictionary with new entries for capex, opex, and fcr.
+        ovalues : dict
+            A dicitonary with the original values for capex, opex, and fcr.
+    
+        Returns
+        -------
+        np.ndarray
+            A series of LCOT values.
+        """
+        fcr = recalcs["fcr"]
+        cc = trans_cap_cost * capacity
+        lcot = (cc * fcr) / (capacity * mean_cf * 8760)
+        return lcot
+
+    def recalc(self, scenario, recalcs):
+        """Recalculate LCOE for a data frame given a specific FCR.
+        
+        Parameters
+        ----------
+        scenario : str
+            The scenario key for the desired data table.
+        recalcs : dict
+            A dictionary of parameter-value pairs needed to recalculate
+            variables.
+
+        Returns
+        -------
+        pd.core.frame.DataFrame
+            A supply-curve module data frame with recalculated values.
+        """
+        # Read in data
+        df = self.read(scenario)
+
+        # If any of these aren't specified, use the original values
+        ovalues = self.original_parameters(scenario)
+        for key, value in recalcs.items():
+            if not value:
+                recalcs[key] = ovalues[key]
+            else:
+                recalcs[key] = self._fix_format(recalcs[key])
+
+        # Get the right units for percentages
+        ovalues["fcr"] = self._check_percentage(ovalues["fcr"])
+        recalcs["fcr"] = self._check_percentage(recalcs["fcr"])
+        ovalues["losses"] = self._check_percentage(ovalues["losses"])
+        recalcs["losses"] = self._check_percentage(recalcs["losses"])
+
+        # Extract needed variables as vectors
+        capacity = df["capacity"].values
+        mean_cf = df["mean_cf"].values
+        mean_lcoe = df["mean_lcoe"].values
+        trans_cap_cost = df["trans_cap_cost"].values
+
+        # Adjust capacity factor for LCOE
+        mean_cf_adj = self._get_cf(mean_cf, capacity, mean_lcoe, recalcs,
+                                   ovalues, adjust=True)
+        mean_cf = self._get_cf(mean_cf, capacity, mean_lcoe, recalcs, ovalues,
+                               adjust=False)
+
+        # Recalculate figures
+        df["mean_cf"] = mean_cf  # What else will this affect?
+        df["mean_lcoe"] = self.lcoe(capacity, mean_cf_adj,recalcs, ovalues)
+        df["lcot"] = self.lcot(capacity, trans_cap_cost, mean_cf, recalcs,
+                               ovalues)
+        df["total_lcoe"] = df["mean_lcoe"] + df["lcot"]
+
+        return df
+
+    def build(self, scenario, fcr=None, capex=None, opex=None, losses=None):
+        """Read in a data table given a scenario with recalc.
+        
+        Parameters
+        ----------
+        scenario : str
+            The scenario key or data path for the desired data table. 
+        fcr : str | numeric
+            Fixed charge as a percentage.
+        capex : str | numeric
+            Capital expenditure in USD / KW
+        opex : str | numeric
+            Fixed operating costs in USD / KW
+        losses : str | numeric
+            Generation losses as a percentage.
+
+        Returns
+        -------
+        pd.core.frame.DataFrame
+            A supply-curve data frame with either the original values or
+            recalculated values if new parameters are given.
+        """
+        # This can be a path or a scenario
+        if ".csv" in scenario:
+            scenario = os.path.basename(scenario).replace("_sc.csv", "")
+
+        # Recalculate if needed, else return original table
+        recalcs = dict(fcr=fcr, capex=capex, opex=opex, losses=losses)
+        if any(recalcs.values()):
+            df = self.recalc(scenario, recalcs)
+        else:
+            df = self.read(scenario)
+
+        return df
+
+    def read(self, scenario):
+        """Read in the needed columns of a supply-curve csv.
+ 
+        Parameters
+        ----------
+        scenario : str
+            The scenario key for the desired data table.
+
+        Returns
+        -------
+        pd.core.frame.DataFrame
+            A supply-curve table with original vlaues.
+        """
+        # Find the path and columns associated with this scenario
+        path = self.files[scenario]
+        fields = list(self.units.keys())
+        ids = ["sc_gid", "sc_point_gid", "res_gids", "gid_counts", "n_gids",
+               "state", "nrel_region", "county", "latitude", "longitude"]
+        columns = ids + fields
+        df_columns = pd.read_csv(path, index_col=0, nrows=0).columns.tolist()
+
+        # There is a discrepancy in transmission multiplier's naming
+        if "transmission_multiplier" in df_columns:
+            columns.remove("trans_multiplier")
+        else:
+            columns.remove("transmission_multiplier")
+
+        # Read in table
+        df = pd.read_csv(path, usecols=columns)
+        return df
+
+    def original_parameters(self, scenario):
+        """Return the original parameters for fcr, capex, opex, and losses."""
+        fields = self._find_fields(scenario)
+        config = self.project_config
+        params = config["parameters"][scenario]
+        ovalues = dict()
+        for key in ["fcr", "capex", "opex", "losses"]:
+            ovalues[key] = self._fix_format(params[fields[key]])
+        return ovalues
+
+    def _check_percentage(self, value):
+        """Check if a value is a decimal or percentage (Assuming here)."""
+        if value > 1:
+            value = value / 100
+        return value
+
+    def _find_fields(self, scenario):
+        """Find input fields with pattern recognition."""
+        config = self.project_config
+        params = config["parameters"][scenario]
+        patterns = {k.lower().replace(" ", ""): k for k in params.keys()}
+        matches = {}
+        for key in ["capex", "opex", "fcr", "losses"]:
+            match = [v for k, v in patterns.items() if key in str(k)][0]
+            matches[key] = match
+        return matches
+
+    def _fix_format(self, value):
+        """Remove commas and dollar signs from value, return as float."""
+        if isinstance(value, str):
+            value = value.replace(",", "").replace("$", "").replace("%", "")
+            value = float(value)
+        return value
+
+    def _get_cf(self, mean_cf, capacity, mean_lcoe, recalcs, ovalues, adjust):
+        """Return a properly rounded capacity factor from a table row."""
+        # Back out cf from lcoe to fix rounding error, if needed
+        if adjust:
+            capacity_kw = capacity * 1000
+            cc = ovalues["capex"] * capacity_kw
+            om = ovalues["opex"] * capacity_kw
+            fcr = ovalues["fcr"]
+            mean_cf = ((fcr * cc) + om) / (mean_lcoe * capacity * 8760)
+
+        # Recalculate losses, if needed
+        if recalcs["losses"] != ovalues["losses"]:
+            l1 = ovalues["losses"]
+            l2 = recalcs["losses"]
+            gross_cf = mean_cf / (1 - l1)
+            mean_cf = gross_cf - (gross_cf * l2)
+
+        return mean_cf
+
+
 class Difference:
     """Class to handle supply curve difference calculations."""
 
@@ -596,8 +849,6 @@ class Difference:
             x1 = x.iloc[0]
             x2 = x.iloc[1]
             pct = 100 * ((x1 - x2) / x2)
-            # pct = 100 * ((x1 - x2) / x1)
-
             return pct
 
     def calc(self, df1, df2, field):
@@ -612,17 +863,6 @@ class Difference:
         ndf = ndf.merge(pcts.to_frame(), left_index=True, right_index=True)
         print("Difference calculated.")
         return ndf
-
-
-class CF(Config):
-    """Class to recalculate capacity factor with user-specified losses."""
-
-    def __init__(self, project):
-        super().__init__(project)
-
-    def __repr__(self):
-        msg = f"<CF object: path={self.config_path}, project={self.project}>"
-        return msg
 
 
 class LCOE(Config):  # <------------------------------------------------------- This will only work for the Transition/ATB projects, the parameter names are standardized yet

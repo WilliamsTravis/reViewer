@@ -1330,7 +1330,7 @@ def options_options(project, lc_update):
         variable_options.append({"label": v, "value": k})
     least_cost_options = []
     for key, file in file_list.items():
-        if file in config.files.values():
+        if file in config.project_config["data"]["file"].values():
             option = {"label": key, "value": file}
             least_cost_options.append(option)
 
@@ -1582,7 +1582,7 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
         tags = []
         for k, v in recalc_table["scenario_a"].items():
             if v:
-                tag = "{:05d}{}".format(round(float(v) * 1000), k)
+                tag = str(v).replace(".", "_") + k
                 tags.append(tag)
         recalc_tag = "_".join(tags)
 

@@ -259,7 +259,13 @@ layout = html.Div(
             # Calculate Lowest Cost Hub Heights
             html.Div([
                 # Option to calculate or no
-                html.H5("Lowest LCOE Data Set"),
+                html.H5("Lowest LCOE Data Set*",
+                        title=("This will save and add the least cost table"
+                               " to the scenario A and B options. Submit "
+                               "below to generate the table, then select the "
+                               "resulting dataset in the dropdown. If "
+                               "recalculating, just use scenario A's inputs, "
+                               "we're still working on this part.")),
                 dcc.Tabs(
                     id="low_cost_tabs",
                     value="off",
@@ -939,9 +945,9 @@ def build_specs(scenario, project):
     return table
 
 
-def build_spec_split(path):
+def build_spec_split(path, project):
     """Calculate the percentage of each scenario present."""
-    df = cache_table(path)
+    df = cache_table(project, path)
     scenarios, counts = np.unique(df["scenario"], return_counts=True)
     total = df.shape[0]
     percentages = [counts[i] / total for i in range(len(counts))]
@@ -1059,11 +1065,10 @@ def cache_table(project, path, recalc_table=None, recalc="off"):
     """Read in just a single table."""
     # Get the table
     data = Data(project)
-    if recalc == "on":
+    if recalc == "on" and path in data.files.values():
         df = data.build(path, **recalc_table)
     else:
-        scenario = os.path.basename(path).replace("_sc.csv", "")
-        df = data.read(scenario)
+        df = data.read(path)
 
     # We want some consistent fields
     df["index"] = df.index
@@ -1296,14 +1301,14 @@ def options_options(project, lc_update):
     """Update the options given a project."""
     # Catch the trigger
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
-#    print_args(options_options, project, lc_update, trig=trig)
+    print_args(options_options, project, lc_update, trig=trig)
 
     # We need the project configuration
-    config = Config(project).project_config
+    config = Config(project)
 
     # Find the files
-    DP = Data_Path(config["directory"])
-    filedf = pd.DataFrame(config["data"])
+    DP = Data_Path(config.project_config["directory"])
+    filedf = pd.DataFrame(config.project_config["data"])
     scneario_outputs = DP.contents("review_outputs", "least_cost*_sc.csv")
     scenario_originals = list(filedf["file"].values)
     files = scenario_originals + scneario_outputs
@@ -1320,13 +1325,19 @@ def options_options(project, lc_update):
     scenario_options = [
         {"label": key, "value": file} for key, file in file_list.items()
     ]
-    variable_options = [
-        {"label": v, "value": k} for k, v in config["titles"].items()
-    ]
+    variable_options = []
+    for k, v in config.project_config["titles"].items():
+        variable_options.append({"label": v, "value": k})
+    least_cost_options = []
+    for key, file in file_list.items():
+        if file in config.files.values():
+            option = {"label": key, "value": file}
+            least_cost_options.append(option)
 
     # Lots of returns here, abbreviating for space
     so = scenario_options
-    sva = so[0]["value"]
+    lco = least_cost_options
+    sva = lco[0]["value"]
     svb = so[1]["value"]
     vo = variable_options
     go = group_options
@@ -1337,7 +1348,7 @@ def options_options(project, lc_update):
         so = json.loads(lc_update)
         sva = so[-1]["value"]
 
-    return so, so, so, sva, svb, sva, vo, go, fdf
+    return so, so, lco, sva, svb, sva, vo, go, fdf
 
 
 @app.callback([Output("project", "options"),
@@ -1367,9 +1378,9 @@ def options_recalc(project, scenario_a, scenario_b, recalc_table):
     print_args(options_recalc, project, scenario_a, scenario_b, recalc_table)
     data = Data(project)
     recalc_table = json.loads(recalc_table)
-
-    # Scenario A
     scenario = os.path.basename(scenario_a).replace("_sc.csv", "")
+        
+    # Scenario A
     table = recalc_table["scenario_a"]
     otable = data.original_parameters(scenario)
     children_a = [
@@ -1537,12 +1548,12 @@ def options_toggle_rev_color_button(click):
                State("low_cost_split_group_options", "value"),
                State("scenario_a", "options"),
                State("low_cost_by", "value"),
-               State("fcr", "value")])
+               State("recalc_table", "children")])
 def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
-                      by, fcr):
+                      by, recalc_table):
     """Calculate low cost fields based on user decision."""
-#    print_args(retrieve_low_cost, submit, project, how, lst, group,
-#               group_choice, options, by, fcr)
+    print_args(retrieve_low_cost, submit, project, how, lst, group,
+               group_choice, options, by, recalc_table)
 
     if not submit:
         raise PreventUpdate
@@ -1550,19 +1561,21 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
     config = Config(project)
     DP = Data_Path(config.directory)
 
-    # it won't be possible to recalculate LCOE after this
-    if fcr:
-        fcr_tag = "_{:05d}".format(round(float(fcr) * 1000))
-
-        # It would be a string
-        fcr = float(fcr)
-        fcr = fcr / 100
+    # Make a tag for all of our recalc values
+    if recalc_table:
+        recalc_table = json.loads(recalc_table)
+        tags = []
+        for k, v in recalc_table["scenario_a"].items():
+            if v:
+                tag = "{:05d}{}".format(round(float(v) * 1000), k)
+                tags.append(tag)
+        recalc_tag = "_".join(tags)
 
     # Build the appropriate paths and target file name
     if how == "all":
         # Just one output
-        if fcr:
-            fname = f"least_cost_by_{by}_{fcr_tag}fcr_all_sc.csv"
+        if recalc_table:
+            fname = f"least_cost_by_{by}_{recalc_tag}_all_sc.csv"
         else:
             fname = f"least_cost_by_{by}_all_sc.csv"
         paths = FILEDF["file"].values
@@ -1571,15 +1584,15 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
         paths = lst
         scenarios = [os.path.basename(path).split("_")[1] for path in paths]
         scen_key = "_".join(scenarios)
-        if fcr:
-            fname = f"least_cost_by_{by}_{scen_key}_{fcr_tag}fcr_sc.csv"
+        if recalc_table:
+            fname = f"least_cost_by_{by}_{scen_key}_{recalc_tag}_sc.csv"
         else:
             fname = f"least_cost_by_{by}_{scen_key}_sc.csv"
     else:
         # This could create multiple outputs, but we'll do one at a time
         grp_key = group_choice.replace(".", "")
-        if fcr:
-            fname = f"least_cost_by_{by}_{group}_{grp_key}_{fcr_tag}fcr_sc.csv"
+        if recalc_table:
+            fname = f"least_cost_by_{by}_{group}_{grp_key}_{recalc_tag}_sc.csv"
         else:
             fname = f"least_cost_by_{by}_{group}_{grp_key}_sc.csv"
         paths = FILEDF["file"][FILEDF[group] == group_choice].values
@@ -1588,7 +1601,7 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
     paths = [DP.join(path) for path in paths]
     lchh_path = DP.join("review_outputs", fname, mkdir=True)
     print("calculating" + " " + lchh_path + "...")
-    calculator = Least_Cost(fcr=fcr)
+    calculator = Least_Cost(project, recalc_table=recalc_table)
     calculator.calc(paths, lchh_path, by=by)
 
     # Update the scenario file options
@@ -1742,13 +1755,13 @@ def scenario_specs(scenario_a, scenario_b, project):
         scenario_a = scenario_a.replace("_sc.csv", "")
         specs1 = build_specs(scenario_a, project)
     else:
-        specs1 = build_spec_split(scenario_a)
+        specs1 = build_spec_split(scenario_a, project)
 
     if "least_cost" not in scenario_b:
         scenario_b = scenario_b.replace("_sc.csv", "")
         specs2 = build_specs(scenario_b, project)
     else:
-        specs2 = build_spec_split(scenario_b)
+        specs2 = build_spec_split(scenario_b, project)
 
     return specs1, specs2
 

@@ -753,7 +753,7 @@ class Data(Config):
 
         return df
 
-    def read(self, scenario):
+    def read(self, path):
         """Read in the needed columns of a supply-curve csv.
  
         Parameters
@@ -767,7 +767,8 @@ class Data(Config):
             A supply-curve table with original vlaues.
         """
         # Find the path and columns associated with this scenario
-        path = self.files[scenario]
+        if not os.path.isfile(path):
+            path = self.files[path]
         fields = list(self.units.keys())
         ids = ["sc_gid", "sc_point_gid", "res_gids", "gid_counts", "n_gids",
                "state", "nrel_region", "county", "latitude", "longitude"]
@@ -779,6 +780,8 @@ class Data(Config):
             columns.remove("trans_multiplier")
         else:
             columns.remove("transmission_multiplier")
+        if "scenario" in df_columns:
+            columns += ["scenario"]
 
         # Read in table
         df = pd.read_csv(path, usecols=columns)
@@ -970,12 +973,17 @@ class LCOE(Config):  # <------------------------------------------------------- 
         return ((fcr * cc) + om) / (lcoe * row["capacity"] * 8760)
 
 
-class Least_Cost:
+class Least_Cost():
     """Class to handle various elements of calculating a least cost table."""
 
-    def __init__(self, fcr=None):
+    def __init__(self, project, recalc_table=None):
         """Initialize Least_Cost object."""
-        self.fcr = fcr
+        self.project = project
+        self.recalc_table = recalc_table
+
+    def __repr__(self):
+        msg = (f"<reView Least_Cost object>")
+        return msg
 
     def least_cost(self, dfs, by="total_lcoe"):
         """Return a single least cost df from a list dfs."""
@@ -1009,9 +1017,9 @@ class Least_Cost:
     def read_df(self, path):
         """Retrieve a single data frame."""
         project, scenario = find_scenario(path)
-        if self.fcr:
-            calculator = LCOE(project)
-            df = calculator.recalc(scenario, self.fcr)
+        if self.recalc_table:
+            table = self.recalc_table["scenario_a"]
+            df = Data(project).build(scenario, **table)
         else:
             df = pd.read_csv(path, low_memory=False)
         df["scenario"] = scenario

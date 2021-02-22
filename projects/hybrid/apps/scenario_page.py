@@ -1337,7 +1337,7 @@ def options_options(project, lc_update):
     # Lots of returns here, abbreviating for space
     so = scenario_options
     lco = least_cost_options
-    sva = lco[0]["value"]
+    sva = so[0]["value"]
     svb = so[1]["value"]
     vo = variable_options
     go = group_options
@@ -1367,23 +1367,21 @@ def options_project(pathname):
     return options, project
 
 
-@app.callback([Output("recalc_a_options", "children"),
-               Output("recalc_b_options", "children")],
+@app.callback(Output("recalc_a_options", "children"),
               [Input("project", "value"),
-               Input("scenario_a", "value"),
-               Input("scenario_b", "value")],
+               Input("scenario_a", "value")],
               [State("recalc_table", "children")])
-def options_recalc(project, scenario_a, scenario_b, recalc_table):
+def options_recalc_a(project, scenario, recalc_table):
     """Update the drop down options for each scenario."""
-    print_args(options_recalc, project, scenario_a, scenario_b, recalc_table)
+    print_args(options_recalc_a, project, scenario, recalc_table)
     data = Data(project)
     recalc_table = json.loads(recalc_table)
-    scenario = os.path.basename(scenario_a).replace("_sc.csv", "")
-        
-    # Scenario A
+    scenario = os.path.basename(scenario).replace("_sc.csv", "")
+    if scenario not in data.scenarios:
+        raise PreventUpdate
     table = recalc_table["scenario_a"]
     otable = data.original_parameters(scenario)
-    children_a = [
+    children = [
         # FCR A
         html.Div([
             html.P("FCR % (A): ", className="three columns",
@@ -1420,11 +1418,28 @@ def options_recalc(project, scenario_a, scenario_b, recalc_table):
                       style={"height": "60%"}),
         ], className="row")]
 
-    # Scenario B
-    scenario = os.path.basename(scenario_b).replace("_sc.csv", "")
+    return children
+
+
+@app.callback(Output("recalc_b_options", "children"),
+              [Input("project", "value"),
+               Input("scenario_b", "value")],
+              [State("recalc_table", "children")])
+def options_recalc_b(project, scenario, recalc_table):
+    """Update the drop down options for each scenario."""
+    print_args(options_recalc_b, project, scenario, recalc_table)
+    data = Data(project)
+    recalc_table = json.loads(recalc_table)
+    scenario = os.path.basename(scenario).replace("_sc.csv", "")
+    if scenario not in data.scenarios:
+        raise PreventUpdate
+
     table = recalc_table["scenario_b"]
     otable = data.original_parameters(scenario)
-    children_b = [
+    scenario = os.path.basename(scenario).replace("_sc.csv", "")
+    table = recalc_table["scenario_b"]
+    otable = data.original_parameters(scenario)
+    children = [
         # FCR B
         html.Div([
             html.P("FCR % (B): ", className="three columns",
@@ -1461,7 +1476,7 @@ def options_recalc(project, scenario_a, scenario_b, recalc_table):
                       style={"height": "60%"}),
         ], className="row")]
 
-    return children_a, children_b
+    return children
 
 
 @app.callback([Output("recalc_tab_options", "style"),

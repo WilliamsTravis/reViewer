@@ -1111,7 +1111,7 @@ def cache_map_data(signal):
     # If there's a second table, read/cache the difference
     if path2:
         # Match the format of the first dataframe
-        df2 = cache_table(project, path2, recalc_b)
+        df2 = cache_table(project, path2, recalc_b, recalc)
         df2 = df2[keepers]
         if y == x:
             df2 = df2.iloc[:, 1:]
@@ -1594,6 +1594,7 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
         else:
             fname = f"least_cost_by_{by}_all_sc.csv"
         paths = FILEDF["file"].values
+
     elif how == "list":
         # Just one output
         paths = lst
@@ -1603,6 +1604,7 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
             fname = f"least_cost_by_{by}_{scen_key}_{recalc_tag}_sc.csv"
         else:
             fname = f"least_cost_by_{by}_{scen_key}_sc.csv"
+
     else:
         # This could create multiple outputs, but we'll do one at a time
         grp_key = group_choice.replace(".", "")

@@ -11,6 +11,7 @@ Things to do:
 import copy
 import json
 import os
+import time
 
 import dash
 import dash_core_components as dcc
@@ -1120,6 +1121,26 @@ def cache_map_data(signal):
         if difference == "on":
             calculator = Difference()
             df = calculator.calc(df1, df2, y)
+
+            # # Save to file  <-------------------------------------------------- Temporary
+            now = time.gmtime()
+            tmplt = "{}-{:02d}-{:02d}-{:02d}-{:02d}"
+            ts = tmplt.format(now.tm_year, now.tm_mon, now.tm_mday,
+                              now.tm_hour, now.tm_min)
+            fname = f"difference_{ts}.csv"
+            config = Config(project)
+            dst = os.path.join(config.directory, "review_outputs", fname)
+            df.to_csv(dst, index=False)
+
+            meta = {"difference_variable": y,
+                    "recalculated_variables": recalc_table,
+                    "file_a": path,
+                    "file_b": path2}
+            meta = json.dumps(meta, indent=4)
+            mdst = dst.replace("difference", "difference_meta").replace(".csv", ".json")
+            with open(mdst, "w") as f:
+                f.write(meta)
+
         else:
             df = df1.copy()
 
@@ -1714,7 +1735,8 @@ def retrieve_map_signal(submit, states, chart, project, threshold,
 
     # Let's just recycle all this for the chart
     signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
-                         threshold, units, mask, recalc_table, recalc, project])
+                         threshold, units, mask, recalc_table, recalc,
+                         project])
     return signal
 
 

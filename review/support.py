@@ -380,15 +380,16 @@ def get_scales(file_df, field_units):
         ranges = {}
         df = pd.read_csv(file)
         for field in fields:
-            ranges[field] = {}
-            try:
-                values = df[field].dropna()
-                values = values[values != -np.inf]
-                ranges[field]["min"] = values.min()
-                ranges[field]["max"] = values.max()
-            except KeyError:
-                print("KeyError")
-                del ranges[field]
+            if field in df.columns:
+                ranges[field] = {}
+                try:
+                    values = df[field].dropna()
+                    values = values[values != -np.inf]
+                    ranges[field]["min"] = values.min()
+                    ranges[field]["max"] = values.max()
+                except KeyError:
+                    print("KeyError")
+                    del ranges[field]
         return ranges
 
     # Get all the files

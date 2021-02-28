@@ -148,7 +148,7 @@ def dash_to_pandas(dt):
 def navigate(which, initialdir="/"):
     """Browse directory for file or folder paths."""
     # Print variables
-    # print_args(navigate, which, initialdir)
+    print_args(navigate, which, initialdir)
 
     filetypes = [('ALL', '*'), ('CSV', '*.csv')]
 
@@ -181,11 +181,11 @@ def navigate(which, initialdir="/"):
                Output("project_directory_print", "children")],
               [Input("proj_nav", "n_clicks"),
                Input("proj_input", "value")])
-def find_project_diretory(n_clicks, path):
+def find_project_directory(n_clicks, path):
     """Find the root project directory containing data files."""
     # Print variables
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(find_dir, n_clicks, path, trig)
+    print_args(find_project_directory, n_clicks, path, trig=trig)
 
     if "proj_nav" in trig:
         if n_clicks > 0:
@@ -217,7 +217,7 @@ def find_project_diretory(n_clicks, path):
                State("groups", "children")])
 def create_groups(submit, group_input, group_values, groups):
     """Set a group with which to categorize datasets."""
-    # print_args(set_group, submit, group_input, group_values, groups)
+    print_args(create_groups, submit, group_input, group_values, groups)
 
     if groups:
         groups = json.loads(groups)
@@ -253,37 +253,34 @@ def create_groups(submit, group_input, group_values, groups):
 def add_datasets(n_clicks, pattern, initialdir, files):
     """Browse the file system for a list of file paths."""
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(add_datasets, n_clicks, pattern, initialdir, files, trig)
+    print_args(add_datasets, n_clicks, pattern, initialdir, files, trig=trig)
+
+    if files == "null" or files == "{}" or files is None:
+        files = {}
+        key = 0
+    else:
+        files = json.loads(files)
+        keys = [int(k) for k in files.keys()]
+        key = max(keys) + 1
 
     if "file_nav" in trig:
         if n_clicks > 0:
             paths = navigate("files", initialdir=initialdir)
-
-            if files:
-                files = json.loads(files)
-                if len(files) > 0:
-                    keys = [int(k) for k in files.keys()]
-                    key = max(keys) + 1
-                else:
-                    files = {}
-                    key = 0
-            else:
-                files = {}
-                key = 0
-
             for path in paths:
                 files[key] = os.path.join(initialdir, path)
                 key += 1
                 if not os.path.exists(path):
                     print("Chosen path does not exist.")  # Add OSError
+
     elif "file_pattern" in trig:
-        pattern = json.loads(pattern)
         paths = glob(os.path.join(initialdir, pattern), recursive=True)
-        files = dict(zip(range(0, len(paths)), paths))
+        new_files = dict(zip(range(0, len(paths)), paths))
+        files = {**files, **new_files}
     else:
         raise PreventUpdate
 
     file_list = json.dumps(files)
+
     return file_list
 
 
@@ -293,8 +290,8 @@ def add_datasets(n_clicks, pattern, initialdir, files):
                Input("groups", "children")])
 def set_dataset_groups(files, proj_dir, groups):
     """For each file, set a group and value from the user inputs above."""
-    # print_args(set_dataset_groups, files, proj_dir, groups)
-    if files:
+    print_args(set_dataset_groups, files, proj_dir, groups)
+    if files != "null":
         files = json.loads(files)
         groups = json.loads(groups)
         groups = {k: v.split(",") for k, v in groups.items()}
@@ -312,7 +309,7 @@ def set_dataset_groups(files, proj_dir, groups):
 
         # Data Table
         files = list(files.values())
-        df = pd.DataFrame({"FILE": files})
+        df = pd.DataFrame({"file": files})
         for group, options in groups.items():
             df[group] = ", ".join(options)
 
@@ -330,6 +327,7 @@ def set_dataset_groups(files, proj_dir, groups):
                 columns=cols,
                 editable=True,
                 column_selectable="multi",
+                row_deletable=True,
                 row_selectable="multi",
                 page_size=10,
                 dropdown=dropdowns,
@@ -356,7 +354,10 @@ def set_dataset_groups(files, proj_dir, groups):
               [State("extra_fields", "children")])
 def find_extra_fields(files, groups, fields):
     """Use one of the files to infer extra fields and assign units."""
-    # print_args(find_extra_fields, files, groups, fields)
+    print_args(find_extra_fields, files, groups, fields)
+
+    if files == "null":
+        raise PreventUpdate
 
     new_fields = []
     if files:
@@ -424,13 +425,15 @@ def build_config(n_clicks, groups, project_name, directory, fields):
     """Consolidate inputs into a project config and update overall config."""
     print_args(build_config, n_clicks, groups, project_name, directory, fields)
 
+    if n_clicks == 0:
+        raise PreventUpdate
+
     # Get the file/group and fields data frames
     field_df, fmsg = dash_to_pandas(fields)
     file_df, gmsg = dash_to_pandas(groups)
 
-    # Why did I use captials?
-    file_df["NAME"] = file_df["FILE"].apply(lambda x: os.path.basename(x))
-    file_df = file_df.rename({"FILE": "file", "NAME": "name"}, axis=1)
+    # Get just the file name from the path
+    file_df["name"] = file_df["file"].apply(lambda x: os.path.basename(x))
 
     # Combine all titles and units
     units = dict(zip(field_df["FIELD"], field_df["UNITS"]))
@@ -439,8 +442,16 @@ def build_config(n_clicks, groups, project_name, directory, fields):
     titles = {**titles, **TITLES}
 
     # Find value ranges for color scales
-    fields = list(units.keys())
-    scales = get_scales(file_df, fields)
+    scales = get_scales(file_df, units)
+
+    # For each data frame, if it is missing columns add nans in
+    for path in file_df["file"]:
+        df = pd.read_csv(path)
+        for field in list(units.keys()) + ["nrel_region"]:
+            print(field)
+            if field not in df.columns:
+                df[field] = np.nan
+        df.to_csv(path, index=False)
 
     # Convert to a config entry
     config = {
@@ -448,7 +459,8 @@ def build_config(n_clicks, groups, project_name, directory, fields):
         "directory": directory,
         "units": units,
         "scales": scales,
-        "titles": titles
+        "titles": titles,
+        "parameters": {}   # We will add an option to upload a parameter table
     }
 
     # Get existing/build new configuration file

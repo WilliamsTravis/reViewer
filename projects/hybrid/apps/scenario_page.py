@@ -1330,9 +1330,9 @@ def options_options(project, lc_update):
     # Find the files
     DP = Data_Path(config.project_config["directory"])
     filedf = pd.DataFrame(config.project_config["data"])
-    scneario_outputs = DP.contents("review_outputs", "least_cost*_sc.csv")
+    scenario_outputs = DP.contents("review_outputs", "least_cost*_sc.csv")
     scenario_originals = list(filedf["file"].values)
-    files = scenario_originals + scneario_outputs
+    files = scenario_originals + scenario_outputs
     names = [os.path.basename(f).replace("_sc.csv", "") for f in files]
     names = [" ".join([n.capitalize() for n in name.split("_")])
              for name in names]

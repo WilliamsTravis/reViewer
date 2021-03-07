@@ -244,7 +244,7 @@ TABLET_STYLE = {"line-height": "25px", "padding": "0"}
 
 TITLES = {
     "area_sq_km": "Supply Curve Point Area",
-    "capacity": "Total Generation Capacity",
+    "capacity": "Total Capacity",
     "elevation": "Elevation",
     "dist_mi": "Distance to Transmission",
     "lcot": "LCOT",

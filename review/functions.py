@@ -1,16 +1,18 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Functions for reViewer.
+"""Functions for reView.
 
 Created on Sun Mar  8 16:12:01 2020
 
 @author: travis
 """
+import datetime as dt
 import inspect
 import os
+import requests
 
 from glob import glob
+
+import pandas as pd
 
 
 # FUNCTIONS
@@ -116,6 +118,57 @@ class Data_Path:
             self.data_path = os.path.expanduser(self.data_path)
 
 
+class LBNL:
+    """Class for handling the retrieval and reformatting of LBNL atasets."""
+
+    def __init__(self, home="~/.lbnl"):
+        """Initialize LBNL class object.
+
+        Parameters
+        ----------
+        home : str
+            The path to the local directory in which to store files.
+        """
+        self.home = home
+        self.url = "https://eersc.usgs.gov/api/uswtdb/v1/turbines"
+
+    def retrieve(self, version=None, fname="lbnl_uswtdb_{}.csv"):
+        """Retrieve the LBNL Wind Turbine database.
+
+        Parameters
+        ----------
+        version : int | str
+            The version of the dataset to retrieve. Default of None results
+            in the most recent version.
+        path : str
+            The file name to assign to the retrieved dataset. Will default to
+            a string containing the year and version number.
+
+        Returns
+        -------
+        str
+            Path to resulting csv file.
+        """
+        response = requests.get(self.url, stream=True)
+        dst = self._build_dst(response, fname)
+        if not os.path.exists(dst):
+            df = pd.DataFrame(response.json())
+            df.to_csv(dst, index=False)
+        return dst
+
+    # def supply_curve(self, resolution=128):
+    #     """Build a supply curve table with existing wind turbine features."""
+    #     dst = self.retrieve()
+
+    def _build_dst(self, response, fname):
+        """Build the file path from a request and file name template."""
+        home = os.path.expanduser(self.home)
+        os.makedirs(home, exist_ok=True)
+        date_str = " ".join(response.headers["Date"].split()[1: 4])
+        date = dt.datetime.strptime(date_str, "%d %b %Y")
+        date_str = date.strftime("%Y_%m_%d")
+        dst = fname.format(date_str)
+        return dst
 
 
 # class To_Tiledb:

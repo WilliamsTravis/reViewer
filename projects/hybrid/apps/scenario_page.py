@@ -595,7 +595,8 @@ layout = html.Div(
                     id="map",
                     config={
                         "showSendToCloud": True,
-                        "plotlyServerURL": "https://chart-studio.plotly.com"
+                        "plotlyServerURL": "https://chart-studio.plotly.com",
+                        "toImageButtonOptions": {"width": None, "height": None}
                         }
                     ),
 
@@ -718,6 +719,7 @@ layout = html.Div(
                     id="chart",
                     config={
                         "showSendToCloud": True,
+                        "toImageButtonOptions": {"width": None, "height": None},
                         "plotlyServerURL": "https://chart-studio.plotly.com"
                     }),
 
@@ -1122,7 +1124,7 @@ def cache_map_data(signal):
             calculator = Difference()
             df = calculator.calc(df1, df2, y)
 
-            # # Save to file  <-------------------------------------------------- Temporary
+            # # Save to file  <------------------------------------------------ Temporary
             now = time.gmtime()
             tmplt = "{}-{:02d}-{:02d}-{:02d}-{:02d}"
             ts = tmplt.format(now.tm_year, now.tm_mon, now.tm_mday,

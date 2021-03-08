@@ -1177,7 +1177,8 @@ def cache_chart_tables(signal, region="national", idx=None):
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
      units, mask, recalc_table, recalc, project] = json.loads(signal)
     df = cache_map_data(signal)
-    df = df[[x, y, "state", "nrel_region", "print_capacity", "index"]]
+    df = df[[x, y, "state", "nrel_region", "print_capacity", "index",
+             "sc_point_gid"]]
 
     if idx:
         df = df.iloc[idx]
@@ -1830,8 +1831,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(make_map, signal, basemap, color, chartsel, point_size,
-    #            rev_color, uymin, uymax, project, mapview, mapsel, trig=trig)
+    print_args(make_map, signal, basemap, color, chartsel, point_size,
+                rev_color, uymin, uymax, project, mapview, mapsel, trig=trig)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
@@ -1862,10 +1863,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
     if chartsel:
         if len(chartsel["points"]) > 0:
             points = chartsel["points"]
-            ys = [p["y"] for p in points]
-            ymin = min(ys)
-            ymax = max(ys)
-            df = df[(df[y] >= ymin) & (df[y] <= ymax)]
+            gids = [p["customdata"][0] for p in points]
+            df = df[df["sc_point_gid"].isin(gids)]
 
     # Build map elements
     if recalc == "off":
@@ -1894,8 +1893,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
 def make_chart(signal, chart, mapsel, point_size, op_values, region,
                uymin, uymax, project, chartview, chartsel):
     """Make one of a variety of charts."""
-#    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-#                region, chartview, chartsel)
+    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+                region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 

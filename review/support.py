@@ -1217,6 +1217,7 @@ class Plots(Config):
         fig = px.scatter(main_df,
                          x="ccap",
                          y=y,
+                         custom_data=["sc_point_gid"],
                          labels={"ccap": "TW",
                                  y: units},
                          color=self.group,
@@ -1270,6 +1271,7 @@ class Plots(Config):
         fig = px.scatter(main_df,
                          x=x,
                          y=y,
+                         custom_data=["sc_point_gid"],
                          labels={x: xunits, y: yunits},
                          color=self.group,
                          color_discrete_sequence=px.colors.qualitative.Safe)
@@ -1315,6 +1317,7 @@ class Plots(Config):
         main_df = main_df.sort_values(self.group)
         fig = px.histogram(main_df,
                            x=y,
+                           custom_data=["sc_point_gid"],
                            labels={y: yunits},
                            color=self.group,
                            color_discrete_sequence=px.colors.qualitative.Safe)
@@ -1374,6 +1377,7 @@ class Plots(Config):
         fig = px.box(main_df,
                      x=self.group,
                      y=y,
+                     custom_data=["sc_point_gid"],
                      labels={y: self.units[labely]},
                      color=self.group,
                      color_discrete_sequence=px.colors.qualitative.Safe)

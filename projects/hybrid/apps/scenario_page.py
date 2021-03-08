@@ -30,7 +30,7 @@ from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
                             DEFAULT_MAPVIEW, MAP_LAYOUT, STATES, TAB_STYLE,
                             TABLET_STYLE, VARIABLES)
 from review.support import (chart_point_filter, Config, Data, Data_Path,
-                            Difference, Least_Cost, Plots)
+                            Difference, Least_Cost, Plots, wmean)
 
 
 ############## Temporary for initial layout ###################################
@@ -74,7 +74,7 @@ RECALC_TABLE = {
 }
 ############## Temporary ######################################################
 
-############## Everything below goes into css ################################
+############## Everything below goes into a css ###############################
 REGION_OPTIONS = [
     {"label": "National", "value": "national"},
     {"label": "NREL Regions", "value": "nrel_region"},
@@ -307,16 +307,16 @@ layout = html.Div(
                         value="all",
                         style=TAB_STYLE,
                         children=[
-                            dcc.Tab(value='all',
-                                    label='All',
+                            dcc.Tab(value="all",
+                                    label="All",
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE_CLOSED),
-                            dcc.Tab(value='group',
-                                    label='Group',
+                            dcc.Tab(value="group",
+                                    label="Group",
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE_CLOSED),
-                            dcc.Tab(value='list',
-                                    label='List',
+                            dcc.Tab(value="list",
+                                    label="List",
                                     style=TABLET_STYLE,
                                     selected_style=TABLET_STYLE_CLOSED)
                             ]
@@ -961,14 +961,12 @@ def build_spec_split(path, project):
     for _, row in pdf.iterrows():
         row = "| {} | {}% |\n".format(row["s"], row["p"])
         table = table + row
-
     return table
 
 
 def build_title(df, project, path, path2, y, x,  diff, recalc_table=None):
     """Create chart title."""
-    # print_args(build_title, df, path, path2, y, x,  difference, recalc,
-#                title_size)
+    # print_args(build_title, df, path, path2, y, x,  diff, recalc_table)
     config = Config(project)
     s1 = os.path.basename(path).replace("_sc.csv", "")
     s1 = " ".join(s1.split("_")).capitalize()
@@ -988,7 +986,7 @@ def build_title(df, project, path, path2, y, x,  diff, recalc_table=None):
     if y in AGGREGATIONS:
         ag_fun = AGGREGATIONS[y]
         if ag_fun == "mean":
-            conditioner = "Unweighted mean"
+            conditioner = "Average"
         else:
             conditioner = "Total"
 
@@ -1021,7 +1019,11 @@ def build_title(df, project, path, path2, y, x,  diff, recalc_table=None):
                 else:
                     units = "TW"
             else:
-                ag = round(df[y].apply(ag_fun), 2)
+                if ag_fun == "mean":
+                    ag = round(wmean(df, y, weight="n_gids"), 2)
+                    # ag = round(df[y].apply(ag_fun), 2)
+                else:
+                    ag = round(df[y].apply(ag_fun), 2)
                 if diff == "on":
                     units = ""
                 else:
@@ -1046,8 +1048,8 @@ def calc_mask(df1, df2, threshold, threshold_field):
                Input("chart", "selectedData")])
 def calc_total_capacity(signal, mapsel, chartsel):
     """Calculate total remaining capacity after all filters are applied."""
-    # print_args(calc_total_capacity, signal, mapsel, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
+    # print_args(calc_total_capacity, signal, mapsel, chartsel, trig=trig)
     df = cache_map_data(signal)
     [path, path2, y, x, diff, states, ymin, ymax, threshold,
      units, mask, recalc_table, recalc, project] = json.loads(signal)
@@ -1104,7 +1106,7 @@ def cache_map_data(signal):
     # Is it faster to subset columns before rows?
     keepers = [y, x, "print_capacity", "total_lcoe_threshold",
                "mean_lcoe_threshold", "state", "nrel_region", "county",
-               "latitude", "longitude", "sc_point_gid", "index"]
+               "latitude", "longitude", "sc_point_gid", "n_gids", "index"]
     df1 = df1[keepers]
 
     # For other functions this data frame needs an x field
@@ -1324,7 +1326,7 @@ def options_options(project, lc_update):
     """Update the options given a project."""
     # Catch the trigger
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
-    print_args(options_options, project, lc_update, trig=trig)
+    # print_args(options_options, project, lc_update, trig=trig)
 
     # We need the project configuration
     config = Config(project)
@@ -1396,7 +1398,7 @@ def options_project(pathname):
               [State("recalc_table", "children")])
 def options_recalc_a(project, scenario, recalc_table):
     """Update the drop down options for each scenario."""
-    print_args(options_recalc_a, project, scenario, recalc_table)
+    # print_args(options_recalc_a, project, scenario, recalc_table)
     data = Data(project)
     recalc_table = json.loads(recalc_table)
     scenario = os.path.basename(scenario).replace("_sc.csv", "")
@@ -1450,7 +1452,7 @@ def options_recalc_a(project, scenario, recalc_table):
               [State("recalc_table", "children")])
 def options_recalc_b(project, scenario, recalc_table):
     """Update the drop down options for each scenario."""
-    print_args(options_recalc_b, project, scenario, recalc_table)
+    # print_args(options_recalc_b, project, scenario, recalc_table)
     data = Data(project)
     recalc_table = json.loads(recalc_table)
     scenario = os.path.basename(scenario).replace("_sc.csv", "")
@@ -1590,8 +1592,8 @@ def options_toggle_rev_color_button(click):
 def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
                       by, recalc_table):
     """Calculate low cost fields based on user decision."""
-    print_args(retrieve_low_cost, submit, project, how, lst, group,
-               group_choice, options, by, recalc_table)
+    # print_args(retrieve_low_cost, submit, project, how, lst, group,
+    #            group_choice, options, by, recalc_table)
 
     if not submit:
         raise PreventUpdate
@@ -1668,7 +1670,8 @@ def retrieve_chart_tables(y, x, state):
 @app.callback(Output("map_signal", "children"),
               [Input("submit", "n_clicks"),
                Input("state_options", "value"),
-               Input("chart_options", "value")],
+               Input("chart_options", "value"),
+               Input("chart_xvariable_options", "value")],
               [State("project", "value"),
                State("upper_lcoe_threshold", "value"),
                State("threshold_field", "value"),
@@ -1676,19 +1679,18 @@ def retrieve_chart_tables(y, x, state):
                State("scenario_b", "value"),
                State("lchh_path", "children"),
                State("variable", "value"),
-               State("chart_xvariable_options", "value"),
                State("difference", "value"),
                State("low_cost_tabs", "value"),
                State("threshold_mask", "value"),
                State("recalc_table", "children"),
                State("recalc_tab", "value")])
-def retrieve_map_signal(submit, states, chart, project, threshold,
-                        threshold_field, path, path2, lchh_path, y, x, diff,
+def retrieve_map_signal(submit, states, chart, x, project, threshold,
+                        threshold_field, path, path2, lchh_path, y, diff,
                         lchh_toggle, mask, recalc_table, recalc):
     """Create signal for sharing data between map and chart with dependence."""
-    print_args(retrieve_map_signal, submit, states, chart, project, threshold,
-                threshold_field, path, path2, lchh_path, y, x, diff,
-                lchh_toggle, mask, recalc_table, recalc)
+    # print_args(retrieve_map_signal, submit, states, chart,  x, project,
+    #            threshold, threshold_field, path, path2, lchh_path, y,diff,
+    #            lchh_toggle, mask, recalc_table, recalc)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + trig + "'")
 
@@ -1827,9 +1829,9 @@ def make_map(signal, basemap, color, chartsel, point_size,
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
-    print_args(make_map, signal, basemap, color, chartsel, point_size,
-               rev_color, uymin, uymax, project, mapview, mapsel)
     trig = dash.callback_context.triggered[0]['prop_id']
+    # print_args(make_map, signal, basemap, color, chartsel, point_size,
+    #            rev_color, uymin, uymax, project, mapview, mapsel, trig=trig)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal

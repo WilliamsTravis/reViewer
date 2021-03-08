@@ -225,7 +225,63 @@ ORIGINAL_FIELDS = ["sc_gid", "res_gids", "gen_gids", "gid_counts", "n_gids",
                    "county", "elevation", "timezone", "sc_point_gid",
                    "sc_row_ind", "sc_col_ind", "res_class", "trans_multiplier",
                    "trans_gid", "trans_capacity", "trans_type",
-                   "trans_cap_cost", "dist_mi", "lcot", "total_lcoe"]
+                   "trans_cap_cost", "dist_mi", "lcot", "total_lcoe",
+                   "elevation_class", "windspeed_class"]
+
+RESOURCE_CLASSES = {
+    "elevation": {
+        "onshore": {  # Double check on these, the order was off in the email
+            1: [1715, 99999],
+            2: [1128, 1715],
+            3: [1120, 1128],
+            4: [977, 1120],
+            5: [918, 977],
+            6: [863, 918],
+            7: [755, 863],
+            8: [750, 755],
+            9: [654, 750],
+            10: [636, 654],
+            11: [-99999, 636]
+        },
+        "offshore": {
+            1: [-99999, 1000]
+        }
+    },
+    "windspeed": {
+        "onshore": {
+            1: [9.01, 100],
+            2: [8.77, 9.01],
+            3: [8.57, 8.77],
+            4: [8.35, 8.57],
+            5: [8.07, 8.35],
+            6: [7.62, 8.07],
+            7: [7.10, 7.62],
+            8: [6.53, 7.10],
+            9: [5.90, 6.53],
+            10: [0, 5.90],
+        },
+        "offshore": {
+            "fixed": {
+                1: [9.98, 100],
+                2: [9.31, 9.98],
+                3: [9.13, 9.31],
+                4: [8.85, 7.94],
+                5: [7.94, 8.85],
+                6: [7.07, 7.94],
+                7: [0, 7.07]
+            },
+            "floating": {
+                1: [10.30, 1000],
+                2: [10.01, 10.30],
+                3: [9.60, 10.01],
+                4: [8.84, 9.60],
+                5: [7.43, 8.84],
+                6: [5.98, 7.43],
+                7: [0, 5.98]
+            }
+        }
+    }
+}
 
 SCALE_OVERRIDES = {
     "total_lcoe": [0, 200],
@@ -256,7 +312,9 @@ TITLES = {
     "trans_cap_cost": "Transmission Capital Costs",
     "transmission_multiplier": "Transmission Cost Multiplier",
     "trans_multiplier": "Transmission Cost Multiplier",
-    "trans_type": "Transmission Feature Type"
+    "trans_type": "Transmission Feature Type",
+    "elevation_class": "Elevation Class",
+    "windspeed_class": "Windspeed Class"
 }
 
 
@@ -274,7 +332,9 @@ UNITS = {
     "trans_cap_cost": "$/MW",
     "transmission_multiplier": "category",
     "trans_multiplier": "category",
-    "trans_type": "category"
+    "trans_type": "category",
+    "elevation_class": "category",
+    "windspeed_class": "category"
 }
 
 VARIABLES = [
@@ -291,6 +351,8 @@ VARIABLES = [
     {"label": 'Transmission Capital Costs', "value": 'trans_cap_cost'},
     {"label": "Transmission Cost Multiplier", "value": "trans_multiplier"},
     {"label": "Tranmission Feature Type", "value": "trans_type"},
+    {"label": "Elevation Class", "value": "elevation_class"},
+    {"label": "Windspeed Class", "value": "windspeed_class"}
 ]
 
 
@@ -437,6 +499,16 @@ def is_number(x):
     return check
 
 
+def map_range(x, range_dict):
+    """Assign a key to x given a list of key, value ranges."""
+    keys = []
+    for key, values in range_dict.items():
+        if x >= values[0] and x < values[1]:
+            keys.append(key)
+    key = keys[0]
+    return key
+
+
 def sort_mixed(values):
     """Sort a list of values accounting for possible mixed types."""
     numbers = []
@@ -451,6 +523,32 @@ def sort_mixed(values):
     sorted_values = numbers + strings
     return sorted_values
 
+
+def wmean(df, field, weight="n_gids"):  # <------------------------------------ How to incorporate partial inclusions?
+    """Return the weighted average of a column.
+
+    Parameters
+    ----------
+    df : pandas.core.frame.DataFrame
+        A reV supply-curve module output table.
+    field : str
+        Column name of the variable to calculate.
+    weight : str
+        Column name of the variable to use as the weights. The default is
+        'n_gids'.
+    func : str
+        The aggregating function to use. Any in the numpy repertoire.
+
+    Returns
+    -------
+    int | float
+        Weighted mean of input field.
+    """
+    values = df[field].values
+    weights = df[weight].values
+    x = np.average(values, weights=weights)
+
+    return x
 
 class Config:
     """Class for handling configuration variables."""
@@ -614,6 +712,41 @@ class Data(Config):
                f"{files} files>")
         return msg
 
+    def build(self, scenario, fcr=None, capex=None, opex=None, losses=None):
+        """Read in a data table given a scenario with recalc.
+        
+        Parameters
+        ----------
+        scenario : str
+            The scenario key or data path for the desired data table. 
+        fcr : str | numeric
+            Fixed charge as a percentage.
+        capex : str | numeric
+            Capital expenditure in USD / KW
+        opex : str | numeric
+            Fixed operating costs in USD / KW
+        losses : str | numeric
+            Generation losses as a percentage.
+
+        Returns
+        -------
+        pd.core.frame.DataFrame
+            A supply-curve data frame with either the original values or
+            recalculated values if new parameters are given.
+        """
+        # This can be a path or a scenario
+        if ".csv" in scenario:
+            scenario = os.path.basename(scenario).replace("_sc.csv", "")
+
+        # Recalculate if needed, else return original table
+        recalcs = dict(fcr=fcr, capex=capex, opex=opex, losses=losses)
+        if any(recalcs.values()):
+            df = self.recalc(scenario, recalcs)
+        else:
+            df = self.read(scenario)
+
+        return df
+
     def lcoe(self, capacity, mean_cf, recalcs, ovalues):
         """Recalculate LCOE.
         
@@ -665,6 +798,56 @@ class Data(Config):
         cc = trans_cap_cost * capacity
         lcot = (cc * fcr) / (capacity * mean_cf * 8760)
         return lcot
+
+    def original_parameters(self, scenario):
+        """Return the original parameters for fcr, capex, opex, and losses."""
+        fields = self._find_fields(scenario)
+        config = self.project_config
+        params = config["parameters"][scenario]
+        ovalues = dict()
+        for key in ["fcr", "capex", "opex", "losses"]:
+            ovalues[key] = self._fix_format(params[fields[key]])
+        return ovalues
+
+    def read(self, path):
+        """Read in the needed columns of a supply-curve csv.
+ 
+        Parameters
+        ----------
+        scenario : str
+            The scenario key for the desired data table.
+
+        Returns
+        -------
+        pd.core.frame.DataFrame
+            A supply-curve table with original vlaues.
+        """
+        # Find the path and columns associated with this scenario
+        if not os.path.isfile(path):
+            path = self.files[path]
+        fields = list(self.units.keys())
+        ids = ["sc_gid", "sc_point_gid", "res_gids", "gid_counts", "n_gids",
+               "state", "nrel_region", "county", "latitude", "longitude"]
+        columns = ids + fields
+
+        # We might need to add fields before we can these in
+        df_columns = pd.read_csv(path, index_col=0, nrows=0).columns
+        df_columns = df_columns.tolist()
+        if not all([c in df_columns for c in columns]):
+            self._set_fields(path)
+
+        # There is a discrepancy in transmission multiplier's naming
+        if "transmission_multiplier" in df_columns:
+            columns.remove("trans_multiplier")
+        else:
+            columns.remove("transmission_multiplier")
+        if "scenario" in df_columns:
+            columns += ["scenario"]
+
+        # Read in table
+        df = pd.read_csv(path, usecols=columns)
+
+        return df
 
     def recalc(self, scenario, recalcs):
         """Recalculate LCOE for a data frame given a specific FCR.
@@ -720,85 +903,6 @@ class Data(Config):
 
         return df
 
-    def build(self, scenario, fcr=None, capex=None, opex=None, losses=None):
-        """Read in a data table given a scenario with recalc.
-        
-        Parameters
-        ----------
-        scenario : str
-            The scenario key or data path for the desired data table. 
-        fcr : str | numeric
-            Fixed charge as a percentage.
-        capex : str | numeric
-            Capital expenditure in USD / KW
-        opex : str | numeric
-            Fixed operating costs in USD / KW
-        losses : str | numeric
-            Generation losses as a percentage.
-
-        Returns
-        -------
-        pd.core.frame.DataFrame
-            A supply-curve data frame with either the original values or
-            recalculated values if new parameters are given.
-        """
-        # This can be a path or a scenario
-        if ".csv" in scenario:
-            scenario = os.path.basename(scenario).replace("_sc.csv", "")
-
-        # Recalculate if needed, else return original table
-        recalcs = dict(fcr=fcr, capex=capex, opex=opex, losses=losses)
-        if any(recalcs.values()):
-            df = self.recalc(scenario, recalcs)
-        else:
-            df = self.read(scenario)
-
-        return df
-
-    def read(self, path):
-        """Read in the needed columns of a supply-curve csv.
- 
-        Parameters
-        ----------
-        scenario : str
-            The scenario key for the desired data table.
-
-        Returns
-        -------
-        pd.core.frame.DataFrame
-            A supply-curve table with original vlaues.
-        """
-        # Find the path and columns associated with this scenario
-        if not os.path.isfile(path):
-            path = self.files[path]
-        fields = list(self.units.keys())
-        ids = ["sc_gid", "sc_point_gid", "res_gids", "gid_counts", "n_gids",
-               "state", "nrel_region", "county", "latitude", "longitude"]
-        columns = ids + fields
-        df_columns = pd.read_csv(path, index_col=0, nrows=0).columns.tolist()
-
-        # There is a discrepancy in transmission multiplier's naming
-        if "transmission_multiplier" in df_columns:
-            columns.remove("trans_multiplier")
-        else:
-            columns.remove("transmission_multiplier")
-        if "scenario" in df_columns:
-            columns += ["scenario"]
-
-        # Read in table
-        df = pd.read_csv(path, usecols=columns)
-        return df
-
-    def original_parameters(self, scenario):
-        """Return the original parameters for fcr, capex, opex, and losses."""
-        fields = self._find_fields(scenario)
-        config = self.project_config
-        params = config["parameters"][scenario]
-        ovalues = dict()
-        for key in ["fcr", "capex", "opex", "losses"]:
-            ovalues[key] = self._fix_format(params[fields[key]])
-        return ovalues
-
     def _check_percentage(self, value):
         """Check if a value is a decimal or percentage (Assuming here)."""
         if value > 1:
@@ -841,6 +945,44 @@ class Data(Config):
             mean_cf = gross_cf - (gross_cf * l2)
 
         return mean_cf
+
+    def _set_field(self, path, field):
+        """Assign a particular resource class to an sc df."""
+        df = pd.read_csv(path)
+        col = f"{field}_class"
+        if field == "windspeed":  # <------------------------------------------ How can we distinguish solar from wind?
+            dfield = "mean_res"
+        else:
+            dfield = field
+        if col not in df.columns:
+            onmap = RESOURCE_CLASSES[field]["onshore"]
+            offmap = RESOURCE_CLASSES[field]["offshore"]
+            if dfield in df.columns:
+                if "offshore" in df.columns:
+                    # onshore
+                    ondf = df[df["offshore"] == 0]
+                    clss = df[dfield].apply(map_range, range_dict=onmap)
+                    ondf[col] = clss
+
+                    # offshore
+                    offdf = df[df["offshore"] == 1]
+                    fidf = df[df["sub_type"] == "fixed"]
+                    clss = df[dfield].apply(map_range, range_dict=offmap)
+                    offdf[col] = clss
+                    # need an example with sub_type
+
+                    # Recombine
+                    df = pd.concat([ondf, offdf])
+                else:
+                    clss = df[dfield].apply(map_range, range_dict=onmap)
+                    df[col] = clss
+            df.to_csv(path, index=False)
+        return df
+
+    def _set_fields(self, path):
+        """Assign resource classes if possible to an sc df."""
+        for field in RESOURCE_CLASSES.keys():
+            self._set_field(path, field)
 
 
 class Difference:

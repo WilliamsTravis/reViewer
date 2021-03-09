@@ -546,11 +546,19 @@ def wmean(df, field, weight="n_gids"):  # <------------------------------------ 
     int | float
         Weighted mean of input field.
     """
+    # Get weights and values
     values = df[field].values
     weights = df[weight].values
+
+    # Ignore nan values in weights (artifact of old offshore module)
+    values = values[~np.isnan(weights)]
+    weights = weights[~np.isnan(weights)]
+
+    # Calculate
     x = np.average(values, weights=weights)
 
     return x
+
 
 class Config:
     """Class for handling configuration variables."""

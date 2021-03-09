@@ -719,7 +719,8 @@ layout = html.Div(
                     id="chart",
                     config={
                         "showSendToCloud": True,
-                        "toImageButtonOptions": {"width": None, "height": None},
+                        "toImageButtonOptions": {"width": None,
+                                                 "height": None},
                         "plotlyServerURL": "https://chart-studio.plotly.com"
                     }),
 
@@ -954,7 +955,7 @@ def build_spec_split(path, project):
     scenarios, counts = np.unique(df["scenario"], return_counts=True)
     total = df.shape[0]
     percentages = [counts[i] / total for i in range(len(counts))]
-    percentages = [round(p * 100, 4)  for p in percentages]
+    percentages = [round(p * 100, 4) for p in percentages]
     pdf = pd.DataFrame(dict(p=percentages, s=scenarios))
     pdf = pdf.sort_values("p", ascending=False)
     table = """| Scenario | Percentage |\n|----------|------------|\n"""
@@ -979,7 +980,7 @@ def build_title(df, project, path, path2, y, x,  diff, recalc_table=None):
                 msgs.append(f"{k}: {v}")
         if msgs:
             reprint = ", ".join(msgs)
-            s1 += f" ({reprint})" 
+            s1 += f" ({reprint})"
 
     title = s1 + "  |  " + config.titles[y]
 
@@ -1002,7 +1003,7 @@ def build_title(df, project, path, path2, y, x,  diff, recalc_table=None):
                         msgs.append(f"{k}: {v}")
                 if msgs:
                     reprint = ", ".join(msgs)
-                    s2 += f" ({reprint})" 
+                    s2 += f" ({reprint})"
 
                 title = "{} vs <br>{} | ".format(s1, s2) + config.titles[y]
             else:

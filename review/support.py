@@ -24,6 +24,8 @@ from colorama import Style, Fore
 from review import Data_Path, print_args
 from tqdm import tqdm
 
+pd.set_option('mode.chained_assignment', None)
+
 
 CONFIG_PATH = os.path.expanduser("~/.review_config")
 with open(CONFIG_PATH, "r") as file:
@@ -265,7 +267,7 @@ RESOURCE_CLASSES = {
                 1: [9.98, 100],
                 2: [9.31, 9.98],
                 3: [9.13, 9.31],
-                4: [8.85, 7.94],
+                4: [8.85, 9.13],
                 5: [7.94, 8.85],
                 6: [7.07, 7.94],
                 7: [0, 7.07]
@@ -714,11 +716,11 @@ class Data(Config):
 
     def build(self, scenario, fcr=None, capex=None, opex=None, losses=None):
         """Read in a data table given a scenario with recalc.
-        
+
         Parameters
         ----------
         scenario : str
-            The scenario key or data path for the desired data table. 
+            The scenario key or data path for the desired data table.
         fcr : str | numeric
             Fixed charge as a percentage.
         capex : str | numeric
@@ -749,7 +751,7 @@ class Data(Config):
 
     def lcoe(self, capacity, mean_cf, recalcs, ovalues):
         """Recalculate LCOE.
-        
+
         Parameters
         ----------
         capacity : pd.core.series.Series | np.ndarray
@@ -788,7 +790,7 @@ class Data(Config):
             A dictionary with new entries for capex, opex, and fcr.
         ovalues : dict
             A dicitonary with the original values for capex, opex, and fcr.
-    
+
         Returns
         -------
         np.ndarray
@@ -811,7 +813,7 @@ class Data(Config):
 
     def read(self, path):
         """Read in the needed columns of a supply-curve csv.
- 
+
         Parameters
         ----------
         scenario : str
@@ -845,13 +847,13 @@ class Data(Config):
             columns += ["scenario"]
 
         # Read in table
-        df = pd.read_csv(path, usecols=columns)
+        df = pd.read_csv(path, usecols=columns, low_memory=False)
 
         return df
 
     def recalc(self, scenario, recalcs):
         """Recalculate LCOE for a data frame given a specific FCR.
-        
+
         Parameters
         ----------
         scenario : str
@@ -896,7 +898,7 @@ class Data(Config):
 
         # Recalculate figures
         df["mean_cf"] = mean_cf  # What else will this affect?
-        df["mean_lcoe"] = self.lcoe(capacity, mean_cf_adj,recalcs, ovalues)
+        df["mean_lcoe"] = self.lcoe(capacity, mean_cf_adj, recalcs, ovalues)
         df["lcot"] = self.lcot(capacity, trans_cap_cost, mean_cf, recalcs,
                                ovalues)
         df["total_lcoe"] = df["mean_lcoe"] + df["lcot"]
@@ -948,17 +950,18 @@ class Data(Config):
 
     def _set_field(self, path, field):
         """Assign a particular resource class to an sc df."""
-        df = pd.read_csv(path)
+        df = pd.read_csv(path, low_memory=False)
         col = f"{field}_class"
         if field == "windspeed":  # <------------------------------------------ How can we distinguish solar from wind?
             dfield = "mean_res"
         else:
             dfield = field
         if col not in df.columns:
+            print("Updating fields for " + path + "...")
             onmap = RESOURCE_CLASSES[field]["onshore"]
             offmap = RESOURCE_CLASSES[field]["offshore"]
             if dfield in df.columns:
-                if "offshore" in df.columns:
+                if "offshore" in df.columns and dfield == "windspeed":
                     # onshore
                     ondf = df[df["offshore"] == 0]
                     clss = df[dfield].apply(map_range, range_dict=onmap)
@@ -966,12 +969,20 @@ class Data(Config):
 
                     # offshore
                     offdf = df[df["offshore"] == 1]
-                    fidf = df[df["sub_type"] == "fixed"]
-                    clss = df[dfield].apply(map_range, range_dict=offmap)
-                    offdf[col] = clss
-                    # need an example with sub_type
+
+                    # Fixed
+                    fimap = offmap["fixed"]
+                    fidf = offdf[offdf["sub_type"] == "fixed"]
+                    clss = fidf[dfield].apply(map_range, range_dict=fimap)
+
+                    # Floating
+                    flmap = offmap["floating"]
+                    fldf = offdf[offdf["sub_type"] == "floating"]
+                    clss = fldf[dfield].apply(map_range, range_dict=flmap)
+                    fldf[col] = clss
 
                     # Recombine
+                    offdf = pd.concat([fidf, fldf])
                     df = pd.concat([ondf, offdf])
                 else:
                     clss = df[dfield].apply(map_range, range_dict=onmap)
@@ -1268,11 +1279,12 @@ class Plots(Config):
             xunits = self.units[x]
 
         main_df = main_df.sort_values(self.group)
+        xlabel = f"{TITLES[x]} ({xunits})"
         fig = px.scatter(main_df,
                          x=x,
                          y=y,
                          custom_data=["sc_point_gid"],
-                         labels={x: xunits, y: yunits},
+                         labels={x: xlabel, y: yunits},
                          color=self.group,
                          color_discrete_sequence=px.colors.qualitative.Safe)
 

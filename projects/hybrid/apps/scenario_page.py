@@ -1670,9 +1670,9 @@ def retrieve_map_signal(submit, states, chart, x, project, threshold,
                         threshold_field, path, path2, lchh_path, y, diff,
                         lchh_toggle, mask, recalc_table, recalc):
     """Create signal for sharing data between map and chart with dependence."""
-    # print_args(retrieve_map_signal, submit, states, chart,  x, project,
-    #            threshold, threshold_field, path, path2, lchh_path, y,diff,
-    #            lchh_toggle, mask, recalc_table, recalc)
+    print_args(retrieve_map_signal, submit, states, chart,  x, project,
+                threshold, threshold_field, path, path2, lchh_path, y,diff,
+                lchh_toggle, mask, recalc_table, recalc)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + trig + "'")
 
@@ -1818,8 +1818,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(make_map, signal, basemap, color, chartsel, point_size,
-                rev_color, uymin, uymax, project, mapview, mapsel, trig=trig)
+    # print_args(make_map, signal, basemap, color, chartsel, point_size,
+    #             rev_color, uymin, uymax, project, mapview, mapsel, trig=trig)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
@@ -1880,8 +1880,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
 def make_chart(signal, chart, mapsel, point_size, op_values, region,
                uymin, uymax, project, chartview, chartsel):
     """Make one of a variety of charts."""
-    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-                region, chartview, chartsel)
+    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+    #             region, chartview, chartsel)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 

@@ -230,6 +230,76 @@ ORIGINAL_FIELDS = ["sc_gid", "res_gids", "gen_gids", "gid_counts", "n_gids",
                    "trans_cap_cost", "dist_mi", "lcot", "total_lcoe",
                    "elevation_class", "windspeed_class"]
 
+REGIONS = {
+    "Pacific": [
+        "Oregon",
+        "Washington"
+    ],
+    "Mountain": [
+        "Colorado",
+        "Idaho",
+        "Montana",
+        "Wyoming"
+    ],
+    "Great Plains": [
+        "Iowa",
+        "Kansas",
+        "Missouri",
+        "Minnesota",
+        "Nebraska",
+        "North Dakota",
+        "South Dakota"
+    ],
+    "Great Lakes": [
+        "Illinois",
+        "Indiana",
+        "Michigan",
+        "Ohio",
+        "Wisconsin"
+    ],
+    "Northeast": [
+        "Connecticut",
+        "New Jersey",
+        "New York",
+        "Maine",
+        "New Hampshire",
+        "Massachusetts",
+        "Pennsylvania",
+        "Rhode Island",
+        "Vermont"
+    ],
+    "California": [
+        "California"
+    ],
+    "Southwest": [
+        "Arizona",
+        "Nevada",
+        "New Mexico",
+        "Utah"
+    ],
+    "South Central": [
+        "Arkansas",
+        "Louisiana",
+        "Oklahoma",
+        "Texas"
+    ],
+    "Southeast": [
+        "Alabama",
+        "Delaware",
+        "District of Columbia",
+        "Florida",
+        "Georgia",
+        "Kentucky",
+        "Maryland",
+        "Mississippi",
+        "North Carolina",
+        "South Carolina",
+        "Tennessee",
+        "Virginia",
+        "West Virginia"
+    ]
+}
+
 RESOURCE_CLASSES = {
     "elevation": {
         "onshore": {  # Double check on these, the order was off in the email
@@ -511,6 +581,14 @@ def map_range(x, range_dict):
     return key
 
 
+def reshape_regions():
+    regions = {}
+    for region, states in REGIONS.items():
+        for state in states:
+            regions[state] = region
+    return regions
+
+
 def sort_mixed(values):
     """Sort a list of values accounting for possible mixed types."""
     numbers = []
@@ -526,14 +604,14 @@ def sort_mixed(values):
     return sorted_values
 
 
-def wmean(df, field, weight="n_gids"):  # <------------------------------------ How to incorporate partial inclusions?
+def wmean(df, y, weight="n_gids"):  # <------------------------------------ How to incorporate partial inclusions?
     """Return the weighted average of a column.
 
     Parameters
     ----------
     df : pandas.core.frame.DataFrame
         A reV supply-curve module output table.
-    field : str
+    y : str
         Column name of the variable to calculate.
     weight : str
         Column name of the variable to use as the weights. The default is
@@ -547,12 +625,15 @@ def wmean(df, field, weight="n_gids"):  # <------------------------------------ 
         Weighted mean of input field.
     """
     # Get weights and values
-    values = df[field].values
+    values = df[y].values
     weights = df[weight].values
 
-    # Ignore nan values in weights (artifact of old offshore module)
+    # Ignore nan values
     values = values[~np.isnan(weights)]
     weights = weights[~np.isnan(weights)]
+
+    weights = weights[~np.isnan(values)]
+    values = values[~np.isnan(values)]
 
     # Calculate
     x = np.average(values, weights=weights)

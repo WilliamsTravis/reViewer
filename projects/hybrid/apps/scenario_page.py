@@ -22,7 +22,7 @@ import pandas as pd
 from app import app, cache, cache2, cache3
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-#from plotly.colors import sequential as seq_colors
+from plotly.colors import sequential as seq_colors
 
 from review import print_args
 from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
@@ -98,8 +98,8 @@ DEFAULT_SIGNAL = json.dumps([FILEDF["file"].iloc[0], None, "capacity",
 
 # Reverse Color button styles
 RC_STYLES = copy.deepcopy(BUTTON_STYLES)
-RC_STYLES["off"]["border-color"] =  RC_STYLES["on"]["border-color"] = "#1663b5"
-RC_STYLES["off"]["border-width"] =  RC_STYLES["on"]["border-width"] = "3px"
+RC_STYLES["off"]["border-color"] = RC_STYLES["on"]["border-color"] = "#1663b5"
+RC_STYLES["off"]["border-width"] = RC_STYLES["on"]["border-width"] = "3px"
 RC_STYLES["off"]["border-top-width"] = "0px"
 RC_STYLES["on"]["border-top-width"] = "0px"
 RC_STYLES["off"]["border-radius-top-left"] = "0px"
@@ -213,7 +213,7 @@ layout = html.Div(
                                 label='Site LCOE',
                                 style=TABLET_STYLE,
                                 selected_style=TABLET_STYLE_CLOSED)
-                ]),
+                    ]),
                 dcc.Input(
                     id="upper_lcoe_threshold",
                     value=None,
@@ -234,7 +234,7 @@ layout = html.Div(
                                 label='Scenario B Mask',
                                 style=TABLET_STYLE,
                                 selected_style=TAB_BOTTOM_SELECTED_STYLE)
-                ]),
+                    ]),
             ], className="two columns"),
 
             # Show difference map
@@ -1126,26 +1126,6 @@ def cache_map_data(signal):
         if difference == "on":
             calculator = Difference()
             df = calculator.calc(df1, df2, y)
-
-            # # Save to file  <------------------------------------------------ Temporary
-            now = time.gmtime()
-            tmplt = "{}-{:02d}-{:02d}-{:02d}-{:02d}"
-            ts = tmplt.format(now.tm_year, now.tm_mon, now.tm_mday,
-                              now.tm_hour, now.tm_min)
-            fname = f"difference_{ts}.csv"
-            config = Config(project)
-            dst = os.path.join(config.directory, "review_outputs", fname)
-            df.to_csv(dst, index=False)
-
-            meta = {"difference_variable": y,
-                    "recalculated_variables": recalc_table,
-                    "file_a": path,
-                    "file_b": path2}
-            meta = json.dumps(meta, indent=4)
-            mdst = dst.replace("difference", "difference_meta").replace(".csv", ".json")
-            with open(mdst, "w") as f:
-                f.write(meta)
-
         else:
             df = df1.copy()
 
@@ -1254,7 +1234,7 @@ def options_lchh_group(group, filedf):
     """Display the available options for a chosen group."""
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
     if filedf:
-        print_args(options_lchh_group, group, filedf, trig=trig)
+        # print_args(options_lchh_group, group, filedf, trig=trig)
         filedf = json.loads(filedf)
         filedf = pd.DataFrame(filedf)
         options = filedf[group].unique()
@@ -1807,7 +1787,7 @@ def scenario_specs(scenario_a, scenario_b, project):
             specs1 = build_specs(scenario_a, project)
         else:
             specs1 = build_spec_split(scenario_a, project)
-    
+
         if "least_cost" not in scenario_b:
             scenario_b = scenario_b.replace("_sc.csv", "")
             specs2 = build_specs(scenario_b, project)

@@ -274,6 +274,7 @@ def add_datasets(n_clicks, pattern, initialdir, files):
 
     elif "file_pattern" in trig:
         paths = glob(os.path.join(initialdir, pattern), recursive=True)
+        paths.sort()
         new_files = dict(zip(range(0, len(paths)), paths))
         files = {**files, **new_files}
     else:
@@ -291,7 +292,7 @@ def add_datasets(n_clicks, pattern, initialdir, files):
 def set_dataset_groups(files, proj_dir, groups):
     """For each file, set a group and value from the user inputs above."""
     print_args(set_dataset_groups, files, proj_dir, groups)
-    if files != "null":
+    if files != "null" and files != '{}':
         files = json.loads(files)
         groups = json.loads(groups)
         groups = {k: v.split(",") for k, v in groups.items()}
@@ -356,7 +357,7 @@ def find_extra_fields(files, groups, fields):
     """Use one of the files to infer extra fields and assign units."""
     print_args(find_extra_fields, files, groups, fields)
 
-    if files == "null":
+    if files == "null" or files == '{}':
         raise PreventUpdate
 
     new_fields = []

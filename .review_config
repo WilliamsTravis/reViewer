@@ -7507,5 +7507,361 @@
                 "Transmission Line Cost": "$3,667/MW-mile"
             }
         }
+    },
+    "Airborne Wind Energy": {
+        "data": {
+            "file": {
+                "0": "/home/travis/nrel/review_datasets/awe/awe_s1500m_agg.csv",
+                "1": "/home/travis/nrel/review_datasets/awe/awe_s750m_agg.csv"
+            },
+            "Setbacks": {
+                "0": "1500",
+                "1": "750"
+            },
+            "name": {
+                "0": "awe_s1500m_agg.csv",
+                "1": "awe_s750m_agg.csv"
+            }
+        },
+        "directory": null,
+        "units": {
+            "lbnl_convex_hull_existing_farms_2018": "ncells",
+            "Setbacks": "m",
+            "area_sq_km": "square km",
+            "elevation": "m",
+            "capacity": "MW",
+            "dist_mi": "miles",
+            "lcot": "$/MWh",
+            "mean_cf": "ratio",
+            "mean_lcoe": "$/MWh",
+            "mean_res": "m/s",
+            "total_lcoe": "$/MWh",
+            "trans_capacity": "MW",
+            "trans_cap_cost": "$/MW",
+            "transmission_multiplier": "category",
+            "trans_multiplier": "category",
+            "trans_type": "category"
+        },
+        "scales": {
+            "lbnl_convex_hull_existing_farms_2018": {
+                "min": 1.0,
+                "max": 12995.0
+            },
+            "area_sq_km": {
+                "min": 0.0081,
+                "max": 132.7104
+            },
+            "elevation": {
+                "min": -71.0,
+                "max": 3362.0
+            },
+            "capacity": {
+                "min": 0.17091,
+                "max": 2800.18944
+            },
+            "mean_cf": {
+                "min": 0.0034874605480581,
+                "max": 0.4456785023212433
+            },
+            "mean_lcoe": {
+                "min": NaN,
+                "max": NaN
+            },
+            "mean_res": {
+                "min": 1.5898375511169434,
+                "max": 13.239998817443848
+            },
+            "transmission_multiplier": {
+                "min": "na",
+                "max": "na"
+            },
+            "trans_multiplier": {
+                "min": "na",
+                "max": "na"
+            },
+            "trans_type": {
+                "min": "na",
+                "max": "na"
+            }
+        },
+        "titles": {
+            "lbnl_convex_hull_existing_farms_2018": "LBNL Existing Wind Farm Presence",
+            "Setbacks": "Setbacks",
+            "area_sq_km": "Supply Curve Point Area",
+            "capacity": "Total Generation Capacity",
+            "elevation": "Elevation",
+            "dist_mi": "Distance to Transmission",
+            "lcot": "LCOT",
+            "mean_cf": "Mean Capacity Factor",
+            "mean_lcoe": "Mean Site-Based LCOE",
+            "mean_res": "Mean Windspeed",
+            "total_lcoe": "Total LCOE",
+            "trans_capacity": "Total Transmission Capacity",
+            "trans_cap_cost": "Transmission Capital Costs",
+            "transmission_multiplier": "Transmission Cost Multiplier",
+            "trans_multiplier": "Transmission Cost Multiplier",
+            "trans_type": "Transmission Feature Type"
+        }
+    },
+    "AWE": {
+        "data": {
+            "file": {
+                "0": "/home/travis/nrel/review_datasets/awe/awe_s1500m_agg.csv",
+                "1": "/home/travis/nrel/review_datasets/awe/awe_s750m_agg.csv"
+            },
+            "setbacks": {
+                "0": "1500",
+                "1": "750"
+            },
+            "name": {
+                "0": "awe_s1500m_agg.csv",
+                "1": "awe_s750m_agg.csv"
+            }
+        },
+        "directory": "",
+        "units": {
+            "lbnl_convex_hull_existing_farms_2018": "ncells",
+            "setbacks": "m",
+            "area_sq_km": "square km",
+            "elevation": "m",
+            "capacity": "MW",
+            "dist_mi": "miles",
+            "lcot": "$/MWh",
+            "mean_cf": "ratio",
+            "mean_lcoe": "$/MWh",
+            "mean_res": "m/s",
+            "total_lcoe": "$/MWh",
+            "trans_capacity": "MW",
+            "trans_cap_cost": "$/MW",
+            "transmission_multiplier": "category",
+            "trans_multiplier": "category",
+            "trans_type": "category"
+        },
+        "scales": {
+            "lbnl_convex_hull_existing_farms_2018": {
+                "min": 1.0,
+                "max": 12995.0
+            },
+            "area_sq_km": {
+                "min": 0.0081,
+                "max": 132.7104
+            },
+            "elevation": {
+                "min": -71.0,
+                "max": 3362.0
+            },
+            "capacity": {
+                "min": 0.17091,
+                "max": 2800.18944
+            },
+            "mean_cf": {
+                "min": 0.0034874605480581,
+                "max": 0.4456785023212433
+            },
+            "mean_lcoe": {
+                "min": NaN,
+                "max": NaN
+            },
+            "mean_res": {
+                "min": 1.5898375511169434,
+                "max": 13.239998817443848
+            },
+            "transmission_multiplier": {
+                "min": "na",
+                "max": "na"
+            },
+            "trans_multiplier": {
+                "min": "na",
+                "max": "na"
+            },
+            "trans_type": {
+                "min": "na",
+                "max": "na"
+            }
+        },
+        "titles": {
+            "lbnl_convex_hull_existing_farms_2018": "LBNL Existing Wind Farms (2018)",
+            "setbacks": "Setbacks",
+            "area_sq_km": "Supply Curve Point Area",
+            "capacity": "Total Generation Capacity",
+            "elevation": "Elevation",
+            "dist_mi": "Distance to Transmission",
+            "lcot": "LCOT",
+            "mean_cf": "Mean Capacity Factor",
+            "mean_lcoe": "Mean Site-Based LCOE",
+            "mean_res": "Mean Windspeed",
+            "total_lcoe": "Total LCOE",
+            "trans_capacity": "Total Transmission Capacity",
+            "trans_cap_cost": "Transmission Capital Costs",
+            "transmission_multiplier": "Transmission Cost Multiplier",
+            "trans_multiplier": "Transmission Cost Multiplier",
+            "trans_type": "Transmission Feature Type"
+        },
+        "parameters": {}
+    },
+    "Hybrids": {
+        "data": {
+            "file": {
+                "0": "/home/travis/nrel/review_datasets/solar-hybrids/scen_ed0_sc.csv",
+                "1": "/home/travis/nrel/review_datasets/solar-hybrids/scen_ed1_sc.csv",
+                "2": "/home/travis/nrel/review_datasets/solar-hybrids/scen_ed2_sc.csv",
+                "3": "/home/travis/nrel/review_datasets/solar-hybrids/scen_ed3_sc.csv",
+                "4": "/home/travis/nrel/review_datasets/solar-hybrids/scen_ed4_sc.csv"
+            },
+            "Scenario": {
+                "0": "0",
+                "1": "1",
+                "2": "2",
+                "3": "4",
+                "4": "4"
+            },
+            "name": {
+                "0": "scen_ed0_sc.csv",
+                "1": "scen_ed1_sc.csv",
+                "2": "scen_ed2_sc.csv",
+                "3": "scen_ed3_sc.csv",
+                "4": "scen_ed4_sc.csv"
+            }
+        },
+        "directory": "/home/travis/nrel/review_datasets/solar-hybrids",
+        "units": {
+            "Scenario": "",
+            "ba_regions": " ",
+            "cnty_fips": " ",
+            "nrel_region": " ",
+            "reeds_regions": " ",
+            "resolution_128_sc_point_gid": " ",
+            "transmission_multiplier": "category",
+            "area_sq_km": "square km",
+            "elevation": "m",
+            "capacity": "MW",
+            "dist_mi": "miles",
+            "lcot": "$/MWh",
+            "mean_cf": "ratio",
+            "mean_lcoe": "$/MWh",
+            "mean_res": "m/s",
+            "total_lcoe": "$/MWh",
+            "trans_capacity": "MW",
+            "trans_cap_cost": "$/MW",
+            "trans_multiplier": "category",
+            "trans_type": "category",
+            "elevation_class": "category",
+            "windspeed_class": "category"
+        },
+        "scales": {
+            "Scenario": {
+                "min": NaN,
+                "max": NaN
+            },
+            "ba_regions": {
+                "min": 1.0,
+                "max": 134.0
+            },
+            "cnty_fips": {
+                "min": 1001.0,
+                "max": 56045.0
+            },
+            "nrel_region": {
+                "min": NaN,
+                "max": NaN
+            },
+            "reeds_regions": {
+                "min": 1.0,
+                "max": 356.0
+            },
+            "resolution_128_sc_point_gid": {
+                "min": 416.0,
+                "max": 99498.0
+            },
+            "area_sq_km": {
+                "min": 0.0009000000067055,
+                "max": 132.7104
+            },
+            "elevation": {
+                "min": -68.16266632080078,
+                "max": 3010.0625
+            },
+            "capacity": {
+                "min": 0.0288000002145767,
+                "max": 4246.7328
+            },
+            "dist_mi": {
+                "min": 0.0009072193353325,
+                "max": 231.0759782851043
+            },
+            "lcot": {
+                "min": 0.0014446216985313,
+                "max": 31.262087495414
+            },
+            "mean_cf": {
+                "min": 0.1208421811461448,
+                "max": 0.2589038014411926
+            },
+            "mean_lcoe": {
+                "min": 37.46914291381836,
+                "max": 80.57710266113281
+            },
+            "mean_res": {
+                "min": 2.993000030517578,
+                "max": 6.081743240356445
+            },
+            "total_lcoe": {
+                "min": 37.85753703946376,
+                "max": 95.69430886605076
+            },
+            "trans_capacity": {
+                "min": 12.0,
+                "max": 25760.0
+            },
+            "trans_cap_cost": {
+                "min": 50.051307678222656,
+                "max": 929012.0625
+            },
+            "transmission_multiplier": {
+                "min": "na",
+                "max": "na"
+            },
+            "trans_multiplier": {
+                "min": "na",
+                "max": "na"
+            },
+            "trans_type": {
+                "min": "na",
+                "max": "na"
+            },
+            "elevation_class": {
+                "min": "na",
+                "max": "na"
+            },
+            "windspeed_class": {
+                "min": "na",
+                "max": "na"
+            }
+        },
+        "titles": {
+            "Scenario": "Scenario",
+            "ba_regions": "Balancing Area",
+            "cnty_fips": "County FIPS",
+            "nrel_region": "NREL Region",
+            "reeds_regions": " ReEDS Region",
+            "resolution_128_sc_point_gid": "Point ID",
+            "transmission_multiplier": "Transmission Cost Multiplier",
+            "area_sq_km": "Supply Curve Point Area",
+            "capacity": "Total Capacity",
+            "elevation": "Elevation",
+            "dist_mi": "Distance to Transmission",
+            "lcot": "LCOT",
+            "mean_cf": "Mean Capacity Factor",
+            "mean_lcoe": "Mean Site-Based LCOE",
+            "mean_res": "Mean Windspeed",
+            "total_lcoe": "Total LCOE",
+            "trans_capacity": "Total Transmission Capacity",
+            "trans_cap_cost": "Transmission Capital Costs",
+            "trans_multiplier": "Transmission Cost Multiplier",
+            "trans_type": "Transmission Feature Type",
+            "elevation_class": "Elevation Class",
+            "windspeed_class": "Windspeed Class"
+        },
+        "parameters": {}
     }
 }

@@ -1254,7 +1254,7 @@ def options_lchh_group(group, filedf):
     """Display the available options for a chosen group."""
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
     if filedf:
-#        print_args(options_lchh_group, group, filedf, trig=trig)
+        print_args(options_lchh_group, group, filedf, trig=trig)
         filedf = json.loads(filedf)
         filedf = pd.DataFrame(filedf)
         options = filedf[group].unique()
@@ -1796,17 +1796,23 @@ def retrieve_recalc_parameters(fcr1, capex1, opex1, losses1,
 def scenario_specs(scenario_a, scenario_b, project):
     """Output the specs association with a chosen scenario."""
     # print_args(scenario_specs, scenario_a, scenario_b)
-    if "least_cost" not in scenario_a:
-        scenario_a = scenario_a.replace("_sc.csv", "")
-        specs1 = build_specs(scenario_a, project)
+    # Return a blank space if no parameters entry found
+    params = Config(project).project_config["parameters"]
+    if not params:
+        specs1 = ""
+        specs2 = ""
     else:
-        specs1 = build_spec_split(scenario_a, project)
-
-    if "least_cost" not in scenario_b:
-        scenario_b = scenario_b.replace("_sc.csv", "")
-        specs2 = build_specs(scenario_b, project)
-    else:
-        specs2 = build_spec_split(scenario_b, project)
+        if "least_cost" not in scenario_a:
+            scenario_a = scenario_a.replace("_sc.csv", "")
+            specs1 = build_specs(scenario_a, project)
+        else:
+            specs1 = build_spec_split(scenario_a, project)
+    
+        if "least_cost" not in scenario_b:
+            scenario_b = scenario_b.replace("_sc.csv", "")
+            specs2 = build_specs(scenario_b, project)
+        else:
+            specs2 = build_spec_split(scenario_b, project)
 
     return specs1, specs2
 

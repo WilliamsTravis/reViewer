@@ -628,15 +628,19 @@ def wmean(df, y, weight="n_gids"):  # <------------------------------------ How 
     values = df[y].values
     weights = df[weight].values
 
-    # Ignore nan values
-    values = values[~np.isnan(weights)]
-    weights = weights[~np.isnan(weights)]
+    # weights might all be nans or 0s
+    if np.nansum(weights) == 0:
+        x = np.nanmean(values)
+    else:
+        # Ignore nan values
+        values = values[~np.isnan(weights)]
+        weights = weights[~np.isnan(weights)]
 
-    weights = weights[~np.isnan(values)]
-    values = values[~np.isnan(values)]
+        weights = weights[~np.isnan(values)]
+        values = values[~np.isnan(values)]
 
-    # Calculate
-    x = np.average(values, weights=weights)
+        # Calculate
+        x = np.average(values, weights=weights)
 
     return x
 

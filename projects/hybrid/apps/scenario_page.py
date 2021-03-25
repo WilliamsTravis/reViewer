@@ -1671,8 +1671,8 @@ def retrieve_map_signal(submit, states, chart, x, project, threshold,
                         lchh_toggle, mask, recalc_table, recalc):
     """Create signal for sharing data between map and chart with dependence."""
     print_args(retrieve_map_signal, submit, states, chart,  x, project,
-                threshold, threshold_field, path, path2, lchh_path, y,diff,
-                lchh_toggle, mask, recalc_table, recalc)
+               threshold, threshold_field, path, path2, lchh_path, y,diff,
+               lchh_toggle, mask, recalc_table, recalc)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + trig + "'")
 

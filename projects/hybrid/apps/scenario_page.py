@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-"""
-View reV results using a configuration file.
+"""View reV results using a configuration file.
 
 Things to do:
-    - Add in recalculations of LCOE figures with parameterized FCRs
-      (useful life built in to this figure.)
-    - Actually, what can we postprocess? Think about what is simple to quickly
-      recalculate and parameterize that.
+    - Fix Histogram
+    - Move styling to CSS
+    - Improve caching
+    - Speed up everything
+    - Download option
+    - Automate startup elements
 """
 import copy
 import json
@@ -287,21 +288,21 @@ layout = html.Div(
                     id="low_cost_group_tab_div",
                     style={"display": "none"},
                     children=[
-                    dcc.Tabs(
-                        id="low_cost_by",
-                        value="total_lcoe",
-                        style=TAB_STYLE,
-                        children=[
-                            dcc.Tab(value='total_lcoe',
-                                    label='Total LCOE',
-                                    style=TABLET_STYLE,
-                                    selected_style=TABLET_STYLE_CLOSED),
-                            dcc.Tab(value='mean_lcoe',
-                                    label='Site LCOE',
-                                    style=TABLET_STYLE,
-                                    selected_style=TABLET_STYLE_CLOSED),
-                        ]
-                    ),
+                        dcc.Tabs(
+                            id="low_cost_by",
+                            value="total_lcoe",
+                            style=TAB_STYLE,
+                            children=[
+                                dcc.Tab(value='total_lcoe',
+                                        label='Total LCOE',
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE_CLOSED),
+                                dcc.Tab(value='mean_lcoe',
+                                        label='Site LCOE',
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE_CLOSED),
+                            ]
+                        ),
                     dcc.Tabs(
                         id="low_cost_group_tab",
                         value="all",
@@ -1670,9 +1671,9 @@ def retrieve_map_signal(submit, states, chart, x, project, threshold,
                         threshold_field, path, path2, lchh_path, y, diff,
                         lchh_toggle, mask, recalc_table, recalc):
     """Create signal for sharing data between map and chart with dependence."""
-    print_args(retrieve_map_signal, submit, states, chart,  x, project,
-               threshold, threshold_field, path, path2, lchh_path, y,diff,
-               lchh_toggle, mask, recalc_table, recalc)
+    # print_args(retrieve_map_signal, submit, states, chart, x, project,
+    #            threshold, threshold_field, path, path2, lchh_path, y, diff,
+    #            lchh_toggle, mask, recalc_table, recalc)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + trig + "'")
 
@@ -1752,7 +1753,7 @@ def retrieve_recalc_parameters(fcr1, capex1, opex1, losses1,
         }
     else:
         recalc_table = {
-            "scenario_a":{
+            "scenario_a": {
                 "fcr": fcr1,
                 "capex": capex1,
                 "opex": opex1,

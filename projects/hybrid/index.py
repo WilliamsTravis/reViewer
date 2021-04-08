@@ -11,7 +11,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 
 from app import app, server
-from apps  import scenario_page, config_page
+from apps import scenario_page, config_page
 from review.support import BUTTON_STYLES
 from navbar import NAVBAR
 

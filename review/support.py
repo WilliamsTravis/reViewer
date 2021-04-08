@@ -5,7 +5,6 @@ Created on Sat Aug 15 15:47:40 2020
 
 @author: travis
 """
-import calendar
 import json
 import os
 import time
@@ -497,7 +496,7 @@ def get_dataframe_path(project, op_values):
         try:
             assert data.shape[0] == 1
             path = data["file"].values[0]
-        except:
+        except Exception:
             raise AssertionError(
                 Fore.RED
                 + "The options did not result in a single selection:"
@@ -562,7 +561,7 @@ def get_scales(file_df, field_units):
 
 
 def is_number(x):
-    """check if a string is a number."""
+    """Check if a string is a number."""
     try:
         int(x)
         check = True
@@ -582,6 +581,7 @@ def map_range(x, range_dict):
 
 
 def reshape_regions():
+    """Reshape region dictionary."""
     regions = {}
     for region, states in REGIONS.items():
         for state in states:
@@ -729,7 +729,7 @@ class Config:
         files = {}
         for file in self.data["file"]:
             scenario = file.replace("_sc.csv", "")
-            files[scenario] = os.path.join(self.directory, file) 
+            files[scenario] = os.path.join(self.directory, file)
         return files
 
     @property
@@ -771,7 +771,7 @@ class Config:
         for file in self.data["file"]:
             scenarios.append(file.replace("_sc.csv", ""))
         return scenarios
-            
+
     @property
     def titles(self):
         """Return a titles dictionary with extra fields."""
@@ -1230,7 +1230,8 @@ class Least_Cost():
         self.recalc_table = recalc_table
 
     def __repr__(self):
-        msg = (f"<reView Least_Cost object>")
+        """Print representation string."""
+        msg = ("<reView Least_Cost object>")
         return msg
 
     def least_cost(self, dfs, by="total_lcoe"):

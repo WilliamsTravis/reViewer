@@ -17,7 +17,7 @@ from review.support import Config, Data_Path
 from tqdm import tqdm
 
 
-CONFIG = Config("ATB 2020")
+CONFIG = Config("Transition | ATB 2020")
 DP = Data_Path(CONFIG.directory)
 FILES = DP.contents("*sc.csv")
 REGIONS = {

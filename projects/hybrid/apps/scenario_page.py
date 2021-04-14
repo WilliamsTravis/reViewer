@@ -12,7 +12,6 @@ Things to do:
 import copy
 import json
 import os
-import time
 
 import dash
 import dash_core_components as dcc
@@ -23,7 +22,7 @@ import pandas as pd
 from app import app, cache, cache2, cache3
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-from plotly.colors import sequential as seq_colors
+# from plotly.colors import sequential as seq_colors
 
 from review import print_args
 from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
@@ -35,7 +34,7 @@ from review.support import (chart_point_filter, Config, Data, Data_Path,
 
 
 ############## Temporary for initial layout ###################################
-CONFIG = Config("Transition").project_config
+CONFIG = Config("Transition | ATB 2020").project_config
 DP = Data_Path(CONFIG["directory"])
 FILEDF = pd.DataFrame(CONFIG["data"])
 SPECS = CONFIG["parameters"]
@@ -121,7 +120,7 @@ layout = html.Div(
                 dcc.Dropdown(
                     id="project",
                     options=PROJECT_OPTIONS,
-                    value="Transition"
+                    value="Transition | ATB 2020"
                 )
             ], className="three columns"),
 
@@ -164,7 +163,7 @@ layout = html.Div(
                 ),
                 dcc.Markdown(
                     id="scenario_a_specs",
-                    style={"margin-left": "15px", "font-size": "9pt",
+                    style={"margin-left": "15px", "font-size": "11pt",
                            "height": "300px", "overflow-y": "scroll"}
                 )
             ], className="three columns", style={"margin-left": "50px"}),
@@ -182,7 +181,7 @@ layout = html.Div(
                         ),
                         dcc.Markdown(
                             id="scenario_b_specs",
-                            style={"margin-left": "15px", "font-size": "9pt",
+                            style={"margin-left": "15px", "font-size": "11pt",
                                    "height": "300px", "overflow-y": "scroll"}
                         )
                         ], className="three columns")
@@ -254,8 +253,43 @@ layout = html.Div(
                                 label='Off',
                                 style=TABLET_STYLE,
                                 selected_style=TABLET_STYLE_CLOSED)
-                ]),
-              html.Hr()
+                    ]),
+                dcc.Tabs(
+                    id="difference_units",
+                    value="percent",
+                    style=TAB_STYLE,
+                    children=[
+                        dcc.Tab(value='percent',
+                                label='Percentage',
+                                style=TABLET_STYLE,
+                                selected_style=TAB_BOTTOM_SELECTED_STYLE),
+                        dcc.Tab(value='original',
+                                label='Original Units',
+                                style=TABLET_STYLE,
+                                selected_style=TAB_BOTTOM_SELECTED_STYLE)
+                    ]),
+                html.Hr()
+            ], className="two columns"),
+
+            # Turn off weighted aggregations for speed
+            html.Div([
+                html.H5("Spatially Weighted Averages*",
+                        title="Toggle if you're curious about the effect."),
+                dcc.Tabs(
+                    id="weights",
+                    value="on",
+                    style=TAB_STYLE,
+                    children=[
+                        dcc.Tab(value='on',
+                                label='On',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE_CLOSED),
+                        dcc.Tab(value='off',
+                                label='Off',
+                                style=TABLET_STYLE,
+                                selected_style=TABLET_STYLE_CLOSED)
+                    ]),
+                html.Hr()
             ], className="two columns"),
 
             # Calculate Lowest Cost Hub Heights
@@ -966,15 +1000,33 @@ def build_spec_split(path, project):
     return table
 
 
-def build_title(df, project, path, path2, y, x,  diff, recalc_table=None):
+def infer_recalc(title):
+    """Quick title fix for recalc least cost paths."""  # <-------------------- Do better
+    variables = ["fcr", "capex", "opex", "losses"]
+    if "least cost" in title.lower():
+        if any([v in title for v in variables]):
+            title = title.replace("-", ".")
+            first_part = title.split("  ")[0]
+            recalc_part = title.split("  ")[1]
+            new_part = []
+            for part in recalc_part.split():
+                letters = "".join([c for c in part if c.isalpha()])
+                numbers = part.replace(letters, "")
+                new_part.append(letters + ": " + numbers)
+            title = first_part + " (" + ", ".join(new_part) + ")"
+    return title
+
+
+def build_title(df, project, path, path2, y, x,  diff, recalc_table=None,
+                weights=True):
     """Create chart title."""
     # print_args(build_title, df, path, path2, y, x,  diff, recalc_table)
     config = Config(project)
     s1 = os.path.basename(path).replace("_sc.csv", "")
-    s1 = " ".join(s1.split("_")).capitalize()
+    s1 = " ".join([s.capitalize() for s in s1.split("_")])
 
     # User specified FCR?
-    if recalc_table:
+    if recalc_table and "Least cost" not in s1:
         msgs = []
         for k, v in recalc_table["scenario_a"].items():
             if v:
@@ -982,6 +1034,9 @@ def build_title(df, project, path, path2, y, x,  diff, recalc_table=None):
         if msgs:
             reprint = ", ".join(msgs)
             s1 += f" ({reprint})"
+
+    if "least cost" in s1.lower():
+        s1 = infer_recalc(s1)
 
     title = s1 + "  |  " + config.titles[y]
 
@@ -1006,9 +1061,8 @@ def build_title(df, project, path, path2, y, x,  diff, recalc_table=None):
                     reprint = ", ".join(msgs)
                     s2 += f" ({reprint})"
 
-                title = "{} vs <br>{} | ".format(s1, s2) + config.titles[y]
-            else:
-                title = "{} vs {} | ".format(s1, s2) + config.titles[y]
+            title = "{} vs <br>{} <br> ".format(s1, s2) + config.titles[y]
+
             conditioner = "% Difference | Average"
             units = ""
 
@@ -1022,7 +1076,11 @@ def build_title(df, project, path, path2, y, x,  diff, recalc_table=None):
                     units = "TW"
             else:
                 if ag_fun == "mean":
-                    ag = round(wmean(df, y, weight="n_gids"), 2)
+                    if weights == "on":
+                        on = True
+                    else:
+                        on = False
+                    ag = round(wmean(df, y, weight="n_gids", on=on), 2)
                     # ag = round(df[y].apply(ag_fun), 2)
                 else:
                     ag = round(df[y].apply(ag_fun), 2)
@@ -1309,7 +1367,7 @@ def options_options(project, lc_update):
     """Update the options given a project."""
     # Catch the trigger
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
-    # print_args(options_options, project, lc_update, trig=trig)
+    print_args(options_options, project, lc_update, trig=trig)
 
     # We need the project configuration
     config = Config(project)
@@ -1571,12 +1629,13 @@ def options_toggle_rev_color_button(click):
                State("low_cost_split_group_options", "value"),
                State("scenario_a", "options"),
                State("low_cost_by", "value"),
-               State("recalc_table", "children")])
+               State("recalc_table", "children"),
+               State("recalc_tab", "value")])
 def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
-                      by, recalc_table):
+                      by, recalc_table, recalc):
     """Calculate low cost fields based on user decision."""
-    # print_args(retrieve_low_cost, submit, project, how, lst, group,
-    #            group_choice, options, by, recalc_table)
+    print_args(retrieve_low_cost, submit, project, how, lst, group,
+               group_choice, options, by, recalc_table, recalc)
 
     if not submit:
         raise PreventUpdate
@@ -1587,18 +1646,20 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
     # Make a tag for all of our recalc values
     if recalc_table:
         recalc_table = json.loads(recalc_table)
+    if recalc == "on":
         tags = []
         for k, v in recalc_table["scenario_a"].items():
             if v:
-                tag = str(v).replace(".", "_") + k
+                tag = str(v).replace(".", "-") + k
                 tags.append(tag)
         recalc_tag = "_".join(tags)
+        recalc_tag = f"{recalc_tag}"
 
     # Build the appropriate paths and target file name
     if how == "all":
         # Just one output
-        if recalc_table:
-            fname = f"least_cost_by_{by}_{recalc_tag}_all_sc.csv"
+        if recalc_table and recalc == "on":
+            fname = f"least_cost_by_{by}__{recalc_tag}__all_sc.csv"
         else:
             fname = f"least_cost_by_{by}_all_sc.csv"
         paths = FILEDF["file"].values
@@ -1608,16 +1669,17 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
         paths = lst
         scenarios = [os.path.basename(path).split("_")[1] for path in paths]
         scen_key = "_".join(scenarios)
-        if recalc_table:
-            fname = f"least_cost_by_{by}_{scen_key}_{recalc_tag}_sc.csv"
+        if recalc_table and recalc == "on":
+            fname = f"least_cost_by_{by}_{scen_key}__{recalc_tag}__sc.csv"
         else:
             fname = f"least_cost_by_{by}_{scen_key}_sc.csv"
 
     else:
         # This could create multiple outputs, but we'll do one at a time
         grp_key = group_choice.replace(".", "")
-        if recalc_table:
-            fname = f"least_cost_by_{by}_{group}_{grp_key}_{recalc_tag}_sc.csv"
+        if recalc_table and recalc == "on":
+            fname = (f"least_cost_by_{by}_{group}_{grp_key}__{recalc_tag}_"
+                     "_sc.csv")
         else:
             fname = f"least_cost_by_{by}_{group}_{grp_key}_sc.csv"
         paths = FILEDF["file"][FILEDF[group] == group_choice].values
@@ -1626,13 +1688,19 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
     paths = [DP.join(path) for path in paths]
     lchh_path = DP.join("review_outputs", fname, mkdir=True)
     print("calculating" + " " + lchh_path + "...")
-    calculator = Least_Cost(project, recalc_table=recalc_table)
+    if recalc == "on":
+        calculator = Least_Cost(project, recalc_table=recalc_table)
+    else:
+        calculator = Least_Cost(project)
     calculator.calc(paths, lchh_path, by=by)
 
     # Update the scenario file options
     label = " ".join([f.capitalize() for f in fname.split("_")[:-1]])
+    option = {"label": label, "value": lchh_path}
     if label not in [o["label"] for o in options]:
-        option = {"label": label, "value": lchh_path}
+        options.append(option)
+    else:
+        options.remove(option)
         options.append(option)
     return json.dumps(options)
 
@@ -1810,17 +1878,19 @@ def scenario_specs(scenario_a, scenario_b, project):
                Input("map_color_max", "value")],
               [State("project", "value"),
                State("map", "relayoutData"),
-               State("map", "selectedData")])
+               State("map", "selectedData"),
+               State("weights", "value")])
 def make_map(signal, basemap, color, chartsel, point_size,
-             rev_color, uymin, uymax, project, mapview, mapsel):
+             rev_color, uymin, uymax, project, mapview, mapsel, weights):
     """Make the scatterplot map.
 
     To fix the point selection issue check this out:
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(make_map, signal, basemap, color, chartsel, point_size,
-    #             rev_color, uymin, uymax, project, mapview, mapsel, trig=trig)
+    print_args(make_map, signal, basemap, color, chartsel, point_size,
+               rev_color, uymin, uymax, project, mapview, mapsel, weights,
+               trig=trig)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
@@ -1859,7 +1929,8 @@ def make_map(signal, basemap, color, chartsel, point_size,
         recalc_table = None
     data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
                          point_size)
-    title = build_title(df, project, path, path2, y, x, diff, recalc_table)
+    title = build_title(df, project, path, path2, y, x, diff, recalc_table,
+                        weights)
     layout = build_map_layout(mapview, title, basemap)
     figure = dict(data=data, layout=layout)
 
@@ -1877,12 +1948,13 @@ def make_map(signal, basemap, color, chartsel, point_size,
                Input("map_color_max", "value")],
               [State("project", "value"),
                State("chart", "relayoutData"),
-               State("chart", "selectedData")])
+               State("chart", "selectedData"),
+               State("weights", "value")])
 def make_chart(signal, chart, mapsel, point_size, op_values, region,
-               uymin, uymax, project, chartview, chartsel):
+               uymin, uymax, project, chartview, chartsel, weights):
     """Make one of a variety of charts."""
-    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-    #             region, chartview, chartsel)
+    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+               region, chartview, chartsel, weights)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 
@@ -1919,7 +1991,8 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
     # Whats the total capacity at this point?
     if recalc == "off":
         recalc_table = None
-    title = build_title(dfs, project, path, path2, y, x, diff, recalc_table)
+    title = build_title(dfs, project, path, path2, y, x, diff, recalc_table,
+                        weights)
 
     # User defined y-axis limits
     if uymin:

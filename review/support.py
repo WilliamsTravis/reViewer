@@ -604,7 +604,7 @@ def sort_mixed(values):
     return sorted_values
 
 
-def wmean(df, y, weight="n_gids"):  # <------------------------------------ How to incorporate partial inclusions?
+def wmean(df, y, weight="n_gids", on=True):  # <------------------------------------ How to incorporate partial inclusions?
     """Return the weighted average of a column.
 
     Parameters
@@ -616,31 +616,33 @@ def wmean(df, y, weight="n_gids"):  # <------------------------------------ How 
     weight : str
         Column name of the variable to use as the weights. The default is
         'n_gids'.
-    func : str
-        The aggregating function to use. Any in the numpy repertoire.
+    on : bool
+        Wether or not to apply weights.
 
     Returns
     -------
     int | float
         Weighted mean of input field.
     """
-    # Get weights and values
     values = df[y].values
-    weights = df[weight].values
+    if on:
+        weights = df[weight].values
 
-    # weights might all be nans or 0s
-    if np.nansum(weights) == 0:
-        x = np.nanmean(values)
+        # weights might all be nans or 0s
+        if np.nansum(weights) == 0:
+            x = np.nanmean(values)
+        else:
+            # Ignore nan values
+            values = values[~np.isnan(weights)]
+            weights = weights[~np.isnan(weights)]
+
+            weights = weights[~np.isnan(values)]
+            values = values[~np.isnan(values)]
+
+            # Calculate
+            x = np.average(values, weights=weights)
     else:
-        # Ignore nan values
-        values = values[~np.isnan(weights)]
-        weights = weights[~np.isnan(weights)]
-
-        weights = weights[~np.isnan(values)]
-        values = values[~np.isnan(values)]
-
-        # Calculate
-        x = np.average(values, weights=weights)
+        x = np.nanmean(values)
 
     return x
 
@@ -1092,15 +1094,19 @@ class Data(Config):
 class Difference:
     """Class to handle supply curve difference calculations."""
 
+    def __init__(self, units):
+        """Initialize Difference object."""
+        self.units = units
+
     def diff(self, x):
         """Return the percent difference between two values."""
         if x.shape[0] == 1:
             return np.nan
         else:
-            x1 = x.iloc[0]
-            x2 = x.iloc[1]
-            pct = 100 * ((x1 - x2) / x2)
-            return pct
+            diff = x.iloc[0] - x.iloc[1]
+            if self.units == "percent":
+                diff = 100 * (diff / x.iloc[1])
+            return diff
 
     def calc(self, df1, df2, field):
         """Calculate difference between each row in two data frames."""
@@ -1128,7 +1134,7 @@ class LCOE(Config):  # <------------------------------------------------------- 
 
     def lcoe(self, row, nvalues, ovalues):
         """Calculate LCOE for a single row.
-        
+
         Parameters
         ----------
         row: pd.core.series.Series
@@ -1136,7 +1142,7 @@ class LCOE(Config):  # <------------------------------------------------------- 
         nvalues: dict
             A dictionary with new entries for capex, opex, and fcr.
         ovalues: dict
-            A dicitonary with the original entries for capex, opex, and fcr   .         
+            A dicitonary with the original entries for capex, opex, and fcr.
         """
         capacity = row["capacity"] * 1000
         cc = nvalues["capex"] * capacity
@@ -1265,10 +1271,10 @@ class Least_Cost():
 
     def read_df(self, path):
         """Retrieve a single data frame."""
-        project, scenario = find_scenario(path)
+        _, scenario = find_scenario(path)
         if self.recalc_table:
             table = self.recalc_table["scenario_a"]
-            df = Data(project).build(scenario, **table)
+            df = Data(self.project).build(scenario, **table)
         else:
             df = pd.read_csv(path, low_memory=False)
         df["scenario"] = scenario
@@ -1288,6 +1294,11 @@ class Plots(Config):
         self.point_size = point_size
         self.yunits = yunits
         self.xunits = xunits
+
+    def __repr__(self):
+        """Print representation string."""
+        msg = f"<Plots object: path={self.config_path}, project={self.project}>"
+        return msg
 
     def ccap(self):
         """Return a cumulative capacity scatterplot."""
@@ -1400,7 +1411,7 @@ class Plots(Config):
     def histogram(self):
         """Return a histogram."""
         main_df = None
-        for key, df in self.data.items():
+        for key, df in self.datasets.items():
             df = self._fix_doubles(df)
             if main_df is None:
                 y = df.columns[1]
@@ -1421,9 +1432,14 @@ class Plots(Config):
             yunits = self.units[labely]
 
         main_df = main_df.sort_values(self.group)
+
+        # Use preset scales for the x axis and max count for y axis
+        limx = list(self.scales[y].values())
+
         fig = px.histogram(main_df,
                            x=y,
-                           custom_data=["sc_point_gid"],
+                           range_x=limx,
+                           range_y=[0, 4000],
                            labels={y: yunits},
                            color=self.group,
                            color_discrete_sequence=px.colors.qualitative.Safe)
@@ -1506,11 +1522,12 @@ class Plots(Config):
 
     def _fix_doubles(self, df):
         """Check and or fix columns names when they match."""
-        cols = np.array(df.columns)
-        counts = Counter(cols)
-        for col, count in counts.items():
-            if count > 1:
-                idx = np.where(cols == col)[0]
-                cols[idx[1]] = col + "_2"
-        df.columns = cols
+        if not isinstance(df, pd.core.frame.Series):
+            cols = np.array(df.columns)
+            counts = Counter(cols)
+            for col, count in counts.items():
+                if count > 1:
+                    idx = np.where(cols == col)[0]
+                    cols[idx[1]] = col + "_2"
+            df.columns = cols
         return df

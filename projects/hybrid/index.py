@@ -37,10 +37,9 @@ def change_page(pathname):
     else:
         page = scenario_page.layout
         scenario_style = {"display": "none"}
-
     return page, scenario_style, config_style
 
 
 if __name__ == '__main__':
 #    app.run_server(debug=True, port="9876")
-    app.run_server(port="9876")
+    app.run_server(debug=False, port="9876")

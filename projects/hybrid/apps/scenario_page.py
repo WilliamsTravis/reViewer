@@ -18,19 +18,19 @@ import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 import pandas as pd
+import plotly.express as px
 
 from app import app, cache, cache2, cache3
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
-# from plotly.colors import sequential as seq_colors
 
 from review import print_args
 from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
                             BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
-                            DEFAULT_MAPVIEW, MAP_LAYOUT, STATES, TAB_STYLE,
-                            TABLET_STYLE, VARIABLES)
-from review.support import (chart_point_filter, Config, Data, Data_Path,
-                            Difference, Least_Cost, Plots, wmean)
+                            COLOR_Q_OPTIONS, DEFAULT_MAPVIEW, MAP_LAYOUT,
+                            STATES, TAB_STYLE, TABLET_STYLE, VARIABLES)
+from review.support import (Config, Data, Data_Path, Difference, Least_Cost,
+                            Plots, point_filter, wmean)
 
 
 ############## Temporary for initial layout ###################################
@@ -91,10 +91,6 @@ TAB_BOTTOM_SELECTED_STYLE = {
     'line-height': '25px',
     'padding': '0px'
 }
-
-DEFAULT_SIGNAL = json.dumps([FILEDF["file"].iloc[0], None, "capacity",
-                             "mean_cf", "off", None, 0.0243, 398.1312,
-                             ["mean_lcoe_threshold", 50], "MW"])
 
 # Reverse Color button styles
 RC_STYLES = copy.deepcopy(BUTTON_STYLES)
@@ -832,7 +828,6 @@ layout = html.Div(
         # Interim way to share data between map and chart
         html.Div(
             id="map_signal",
-            children=DEFAULT_SIGNAL,
             style={"display": "none"}
             ),
 
@@ -843,31 +838,43 @@ layout = html.Div(
             style={"display": "none"}
             ),
 
+        # Capacity after make_map (avoiding duplicate calls)
+        html.Div(
+            id="mapcap",
+            style={"display": "none"}
+            )
     ]
 )
 
 
 # Support functions
-def build_map_layout(mapview, title, basemap, title_size=18):
+def build_map_layout(mapview, title, basemap, showlegend, ymin, ymax,
+                     title_size=18):
     """Build the map data layout dictionary."""
     layout = copy.deepcopy(MAP_LAYOUT)
-    layout['mapbox']['center'] = mapview['mapbox.center']
-    layout['mapbox']['zoom'] = mapview['mapbox.zoom']
-    layout['mapbox']['bearing'] = mapview['mapbox.bearing']
-    layout['mapbox']['pitch'] = mapview['mapbox.pitch']
-    layout['titlefont'] = dict(color='white',
-                               size=title_size,
-                               family='Time New Roman',
-                               fontweight='bold')
-    layout["legend"] = dict(size=20)
-    layout["dragmode"] = "select"
-    layout['title']['text'] = title
-    layout['mapbox']['style'] = basemap
+    layout["mapbox"]["center"] = mapview["mapbox.center"]
+    layout["mapbox"]["zoom"] = mapview["mapbox.zoom"]
+    layout["mapbox"]["bearing"] = mapview["mapbox.bearing"]
+    layout["mapbox"]["pitch"] = mapview["mapbox.pitch"]
+    layout["mapbox"]["style"] = basemap
+    layout["showlegend"] = showlegend
+    layout["title"]["text"] = title
+    layout["yaxis"] = dict(range=[ymin, ymax])
+    layout["legend"] = dict(
+                        title_font_family="Times New Roman",
+                        bgcolor="#E4ECF6",
+                        font=dict(
+                            family="Times New Roman",
+                            size=15,
+                            color="black"
+                            )
+                        )
     return layout
 
 
-def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
-    """Build a Plotly scatter plot dictionary."""
+def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
+                  title, mapview, mapsel, basemap, title_size=18):
+    """Build a Plotly scatter plot dictionary for the map."""
     # Create hover text
     if units == "category":
         df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
@@ -892,42 +899,26 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
                              + offdf[y].round(2).astype(str) + " " + units)
         df = pd.concat([ondf, offdf])
 
+    # Categorical data will be made of multiple traces
     if units == "category":
-        cats = {cat: i for i, cat in enumerate(df[y].unique())}
-        df["cat"] = df[y].map(cats)
-        y = "cat"
         showlegend = True
-        data = []
+        marker = dict(
+             opacity=1.0,
+             reversescale=rev_color,
+             size=point_size,
+             )
 
-        # We'll need to change the color drop down options for categorical
-        # colors = seq_colors.__dict__[color][::len(cats)]
-
-        for cat, value in cats.items():
-            # Create a sub data frame
-            sdf = df[df[y] == value]
-
-            # Create data object
-            trace = dict(type='scattermapbox',
-                         hoverinfo='text',
-                         hovermode='closest',
-                         lat=sdf['latitude'],
-                         lon=sdf['longitude'],
-                         mode='markers',
-                         name=cat,
-                         showlegend=showlegend,
-                         text=sdf['text'],
-                         marker=dict(
-                             # color=sdf[y],
-                             # colorscale=color,
-                             opacity=1.0,
-                             reversescale=rev_color,
-                             size=point_size
-                             )
-                         )
-
-            # Add to data
-            data.append(trace)
-
+        # Create data object
+        figure = px.scatter_mapbox(
+                    data_frame=df,
+                    color=y,
+                    color_discrete_sequence=color,
+                    lon="longitude",
+                    lat="latitude",
+                    custom_data=["sc_point_gid", "print_capacity"],
+                    hover_name="text",
+            )
+    # Continuous data will be just one trace
     else:
         showlegend = False
         marker = dict(
@@ -939,37 +930,29 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size):
              reversescale=rev_color,
              size=point_size,
              colorbar=dict(
-                 title=units,
-                 dtickrange=[
-                     ymin,
-                     ymax
-                 ],
-                 textposition="auto",
-                 orientation="h",
-                 font=dict(
-                     size=15,
-                     fontweight='bold')
+                 title=dict(text=units,
+                            font=dict(size=15, color="white",
+                                      family="New Times Roman")),
+                 tickfont=dict(color="white", family="New Times Roman")
                  )
              )
 
         # Create data object
-        data = [
-            dict(
-                type='scattermapbox',
-                lon=df['longitude'],
-                lat=df['latitude'],
-                text=df['text'],
-                mode='markers',
-                hoverinfo='text',
-                hovermode='closest',
-                showlegend=showlegend,
-                marker=marker,
-                render_mode="webgl",
-                editable="true"
+        figure = px.scatter_mapbox(
+                    data_frame=df,
+                    lon="longitude",
+                    lat="latitude",
+                    custom_data=["sc_point_gid", "print_capacity"],
+                    hover_name="text",
             )
-        ]
 
-    return data
+    # Update the layout
+    layout = build_map_layout(mapview, title, basemap, showlegend,
+                              ymin, ymax, title_size=18)
+    figure.update_layout(**layout)
+    figure.update_traces(marker=marker)
+
+    return figure
 
 
 def build_specs(scenario, project):
@@ -1017,11 +1000,25 @@ def infer_recalc(title):
     return title
 
 
-def build_title(df, project, path, path2, y, x,  diff, recalc_table=None,
-                weights=True):
+def build_title(df, signal_dict, weights=True):
     """Create chart title."""
-    # print_args(build_title, df, path, path2, y, x,  diff, recalc_table)
+    # print_args(build_title, df, signal_dict, weights)
+    diff = signal_dict["diff"]
+    units = signal_dict["units"]
+    path = signal_dict["path"]
+    path2 = signal_dict["path2"]
+    project = signal_dict["project"]
+    recalc = signal_dict["recalc"]
+    y = signal_dict["y"]
+    if recalc == "off":
+        recalc_table = None
+    else:
+        recalc_table = signal_dict["recalc_table"]
+
+    # Project configuration object
     config = Config(project)
+
+    # Infer scenario name from path
     s1 = os.path.basename(path).replace("_sc.csv", "")
     s1 = " ".join([s.capitalize() for s in s1.split("_")])
 
@@ -1035,11 +1032,14 @@ def build_title(df, project, path, path2, y, x,  diff, recalc_table=None,
             reprint = ", ".join(msgs)
             s1 += f" ({reprint})"
 
+    # Least Cost
     if "least cost" in s1.lower():
         s1 = infer_recalc(s1)
 
+    # Append variable title
     title = s1 + "  |  " + config.titles[y]
 
+    # Add variable aggregation value
     if y in AGGREGATIONS:
         ag_fun = AGGREGATIONS[y]
         if ag_fun == "mean":
@@ -1051,7 +1051,7 @@ def build_title(df, project, path, path2, y, x,  diff, recalc_table=None,
         if diff == "on":
             ag = "mean"
             s2 = os.path.basename(path2).replace("_sc.csv", "")
-            s2 = "  ".join([s.capitalize() for s in s2.split("_")])
+            s2 = " ".join([s.capitalize() for s in s2.split("_")])
             if recalc_table:
                 msgs = []
                 for k, v in recalc_table["scenario_b"].items():
@@ -1061,9 +1061,8 @@ def build_title(df, project, path, path2, y, x,  diff, recalc_table=None,
                     reprint = ", ".join(msgs)
                     s2 += f" ({reprint})"
 
-            title = "{} vs <br>{} <br> ".format(s1, s2) + config.titles[y]
-
-            conditioner = "% Difference | Average"
+            title = "{} vs <br>{} <br>".format(s1, s2) + config.titles[y]
+            conditioner = f"{units} Difference | Average"
             units = ""
 
         # Map title (not chart)
@@ -1103,26 +1102,20 @@ def calc_mask(df1, df2, threshold, threshold_field):
 
 
 @app.callback(Output("capacity_print", "children"),
-              [Input("map_signal", "children"),
-               Input("map", "selectedData"),
-               Input("chart", "selectedData")])
-def calc_total_capacity(signal, mapsel, chartsel):
+              [Input("mapcap", "children"),
+               Input("map", "selectedData")])
+def calc_remaining_capacity(mapcap, mapsel):
     """Calculate total remaining capacity after all filters are applied."""
-    trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
-    # print_args(calc_total_capacity, signal, mapsel, chartsel, trig=trig)
-    df = cache_map_data(signal)
-    [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, recalc_table, recalc, project] = json.loads(signal)
-    if trig == "map":
+    # Calling this from make_map where the chartsel has already been applied
+    # print_args(calc_remaining_capacity, mapcap, mapsel)
+    if mapcap:
+        df = pd.DataFrame(json.loads(mapcap))
         if mapsel:
-            idx = [d["pointIndex"] for d in mapsel["points"]]
-            df = df.iloc[idx]
-    elif trig == "chart":
-        if chartsel:
-            df = chart_point_filter(df, chartsel, y)
-    total = round(df["print_capacity"].sum() / 1_000_000, 2)
-    total_print = "{} TW".format(total)
-    return total_print
+            gids = [p["customdata"][0] for p in mapsel["points"]]
+            df = df[df["sc_point_gid"].isin(gids)]
+        total = round(df["print_capacity"].sum() / 1_000_000, 4)
+        total_print = "{} TW".format(total)
+        return total_print
 
 
 @cache.memoize()
@@ -1146,11 +1139,21 @@ def cache_table(project, path, recalc_table=None, recalc="off"):
 
 
 @cache2.memoize()
-def cache_map_data(signal):
+def cache_map_data(signal_dict):
     """Read and store a data frame from the config and options given."""
     # Get signal elements
-    [path, path2, y, x, difference, states, ymin, ymax, threshold,
-     units, mask, recalc_table, recalc, project] = json.loads(signal)
+    diff = signal_dict["diff"]
+    mask = signal_dict["mask"]
+    path = signal_dict["path"]
+    path2 = signal_dict["path2"]
+    project = signal_dict["project"]
+    recalc_table = signal_dict["recalc_table"]
+    recalc = signal_dict["recalc"]
+    states = signal_dict["states"]
+    threshold = signal_dict["threshold"]
+    units = signal_dict["units"]
+    x = signal_dict["x"]
+    y = signal_dict["y"]
 
     # Unpack recalc table
     recalc_a = recalc_table["scenario_a"]
@@ -1182,8 +1185,8 @@ def cache_map_data(signal):
             df2 = df2.iloc[:, 1:]
 
         # If the difference option is specified difference
-        if difference == "on":
-            calculator = Difference()
+        if diff == "on":
+            calculator = Difference(units)
             df = calculator.calc(df1, df2, y)
         else:
             df = df1.copy()
@@ -1212,11 +1215,13 @@ def cache_map_data(signal):
 
 
 @cache3.memoize()
-def cache_chart_tables(signal, region="national", idx=None):
+def cache_chart_tables(signal_dict, region="national", idx=None):
     """Read and store a data frame from the config and options given."""
-    [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, recalc_table, recalc, project] = json.loads(signal)
-    df = cache_map_data(signal)
+    states = signal_dict["states"]
+    x = signal_dict["x"]
+    y = signal_dict["y"]
+
+    df = cache_map_data(signal_dict)
     df = df[[x, y, "state", "nrel_region", "print_capacity", "index",
              "sc_point_gid"]]
 
@@ -1339,16 +1344,16 @@ def options_low_cost_toggle(choice, how):
 
 
 @app.callback([Output("state_options", "style"),
-               Output('basemap_options_div', 'style'),
-               Output('color_options_div', 'style')],
-              [Input('map_options_tab', 'value')])
-def options_map_tab(tab_choice):
+               Output("basemap_options_div", "style"),
+               Output("color_options_div", "style")],
+              [Input("map_options_tab", "value")])
+def options_map_tab(tab_choice, ):
     """Choose which map tab dropdown to display."""
+    # Styles
     styles = [{'display': 'none'}] * 3
     order = ["state", "basemap", "color"]
     idx = order.index(tab_choice)
     styles[idx] = {"width": "100%", "text-align": "center"}
-
     return styles[0], styles[1], styles[2]
 
 
@@ -1367,7 +1372,7 @@ def options_options(project, lc_update):
     """Update the options given a project."""
     # Catch the trigger
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
-    print_args(options_options, project, lc_update, trig=trig)
+    # print_args(options_options, project, lc_update, trig=trig)
 
     # We need the project configuration
     config = Config(project)
@@ -1567,6 +1572,45 @@ def options_recalc_toggle(recalc, scenario):
     return tab_style, recalc_a_style, recalc_b_style
 
 
+@app.callback([Output("color_options", "options"),
+               Output("color_options", "value")],
+              [Input("submit", "n_clicks")],
+              [State("variable", "value"),
+               State("project", "value"),
+               State("map_signal", "children"),
+               State("color_options", "value")])
+def options_toggle_color(submit, variable, project, signal, old_value):
+    """Provide Qualitative color options for categorical data."""
+    print_args(options_toggle_color, variable, project, signal,
+               old_value)
+
+    # To figure out if we need to update we need these
+    if not signal:
+        raise PreventUpdate
+    old_variable = json.loads(signal)["y"]
+    config = Config(project)
+    units = config.units[variable]
+    old_units = config.units[old_variable]
+
+    # There is only one condition where we have to do this
+    if old_variable == variable:
+        raise PreventUpdate
+    if old_units == units:
+        raise PreventUpdate
+    if old_units != "category" and units != "category":
+        raise PreventUpdate
+
+    # Now return the appropriate options
+    if units == "category":
+        options = COLOR_Q_OPTIONS
+        value = options[0]["value"]  # It can't infer the label here :/
+    else:
+        options = COLOR_OPTIONS
+        value = "Viridis"
+
+    return options, value
+
+
 @app.callback([Output("options", "style"),
                Output("toggle_options", "children"),
                Output("toggle_options", "style")],
@@ -1634,8 +1678,8 @@ def options_toggle_rev_color_button(click):
 def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
                       by, recalc_table, recalc):
     """Calculate low cost fields based on user decision."""
-    print_args(retrieve_low_cost, submit, project, how, lst, group,
-               group_choice, options, by, recalc_table, recalc)
+    # print_args(retrieve_low_cost, submit, project, how, lst, group,
+    #            group_choice, options, by, recalc_table, recalc)
 
     if not submit:
         raise PreventUpdate
@@ -1687,7 +1731,7 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
     # Build full paths and create the target file
     paths = [DP.join(path) for path in paths]
     lchh_path = DP.join("review_outputs", fname, mkdir=True)
-    print("calculating" + " " + lchh_path + "...")
+    # print("calculating" + " " + lchh_path + "...")
     if recalc == "on":
         calculator = Least_Cost(project, recalc_table=recalc_table)
     else:
@@ -1714,7 +1758,7 @@ def retrieve_chart_tables(y, x, state):
     """Store the signal used to get the set of tables needed for the chart."""
     # print_args(get_chart_tables, y, x, state)
     signal = json.dumps([y, x, state])
-    print("signal = " + signal)
+    # print("signal = " + signal)
     return signal
 
 
@@ -1734,16 +1778,17 @@ def retrieve_chart_tables(y, x, state):
                State("low_cost_tabs", "value"),
                State("threshold_mask", "value"),
                State("recalc_table", "children"),
-               State("recalc_tab", "value")])
-def retrieve_map_signal(submit, states, chart, x, project, threshold,
-                        threshold_field, path, path2, lchh_path, y, diff,
-                        lchh_toggle, mask, recalc_table, recalc):
+               State("recalc_tab", "value"),
+               State("difference_units", "value")])
+def retrieve_signal(submit, states, chart, x, project, threshold,
+                    threshold_field, path, path2, lchh_path, y, diff,
+                    lchh_toggle, mask, recalc_table, recalc, diff_units):
     """Create signal for sharing data between map and chart with dependence."""
     # print_args(retrieve_map_signal, submit, states, chart, x, project,
     #            threshold, threshold_field, path, path2, lchh_path, y, diff,
     #            lchh_toggle, mask, recalc_table, recalc)
     trig = dash.callback_context.triggered[0]['prop_id']
-    print("trig = '" + trig + "'")
+    # print("trig = '" + trig + "'")
 
     # Prevent the first trigger when difference is off
     if "scenario_b" in trig and diff == "off":
@@ -1771,7 +1816,6 @@ def retrieve_map_signal(submit, states, chart, x, project, threshold,
     elif diff == "on":
         ymin = -50
         ymax = 50
-        units = "%"
 
     # Here we will retrieve either ...
     if "lchh_path" in trig and lchh_toggle == "on":
@@ -1788,11 +1832,31 @@ def retrieve_map_signal(submit, states, chart, x, project, threshold,
     if recalc_table:
         recalc_table = json.loads(recalc_table)
 
+    # Return appropriate difference units
+    if diff == "on":
+        if diff_units == "original":
+            units = config.units[y]
+        else:
+            units = "%"
+
     # Let's just recycle all this for the chart
-    signal = json.dumps([path, path2, y, x, diff, states, ymin, ymax,
-                         threshold, units, mask, recalc_table, recalc,
-                         project])
-    return signal
+    signal = {
+        "diff": diff,
+        "mask": mask,
+        "path": path,
+        "path2": path2,
+        "project": project,
+        "recalc": recalc,
+        "recalc_table": recalc_table,
+        "states": states,
+        "threshold": threshold,
+        "units": units,
+        "x": x,
+        "y": y,
+        "ymin": ymin,
+        "ymax": ymax,
+    }
+    return json.dumps(signal)
 
 
 @app.callback(Output("recalc_table", "children"),
@@ -1867,7 +1931,8 @@ def scenario_specs(scenario_a, scenario_b, project):
 
 
 @app.callback([Output("map", "figure"),
-               Output("mapview_store", "children")],
+               Output("mapview_store", "children"),
+               Output("mapcap", "children")],
               [Input("map_signal", "children"),
                Input("basemap_options", "value"),
                Input("color_options", "value"),
@@ -1877,11 +1942,11 @@ def scenario_specs(scenario_a, scenario_b, project):
                Input("map_color_min", "value"),
                Input("map_color_max", "value")],
               [State("project", "value"),
-               State("map", "relayoutData"),
                State("map", "selectedData"),
+               State("map", "relayoutData"),
                State("weights", "value")])
-def make_map(signal, basemap, color, chartsel, point_size,
-             rev_color, uymin, uymax, project, mapview, mapsel, weights):
+def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
+             uymax, project, mapsel, mapview, weights):
     """Make the scatterplot map.
 
     To fix the point selection issue check this out:
@@ -1889,15 +1954,19 @@ def make_map(signal, basemap, color, chartsel, point_size,
     """
     trig = dash.callback_context.triggered[0]['prop_id']
     print_args(make_map, signal, basemap, color, chartsel, point_size,
-               rev_color, uymin, uymax, project, mapview, mapsel, weights,
-               trig=trig)
+                rev_color, uymin, uymax, project, mapsel, mapview, weights,
+                trig=trig)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
-    df = cache_map_data(signal)
+    signal_dict = json.loads(signal)
+    df = cache_map_data(signal_dict)
     df.index = df["index"]
-    [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, recalc_table, recalc, project] = json.loads(signal)
+    units = signal_dict["units"]
+    x = signal_dict["x"]
+    y = signal_dict["y"]
+    ymin = signal_dict["ymin"]
+    ymax = signal_dict["ymax"]
 
     # To save zoom levels and extent between map options (funny how this works)
     if not mapview:
@@ -1918,49 +1987,53 @@ def make_map(signal, basemap, color, chartsel, point_size,
         ymax = uymax
 
     # If there is a selection in the chart filter these points
-    if chartsel:
-        if len(chartsel["points"]) > 0:
-            points = chartsel["points"]
-            gids = [p["customdata"][0] for p in points]
-            df = df[df["sc_point_gid"].isin(gids)]
+    if chartsel and len(chartsel["points"]) > 0:
+        df = point_filter(df, chartsel)
+
+    # Store the capacity values up to this point
+    mapcap = df[["sc_point_gid", "print_capacity"]].to_dict()
+
+    # Convert weights to boolean
+    if weights == "on":
+        weights = True
+    else:
+        weights = False
 
     # Build map elements
-    if recalc == "off":
-        recalc_table = None
-    data = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
-                         point_size)
-    title = build_title(df, project, path, path2, y, x, diff, recalc_table,
-                        weights)
-    layout = build_map_layout(mapview, title, basemap)
-    figure = dict(data=data, layout=layout)
+    title = build_title(df, signal_dict, weights)
+    figure = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
+                           point_size, title, mapview, mapsel, basemap)
 
-    return figure, json.dumps(mapview)
+    return figure, json.dumps(mapview), json.dumps(mapcap)
 
 
 @app.callback(Output('chart', 'figure'),
               [Input("map_signal", "children"),
-               Input("chart_options", "value"),
-               Input("map", "selectedData"),
-               Input("chart_point_size", "value"),
-               Input("chosen_map_options", "children"),
-               Input("chart_region", "value"),
-               Input("map_color_min", "value"),
-               Input("map_color_max", "value")],
+                Input("chart_options", "value"),
+                Input("map", "selectedData"),
+                Input("chart_point_size", "value"),
+                Input("chosen_map_options", "children"),
+                Input("chart_region", "value"),
+                Input("map_color_min", "value"),
+                Input("map_color_max", "value")],
               [State("project", "value"),
-               State("chart", "relayoutData"),
-               State("chart", "selectedData"),
-               State("weights", "value")])
+                State("chart", "relayoutData"),
+                State("chart", "selectedData"),
+                State("weights", "value")])
 def make_chart(signal, chart, mapsel, point_size, op_values, region,
-               uymin, uymax, project, chartview, chartsel, weights):
+                uymin, uymax, project, chartview, chartsel, weights):
     """Make one of a variety of charts."""
     print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-               region, chartview, chartsel, weights)
+                region, chartview, chartsel, weights)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 
     # Unpack the signal
-    [path, path2, y, x, diff, states, ymin, ymax, threshold,
-     units, mask, recalc_table, recalc, project] = json.loads(signal)
+    signal_dict = json.loads(signal)
+    project = signal_dict["project"]
+    units = signal_dict["units"]
+    ymin = signal_dict["ymin"]
+    ymax = signal_dict["ymax"]
 
     # Turn the map selection object into indices
     if mapsel:
@@ -1975,7 +2048,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
     group = "Map Data"
 
     # Get the data frames
-    dfs = cache_chart_tables(signal, region, idx)
+    dfs = cache_chart_tables(signal_dict, region, idx)
     plotter = Plots(project, dfs, group, point_size, yunits=units)
 
     if chart == "cumsum":
@@ -1988,11 +2061,8 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
     elif chart == "box":
         fig = plotter.box()
 
-    # Whats the total capacity at this point?
-    if recalc == "off":
-        recalc_table = None
-    title = build_title(dfs, project, path, path2, y, x, diff, recalc_table,
-                        weights)
+    # Build chart title
+    title = build_title(dfs, signal_dict, weights)
 
     # User defined y-axis limits
     if uymin:
@@ -2016,8 +2086,8 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
         dragmode="select",
         yaxis=dict(range=ylim),
         titlefont=dict(color="white",
-                       size=18,
-                       family="Time New Roman"),
+                        size=18,
+                        family="Time New Roman"),
         title=dict(
                 text=title,
                 yref="container",

@@ -16,6 +16,7 @@ import dash_html_components as html
 import numpy as np
 import pandas as pd
 import pathos.multiprocessing as mp
+import plotly.colors as pcs
 import plotly.express as px
 import us
 
@@ -177,7 +178,9 @@ COLORS = {"Blackbody": "Blackbody", "Bluered": "Bluered", "Blues": "Blues",
           }
 
 COLOR_OPTIONS = [{"label": k, "value": v} for k, v in COLORS.items()]
-
+COLORS_Q = {k: v for k, v in pcs.qualitative.__dict__.items() if "_" not in k}
+COLORS_Q = {k: v for k, v in COLORS_Q.items() if k!= "swatches"}
+COLOR_Q_OPTIONS = [{"label": k, "value": v} for k, v in COLORS_Q.items()] 
 DEFAULT_MAPVIEW = {
     "mapbox.center": {
         "lon": -96.50,
@@ -193,19 +196,20 @@ LCOEOPTIONS = [{"label": "Site-Based", "value": "mean_lcoe"},
                {"label": "Total", "value": "total_lcoe"}]
 
 MAP_LAYOUT = dict(
+    dragmode="select",
+    font_family="Time New Roman",
+    font_size=15,
     height=700,
-    font=dict(color="white",
-              fontweight="bold"),
-    titlefont=dict(color="white",
-                   size=18,
-                   family="Time New Roman",
-                   fontweight="bold"),
-    margin=dict(l=20, r=115, t=115, b=20),
     hovermode="closest",
-    plot_bgcolor="#083C04",
+    legend=dict(size=20),
+    margin=dict(l=20, r=115, t=115, b=20),
     paper_bgcolor="#1663B5",
-    legend=dict(font=dict(size=10, fontweight="bold"), orientation="h"),
+    plot_bgcolor="#083C04",
+    titlefont=dict(color="white", size=18, family="Time New Roman"),
     title=dict(
+        # color="white",
+        # size=18,
+        # font_family="Times New Roman",
         yref="container",
         x=0.05,
         y=0.95,
@@ -451,11 +455,12 @@ def config_div(config_path):
     return div
 
 
-def chart_point_filter(df, chartsel, chartvar):
+def point_filter(df, selection):
     """Filter a dataframe by points selected from the chart."""
-    points = chartsel["points"]
-    idx = [p["pointIndex"] for p in points]
-    df = df.iloc[idx]
+    if selection:
+        points = selection["points"]
+        gids = [p["customdata"][0] for p in points]
+        df = df[df["sc_point_gid"].isin(gids)]
     return df
 
 
@@ -1104,7 +1109,7 @@ class Difference:
             return np.nan
         else:
             diff = x.iloc[0] - x.iloc[1]
-            if self.units == "percent":
+            if self.units == "%":
                 diff = 100 * (diff / x.iloc[1])
             return diff
 
@@ -1333,7 +1338,7 @@ class Plots(Config):
         fig = px.scatter(main_df,
                          x="ccap",
                          y=y,
-                         custom_data=["sc_point_gid"],
+                         custom_data=["sc_point_gid", "print_capacity"],
                          labels={"ccap": "TW",
                                  y: units},
                          color=self.group,
@@ -1388,7 +1393,7 @@ class Plots(Config):
         fig = px.scatter(main_df,
                          x=x,
                          y=y,
-                         custom_data=["sc_point_gid"],
+                         custom_data=["sc_point_gid", "print_capacity"],
                          labels={x: xlabel, y: yunits},
                          color=self.group,
                          color_discrete_sequence=px.colors.qualitative.Safe)
@@ -1499,7 +1504,7 @@ class Plots(Config):
         fig = px.box(main_df,
                      x=self.group,
                      y=y,
-                     custom_data=["sc_point_gid"],
+                     custom_data=["sc_point_gid", "print_capacity"],
                      labels={y: self.units[labely]},
                      color=self.group,
                      color_discrete_sequence=px.colors.qualitative.Safe)

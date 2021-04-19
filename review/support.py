@@ -100,87 +100,83 @@ CHART_OPTIONS = [{"label": "Cumulative Capacity", "value": "cumsum"},
                  {"label": "Histogram", "value": "histogram"},
                  {"label": "Boxplot", "value": "box"}]
 
-COLORS = {"Blackbody": "Blackbody", "Bluered": "Bluered", "Blues": "Blues",
-          "Default": "Default", "Earth": "Earth", "Electric": "Electric",
-          "Greens": "Greens", "Greys": "Greys", "Hot": "Hot", "Jet": "Jet",
-          "Picnic": "Picnic", "Portland": "Portland", "Rainbow": "Rainbow",
-          "RdBu": "RdBu",  "Viridis": "Viridis", "Reds": "Reds",
-          "RdWhBu": [[0.00, "rgb(115,0,0)"],
-                     [0.10, "rgb(230,0,0)"],
-                     [0.20, "rgb(255,170,0)"],
-                     [0.30, "rgb(252,211,127)"],
-                     [0.40, "rgb(255, 255, 0)"],
-                     [0.45, "rgb(255, 255, 255)"],
-                     [0.55, "rgb(255, 255, 255)"],
-                     [0.60, "rgb(143, 238, 252)"],
-                     [0.70, "rgb(12,164,235)"],
-                     [0.80, "rgb(0,125,255)"],
-                     [0.90, "rgb(10,55,166)"],
-                     [1.00, "rgb(5,16,110)"]],
-          "RdWhBu (Extreme Scale)": [[0.00, "rgb(115,0,0)"],
-                                     [0.02, "rgb(230,0,0)"],
-                                     [0.05, "rgb(255,170,0)"],
-                                     [0.10, "rgb(252,211,127)"],
-                                     [0.20, "rgb(255, 255, 0)"],
-                                     [0.30, "rgb(255, 255, 255)"],
-                                     [0.70, "rgb(255, 255, 255)"],
-                                     [0.80, "rgb(143, 238, 252)"],
-                                     [0.90, "rgb(12,164,235)"],
-                                     [0.95, "rgb(0,125,255)"],
-                                     [0.98, "rgb(10,55,166)"],
-                                     [1.00, "rgb(5,16,110)"]],
-          "RdYlGnBu": [[0.00, "rgb(124, 36, 36)"],
-                       [0.25, "rgb(255, 255, 48)"],
-                       [0.5, "rgb(76, 145, 33)"],
-                       [0.85, "rgb(0, 92, 221)"],
-                       [1.00, "rgb(0, 46, 110)"]],
-          "BrGn (cb)": [[0.00, "rgb(91, 74, 35)"],
-                        [0.10, "rgb(122, 99, 47)"],
-                        [0.15, "rgb(155, 129, 69)"],
-                        [0.25, "rgb(178, 150, 87)"],
-                        [0.30, "rgb(223,193,124)"],
-                        [0.40, "rgb(237, 208, 142)"],
-                        [0.45, "rgb(245,245,245)"],
-                        [0.55, "rgb(245,245,245)"],
-                        [0.60, "rgb(198,234,229)"],
-                        [0.70, "rgb(127,204,192)"],
-                        [0.75, "rgb(62, 165, 157)"],
-                        [0.85, "rgb(52,150,142)"],
-                        [0.90, "rgb(1,102,94)"],
-                        [1.00, "rgb(0, 73, 68)"]],
-          "YlGnBu (cb)": [[0.0, "rgb(255,255,217)"],
-                          [0.125, "rgb(237,248,177)"],
-                          [0.25, "rgb(199,233,180)"],
-                          [0.375, "rgb(127,205,187)"],
-                          [0.5, "rgb(65,182,196)"],
-                          [0.625, "rgb(29,145,192)"],
-                          [0.75, "rgb(34,94,168)"],
-                          [0.875, "rgb(37,52,148)"],
-                          [1.0, "rgb(8,29,88)"]],
-          "YlOrBr (cb)": [[0.0, "rgb(255,255,229)"],
-                          [0.125, "rgb(255,247,188)"],
-                          [0.25, "rgb(254,227,145)"],
-                          [0.375, "rgb(254,196,79)"],
-                          [0.5, "rgb(254,153,41)"],
-                          [0.625, "rgb(236,112,20)"],
-                          [0.75, "rgb(204,76,2)"],
-                          [0.875, "rgb(153,52,4)"],
-                          [1.0, "rgb(102,37,6)"]],
-          "YlGn (cb)": [[0.0, "rgb(255,255,229)"],
-                        [0.125, "rgb(247,252,185)"],
-                        [0.25, "rgb(217,240,163)"],
-                        [0.375, "rgb(173,221,142)"],
-                        [0.5, "rgb(120,198,121)"],
-                        [0.625, "rgb(65,171,93)"],
-                        [0.75, "rgb(35,132,67)"],
-                        [0.875, "rgb(0,104,55)"],
-                        [1.0, "rgb(0,69,41)"]]
-          }
-
-COLOR_OPTIONS = [{"label": k, "value": v} for k, v in COLORS.items()]
+CUSTOM_COLORS = {
+    "RdWhBu": [[0.00, "rgb(115,0,0)"],
+               [0.10, "rgb(230,0,0)"],
+               [0.20, "rgb(255,170,0)"],
+               [0.30, "rgb(252,211,127)"],
+               [0.40, "rgb(255, 255, 0)"],
+               [0.45, "rgb(255, 255, 255)"],
+               [0.55, "rgb(255, 255, 255)"],
+               [0.60, "rgb(143, 238, 252)"],
+               [0.70, "rgb(12,164,235)"],
+               [0.80, "rgb(0,125,255)"],
+               [0.90, "rgb(10,55,166)"],
+               [1.00, "rgb(5,16,110)"]],
+    "RdWhBu (Extreme Scale)": [[0.00, "rgb(115,0,0)"],
+                               [0.02, "rgb(230,0,0)"],
+                               [0.05, "rgb(255,170,0)"],
+                               [0.10, "rgb(252,211,127)"],
+                               [0.20, "rgb(255, 255, 0)"],
+                               [0.30, "rgb(255, 255, 255)"],
+                               [0.70, "rgb(255, 255, 255)"],
+                               [0.80, "rgb(143, 238, 252)"],
+                               [0.90, "rgb(12,164,235)"],
+                               [0.95, "rgb(0,125,255)"],
+                               [0.98, "rgb(10,55,166)"],
+                               [1.00, "rgb(5,16,110)"]],
+    "RdYlGnBu": [[0.00, "rgb(124, 36, 36)"],
+                 [0.25, "rgb(255, 255, 48)"],
+                 [0.5, "rgb(76, 145, 33)"],
+                 [0.85, "rgb(0, 92, 221)"],
+                 [1.00, "rgb(0, 46, 110)"]],
+    "BrGn (cb)": [[0.00, "rgb(91, 74, 35)"],
+                  [0.10, "rgb(122, 99, 47)"],
+                  [0.15, "rgb(155, 129, 69)"],
+                  [0.25, "rgb(178, 150, 87)"],
+                  [0.30, "rgb(223,193,124)"],
+                  [0.40, "rgb(237, 208, 142)"],
+                  [0.45, "rgb(245,245,245)"],
+                  [0.55, "rgb(245,245,245)"],
+                  [0.60, "rgb(198,234,229)"],
+                  [0.70, "rgb(127,204,192)"],
+                  [0.75, "rgb(62, 165, 157)"],
+                  [0.85, "rgb(52,150,142)"],
+                  [0.90, "rgb(1,102,94)"],
+                  [1.00, "rgb(0, 73, 68)"]],
+    "YlGnBu (cb)": [[0.0, "rgb(255,255,217)"],
+                    [0.125, "rgb(237,248,177)"],
+                    [0.25, "rgb(199,233,180)"],
+                    [0.375, "rgb(127,205,187)"],
+                    [0.5, "rgb(65,182,196)"],
+                    [0.625, "rgb(29,145,192)"],
+                    [0.75, "rgb(34,94,168)"],
+                    [0.875, "rgb(37,52,148)"],
+                    [1.0, "rgb(8,29,88)"]],
+    "YlOrBr (cb)": [[0.0, "rgb(255,255,229)"],
+                    [0.125, "rgb(255,247,188)"],
+                    [0.25, "rgb(254,227,145)"],
+                    [0.375, "rgb(254,196,79)"],
+                    [0.5, "rgb(254,153,41)"],
+                    [0.625, "rgb(236,112,20)"],
+                    [0.75, "rgb(204,76,2)"],
+                    [0.875, "rgb(153,52,4)"],
+                    [1.0, "rgb(102,37,6)"]],
+    "YlGn (cb)": [[0.0, "rgb(255,255,229)"],
+                  [0.125, "rgb(247,252,185)"],
+                  [0.25, "rgb(217,240,163)"],
+                  [0.375, "rgb(173,221,142)"],
+                  [0.5, "rgb(120,198,121)"],
+                  [0.625, "rgb(65,171,93)"],
+                  [0.75, "rgb(35,132,67)"],
+                  [0.875, "rgb(0,104,55)"],
+                  [1.0, "rgb(0,69,41)"]]
+}
+COLORS = {**pcs.PLOTLY_SCALES, **CUSTOM_COLORS}
+COLOR_OPTIONS = [{"label": k, "value": k} for k, _ in COLORS.items()]
 COLORS_Q = {k: v for k, v in pcs.qualitative.__dict__.items() if "_" not in k}
 COLORS_Q = {k: v for k, v in COLORS_Q.items() if k!= "swatches"}
-COLOR_Q_OPTIONS = [{"label": k, "value": v} for k, v in COLORS_Q.items()] 
+COLOR_Q_OPTIONS = [{"label": k, "value": k} for k, _ in COLORS_Q.items()] 
 DEFAULT_MAPVIEW = {
     "mapbox.center": {
         "lon": -96.50,
@@ -1290,20 +1286,66 @@ class Least_Cost():
 class Plots(Config):
     """Class for handling grouped plots (needs work)."""
 
-    def __init__(self, project, datasets, group, point_size,
-                 yunits=None, xunits=None, config_path="~/.review_config"):
+    def __init__(self, project, datasets, group, point_size, color_ramp,
+                 rev_color, yunits=None, xunits=None,
+                 config_path="~/.review_config"):
         """Initialize plotting object for a reV project."""
         super().__init__(project, config_path)
+        self.color_ramp_key = color_ramp
         self.datasets = datasets
         self.group = group
         self.point_size = point_size
         self.yunits = yunits
         self.xunits = xunits
+        self.rev_color = rev_color
 
     def __repr__(self):
         """Print representation string."""
         msg = f"<Plots object: path={self.config_path}, project={self.project}>"
         return msg
+
+    @property
+    def color_ramp(self):
+        """Return appropriate color ramp. Use as kwarg."""
+        # We have to reverse scales manually (reversescale not an option here)
+        if self.rev_color:
+            r = -1
+        else:
+            r = 1
+
+        # Inherit from map if possible
+        if list(self.datasets.keys())[0] == "Map Data":
+            key = self.color_ramp_key
+            if key in COLORS:
+                ramp = COLORS[key][::r]
+                scale_type = "color_continuous_scale"
+            else:
+                ramp = COLORS_Q[key][::r]
+                scale_type = "color_discrete_sequence"
+
+        # Otherwise, this is a regional plot and we use one qualitative ramp
+        else:
+            ramp = COLORS_Q["T10"][::r]  # This is objectively the best one
+            scale_type = "color_discrete_sequence"
+
+        ops = {scale_type: ramp}
+
+        return ops
+
+    @property
+    def color_target(self):
+        """Set the color target."""
+        # Unpack the groups
+        groups = list(self.datasets.keys())
+
+        # Is it qualitative or continuous                        
+        target = self.datasets[groups[0]].columns[1]
+        if "_2" in target:
+            target = target.replace("_2", "")
+        else:
+            target = self.group
+
+        return target
 
     def ccap(self):
         """Return a cumulative capacity scatterplot."""
@@ -1335,14 +1377,15 @@ class Plots(Config):
 
         main_df = main_df.sort_values(self.group)
         main_df["ccap"] = main_df["ccap"] / 1_000_000
-        fig = px.scatter(main_df,
-                         x="ccap",
-                         y=y,
-                         custom_data=["sc_point_gid", "print_capacity"],
-                         labels={"ccap": "TW",
-                                 y: units},
-                         color=self.group,
-                         color_discrete_sequence=px.colors.qualitative.Safe)
+        fig = px.scatter(
+            main_df,
+            x="ccap",
+            y=y,
+            custom_data=["sc_point_gid", "print_capacity"],
+            labels={"ccap": "TW", y: units},
+            color=self.color_target,
+            **self.color_ramp,
+        )
 
         fig.update_traces(
             marker=dict(
@@ -1390,13 +1433,15 @@ class Plots(Config):
 
         main_df = main_df.sort_values(self.group)
         xlabel = f"{TITLES[x]} ({xunits})"
-        fig = px.scatter(main_df,
-                         x=x,
-                         y=y,
-                         custom_data=["sc_point_gid", "print_capacity"],
-                         labels={x: xlabel, y: yunits},
-                         color=self.group,
-                         color_discrete_sequence=px.colors.qualitative.Safe)
+        fig = px.scatter(
+            main_df,
+            x=x,
+            y=y,
+            custom_data=["sc_point_gid", "print_capacity"],
+            labels={x: xlabel, y: yunits},
+            color=self.color_target,
+            **self.color_ramp
+        )
 
         fig.update_traces(
             marker=dict(
@@ -1441,13 +1486,15 @@ class Plots(Config):
         # Use preset scales for the x axis and max count for y axis
         limx = list(self.scales[y].values())
 
-        fig = px.histogram(main_df,
-                           x=y,
-                           range_x=limx,
-                           range_y=[0, 4000],
-                           labels={y: yunits},
-                           color=self.group,
-                           color_discrete_sequence=px.colors.qualitative.Safe)
+        fig = px.histogram(
+            main_df,
+            x=y,
+            range_x=limx,
+            range_y=[0, 4000],
+            labels={y: yunits},
+            color=self.color_target,
+            **self.color_ramp
+        )
 
         fig.update_traces(
             marker=dict(
@@ -1501,13 +1548,15 @@ class Plots(Config):
         main_df = main_df.sort_values(self.group)
         main_df[self.group] = main_df[self.group].apply(fix_key, units=units)
 
-        fig = px.box(main_df,
-                     x=self.group,
-                     y=y,
-                     custom_data=["sc_point_gid", "print_capacity"],
-                     labels={y: self.units[labely]},
-                     color=self.group,
-                     color_discrete_sequence=px.colors.qualitative.Safe)
+        fig = px.box(
+            main_df,
+            x=self.group,
+            y=y,
+            custom_data=["sc_point_gid", "print_capacity"],
+            labels={y: self.units[labely]},
+            color=self.color_target,
+            **self.color_ramp
+        )
 
         fig.update_traces(
             marker=dict(

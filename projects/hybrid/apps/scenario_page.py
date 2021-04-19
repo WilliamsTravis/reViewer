@@ -27,8 +27,9 @@ from dash.exceptions import PreventUpdate
 from review import print_args
 from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
                             BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
-                            COLOR_Q_OPTIONS, DEFAULT_MAPVIEW, MAP_LAYOUT,
-                            STATES, TAB_STYLE, TABLET_STYLE, VARIABLES)
+                            COLOR_Q_OPTIONS, COLORS, COLORS_Q, DEFAULT_MAPVIEW,
+                            MAP_LAYOUT, STATES, TAB_STYLE, TABLET_STYLE,
+                            VARIABLES)
 from review.support import (Config, Data, Data_Path, Difference, Least_Cost,
                             Plots, point_filter, wmean)
 
@@ -874,7 +875,14 @@ def build_map_layout(mapview, title, basemap, showlegend, ymin, ymax,
 
 def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
                   title, mapview, mapsel, basemap, title_size=18):
-    """Build a Plotly scatter plot dictionary for the map."""
+    """Build a Plotly scatter plot dictionary for the map.
+    
+    Notes
+    -----
+    We should set this up in the same fashion as for the chart plots. We have
+    to move any assignment of color parameters from the marker object to the
+    plot object and manually reverse scales.
+    """
     # Create hover text
     if units == "category":
         df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
@@ -883,7 +891,7 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
         df["text"] = (df["county"] + " County, " + df["state"] + ": <br>   "
                       + df[y].round(2).astype(str) + " " + units)
 
-    # Offshore points will be nans, since they don't have states or counties
+    # Offshore points will be nans since they don't have states or counties
     if any(df["text"].isnull()):
         ondf = df[~pd.isnull(df["text"])]
         offdf = df[pd.isnull(df["text"])]
@@ -901,6 +909,8 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
 
     # Categorical data will be made of multiple traces
     if units == "category":
+        # We need to grab the actual rgb sequence for this
+        color = COLORS_Q[color]
         showlegend = True
         marker = dict(
              opacity=1.0,
@@ -920,6 +930,7 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
             )
     # Continuous data will be just one trace
     else:
+        color = COLORS[color]
         showlegend = False
         marker = dict(
              color=df[y],
@@ -1603,7 +1614,7 @@ def options_toggle_color(submit, variable, project, signal, old_value):
     # Now return the appropriate options
     if units == "category":
         options = COLOR_Q_OPTIONS
-        value = options[0]["value"]  # It can't infer the label here :/
+        value = "T10"
     else:
         options = COLOR_OPTIONS
         value = "Viridis"
@@ -2009,22 +2020,25 @@ def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
 
 @app.callback(Output('chart', 'figure'),
               [Input("map_signal", "children"),
-                Input("chart_options", "value"),
-                Input("map", "selectedData"),
-                Input("chart_point_size", "value"),
-                Input("chosen_map_options", "children"),
-                Input("chart_region", "value"),
-                Input("map_color_min", "value"),
-                Input("map_color_max", "value")],
+               Input("chart_options", "value"),
+               Input("map", "selectedData"),
+               Input("chart_point_size", "value"),
+               Input("chosen_map_options", "children"),
+               Input("chart_region", "value"),
+               Input("color_options", "value"),
+               Input("rev_color", "n_clicks"),
+               Input("map_color_min", "value"),
+               Input("map_color_max", "value")],
               [State("project", "value"),
-                State("chart", "relayoutData"),
-                State("chart", "selectedData"),
-                State("weights", "value")])
-def make_chart(signal, chart, mapsel, point_size, op_values, region,
-                uymin, uymax, project, chartview, chartsel, weights):
+               State("chart", "relayoutData"),
+               State("chart", "selectedData"),
+               State("weights", "value")])
+def make_chart(signal, chart, mapsel, point_size, op_values, region, color,
+               rev_color, uymin, uymax, project, chartview, chartsel, weights):
     """Make one of a variety of charts."""
     print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-                region, chartview, chartsel, weights)
+               region, color, rev_color, uymin, uymax, project, chartview,
+               chartsel, weights)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 
@@ -2034,6 +2048,12 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
     units = signal_dict["units"]
     ymin = signal_dict["ymin"]
     ymax = signal_dict["ymax"]
+
+    # Reverse color
+    if rev_color % 2 == 1:
+        rev_color = True
+    else:
+        rev_color = False
 
     # Turn the map selection object into indices
     if mapsel:
@@ -2049,7 +2069,8 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region,
 
     # Get the data frames
     dfs = cache_chart_tables(signal_dict, region, idx)
-    plotter = Plots(project, dfs, group, point_size, yunits=units)
+    plotter = Plots(project, dfs, group, point_size, color, rev_color,
+                    yunits=units)
 
     if chart == "cumsum":
         fig = plotter.ccap()

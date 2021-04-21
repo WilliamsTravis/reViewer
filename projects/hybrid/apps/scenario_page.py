@@ -2025,19 +2025,17 @@ def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
                Input("chart_point_size", "value"),
                Input("chosen_map_options", "children"),
                Input("chart_region", "value"),
-               Input("color_options", "value"),
-               Input("rev_color", "n_clicks"),
                Input("map_color_min", "value"),
                Input("map_color_max", "value")],
               [State("project", "value"),
                State("chart", "relayoutData"),
                State("chart", "selectedData"),
                State("weights", "value")])
-def make_chart(signal, chart, mapsel, point_size, op_values, region, color,
-               rev_color, uymin, uymax, project, chartview, chartsel, weights):
+def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
+               uymax, project, chartview, chartsel, weights):
     """Make one of a variety of charts."""
     print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-               region, color, rev_color, uymin, uymax, project, chartview,
+               region, uymin, uymax, project, chartview,
                chartsel, weights)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
@@ -2049,12 +2047,6 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, color,
     ymin = signal_dict["ymin"]
     ymax = signal_dict["ymax"]
 
-    # Reverse color
-    if rev_color % 2 == 1:
-        rev_color = True
-    else:
-        rev_color = False
-
     # Turn the map selection object into indices
     if mapsel:
         if len(mapsel["points"]) > 0:
@@ -2064,13 +2056,10 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, color,
     else:
         idx = None
 
-    # And generate on of these plots
-    group = "Map Data"
-
     # Get the data frames
+    group = "Map Data"
     dfs = cache_chart_tables(signal_dict, region, idx)
-    plotter = Plots(project, dfs, group, point_size, color, rev_color,
-                    yunits=units)
+    plotter = Plots(project, dfs, point_size, group=group, yunits=units)
 
     if chart == "cumsum":
         fig = plotter.ccap()

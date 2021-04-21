@@ -1286,66 +1286,20 @@ class Least_Cost():
 class Plots(Config):
     """Class for handling grouped plots (needs work)."""
 
-    def __init__(self, project, datasets, group, point_size, color_ramp,
-                 rev_color, yunits=None, xunits=None,
+    def __init__(self, project, datasets, point_size, group="Map Data", yunits=None, xunits=None,
                  config_path="~/.review_config"):
         """Initialize plotting object for a reV project."""
         super().__init__(project, config_path)
-        self.color_ramp_key = color_ramp
         self.datasets = datasets
         self.group = group
         self.point_size = point_size
         self.yunits = yunits
         self.xunits = xunits
-        self.rev_color = rev_color
 
     def __repr__(self):
         """Print representation string."""
         msg = f"<Plots object: path={self.config_path}, project={self.project}>"
         return msg
-
-    @property
-    def color_ramp(self):
-        """Return appropriate color ramp. Use as kwarg."""
-        # We have to reverse scales manually (reversescale not an option here)
-        if self.rev_color:
-            r = -1
-        else:
-            r = 1
-
-        # Inherit from map if possible
-        if list(self.datasets.keys())[0] == "Map Data":
-            key = self.color_ramp_key
-            if key in COLORS:
-                ramp = COLORS[key][::r]
-                scale_type = "color_continuous_scale"
-            else:
-                ramp = COLORS_Q[key][::r]
-                scale_type = "color_discrete_sequence"
-
-        # Otherwise, this is a regional plot and we use one qualitative ramp
-        else:
-            ramp = COLORS_Q["T10"][::r]  # This is objectively the best one
-            scale_type = "color_discrete_sequence"
-
-        ops = {scale_type: ramp}
-
-        return ops
-
-    @property
-    def color_target(self):
-        """Set the color target."""
-        # Unpack the groups
-        groups = list(self.datasets.keys())
-
-        # Is it qualitative or continuous                        
-        target = self.datasets[groups[0]].columns[1]
-        if "_2" in target:
-            target = target.replace("_2", "")
-        else:
-            target = self.group
-
-        return target
 
     def ccap(self):
         """Return a cumulative capacity scatterplot."""
@@ -1383,8 +1337,8 @@ class Plots(Config):
             y=y,
             custom_data=["sc_point_gid", "print_capacity"],
             labels={"ccap": "TW", y: units},
-            color=self.color_target,
-            **self.color_ramp,
+            color=self.group,
+            color_discrete_sequence=px.colors.qualitative.Safe
         )
 
         fig.update_traces(
@@ -1439,8 +1393,8 @@ class Plots(Config):
             y=y,
             custom_data=["sc_point_gid", "print_capacity"],
             labels={x: xlabel, y: yunits},
-            color=self.color_target,
-            **self.color_ramp
+            color=self.group,
+            color_discrete_sequence=px.colors.qualitative.Safe
         )
 
         fig.update_traces(
@@ -1492,8 +1446,8 @@ class Plots(Config):
             range_x=limx,
             range_y=[0, 4000],
             labels={y: yunits},
-            color=self.color_target,
-            **self.color_ramp
+            color=self.group,
+            color_discrete_sequence=px.colors.qualitative.Safe
         )
 
         fig.update_traces(
@@ -1554,8 +1508,8 @@ class Plots(Config):
             y=y,
             custom_data=["sc_point_gid", "print_capacity"],
             labels={y: self.units[labely]},
-            color=self.color_target,
-            **self.color_ramp
+            color=self.group,
+            color_discrete_sequence=px.colors.qualitative.Safe
         )
 
         fig.update_traces(

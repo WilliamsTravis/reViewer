@@ -29,6 +29,9 @@ from app import app
 from review import print_args
 from tkinter import filedialog
 
+# MAC Tkinter solution?
+import matplotlib
+matplotlib.use("TkAgg")
 
 layout = html.Div([
     # Start of the page
@@ -292,7 +295,7 @@ def add_datasets(n_clicks, pattern, initialdir, files):
 def set_dataset_groups(files, proj_dir, groups):
     """For each file, set a group and value from the user inputs above."""
     print_args(set_dataset_groups, files, proj_dir, groups)
-    if files != "null" and files != '{}':
+    if files and files != "null" and files != '{}':
         files = json.loads(files)
         groups = json.loads(groups)
         groups = {k: v.split(",") for k, v in groups.items()}

@@ -1,10 +1,10 @@
-name: review
+name: review2
 channels:
   - conda-forge
   - anaconda
   - defaults
 dependencies:
-  - python=3.7.0
+  - python=3.9.0
   - dash
   - flask-caching
   - geopandas

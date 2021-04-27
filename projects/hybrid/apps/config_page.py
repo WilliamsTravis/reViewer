@@ -33,6 +33,7 @@ from tkinter import filedialog
 import matplotlib
 matplotlib.use("TkAgg")
 
+
 layout = html.Div([
     # Start of the page
     html.H3("Configure Project"),

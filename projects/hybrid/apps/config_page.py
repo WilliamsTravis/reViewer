@@ -31,7 +31,7 @@ from tkinter import filedialog
 
 # MAC Tkinter solution?
 import matplotlib
-matplotlib.use("TkAgg")
+# matplotlib.use("TkAgg")
 
 
 layout = html.Div([

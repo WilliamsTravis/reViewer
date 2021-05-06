@@ -935,8 +935,8 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
         marker = dict(
              color=df[y],
              colorscale=color,
-             cmax=ymax,
-             cmin=ymin,
+             cmax=float(ymax),
+             cmin=float(ymin),
              opacity=1.0,
              reversescale=rev_color,
              size=point_size,
@@ -1034,7 +1034,7 @@ def build_title(df, signal_dict, weights=True):
     s1 = " ".join([s.capitalize() for s in s1.split("_")])
 
     # User specified FCR?
-    if recalc_table and "Least cost" not in s1:
+    if recalc_table and "least cost" not in s1.lower():
         msgs = []
         for k, v in recalc_table["scenario_a"].items():
             if v:
@@ -1689,8 +1689,8 @@ def options_toggle_rev_color_button(click):
 def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
                       by, recalc_table, recalc):
     """Calculate low cost fields based on user decision."""
-    # print_args(retrieve_low_cost, submit, project, how, lst, group,
-    #            group_choice, options, by, recalc_table, recalc)
+    print_args(retrieve_low_cost, submit, project, how, lst, group,
+                group_choice, options, by, recalc_table, recalc)
 
     if not submit:
         raise PreventUpdate
@@ -1818,7 +1818,7 @@ def retrieve_signal(submit, states, chart, x, project, threshold,
     if path2:
         path2 = os.path.join(config.directory, path2)
 
-    # Createy mask and difference dependent variables
+    # Create y mask and difference dependent variables
     ymin = scales[y]["min"]
     ymax = scales[y]["max"]
     units = config.units[y]
@@ -1965,8 +1965,8 @@ def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
     """
     trig = dash.callback_context.triggered[0]['prop_id']
     print_args(make_map, signal, basemap, color, chartsel, point_size,
-                rev_color, uymin, uymax, project, mapsel, mapview, weights,
-                trig=trig)
+               rev_color, uymin, uymax, project, mapsel, mapview, weights,
+               trig=trig)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal

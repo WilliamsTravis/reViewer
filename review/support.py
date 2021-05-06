@@ -1286,7 +1286,8 @@ class Least_Cost():
 class Plots(Config):
     """Class for handling grouped plots (needs work)."""
 
-    def __init__(self, project, datasets, point_size, group="Map Data", yunits=None, xunits=None,
+    def __init__(self, project, datasets, point_size, group="Map Data",
+                 yunits=None, xunits=None,
                  config_path="~/.review_config"):
         """Initialize plotting object for a reV project."""
         super().__init__(project, config_path)
@@ -1298,8 +1299,8 @@ class Plots(Config):
 
     def __repr__(self):
         """Print representation string."""
-        msg = f"<Plots object: path={self.config_path}, project={self.project}>"
-        return msg
+        m = f"<Plots object: path={self.config_path}, project={self.project}>"
+        return m
 
     def ccap(self):
         """Return a cumulative capacity scatterplot."""

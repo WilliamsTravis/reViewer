@@ -45,7 +45,12 @@ AGGREGATIONS = {
     "trans_cap_cost": "mean",
     "trans_multiplier": "mean",
     "transmission_multiplier": "mean",
-    "Hub Height": "mean"
+    "Hub Height": "mean",
+    "capex": "mean",
+    "shadow_flicker_120m": "sum",
+    "shadow_flicker_120m_percent": "mean",
+    "shadow_flicker_135m": "sum",
+    "shadow_flicker_135m_percent": "mean"
 }
 
 
@@ -514,8 +519,8 @@ def get_scales(file_df, field_units):
         ranges = {}
         df = pd.read_csv(file)
         for field in fields:
+            ranges[field] = {}
             if field in df.columns:
-                ranges[field] = {}
                 try:
                     values = df[field].dropna()
                     values = values[values != -np.inf]
@@ -524,6 +529,9 @@ def get_scales(file_df, field_units):
                 except KeyError:
                     print("KeyError")
                     del ranges[field]
+            else:
+                ranges[field]["min"] = 0
+                ranges[field]["max"] = 9999
         return ranges
 
     # Get all the files
@@ -1049,7 +1057,10 @@ class Data(Config):
         df = pd.read_csv(path, low_memory=False)
         col = f"{field}_class"
         if field == "windspeed":  # <------------------------------------------ How can we distinguish solar from wind?
-            dfield = "mean_res"
+            if "mean_ws_mean-means" in df.columns:
+                dfield = "mean_ws_mean-means"
+            else:
+                dfield = "mean_res"
         else:
             dfield = field
         if col not in df.columns:

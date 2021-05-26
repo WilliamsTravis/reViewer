@@ -132,8 +132,8 @@ layout = html.Div(
         # Options Label
         html.H4("Options"),
         html.Hr(style={"width": "98%",
-                       "border-bottom": "2px solid #fccd34",
-                       "border-top": "3px solid #1663b5"}),
+                        "border-bottom": "2px solid #fccd34",
+                        "border-top": "3px solid #1663b5"}),
 
         # Toggle Options
         html.Div([
@@ -161,7 +161,7 @@ layout = html.Div(
                 dcc.Markdown(
                     id="scenario_a_specs",
                     style={"margin-left": "15px", "font-size": "11pt",
-                           "height": "300px", "overflow-y": "scroll"}
+                            "height": "300px", "overflow-y": "scroll"}
                 )
             ], className="three columns", style={"margin-left": "50px"}),
 
@@ -179,7 +179,7 @@ layout = html.Div(
                         dcc.Markdown(
                             id="scenario_b_specs",
                             style={"margin-left": "15px", "font-size": "11pt",
-                                   "height": "300px", "overflow-y": "scroll"}
+                                    "height": "300px", "overflow-y": "scroll"}
                         )
                         ], className="three columns")
                 ],
@@ -189,8 +189,8 @@ layout = html.Div(
             html.Div([
                 html.H5("Variable"),
                 dcc.Dropdown(id="variable",
-                             options=VARIABLE_OPTIONS,
-                             value="capacity"),
+                              options=VARIABLE_OPTIONS,
+                              value="capacity"),
                 ],
                 className="two columns"),
 
@@ -294,11 +294,11 @@ layout = html.Div(
                 # Option to calculate or no
                 html.H5("Lowest LCOE Data Set*",
                         title=("This will save and add the least cost table"
-                               " to the scenario A and B options. Submit "
-                               "below to generate the table, then select the "
-                               "resulting dataset in the dropdown. If "
-                               "recalculating, just use scenario A's inputs, "
-                               "we're still working on this part.")),
+                                " to the scenario A and B options. Submit "
+                                "below to generate the table, then select the "
+                                "resulting dataset in the dropdown. If "
+                                "recalculating, just use scenario A's inputs, "
+                                "we're still working on this part.")),
                 dcc.Tabs(
                     id="low_cost_tabs",
                     value="off",
@@ -401,9 +401,9 @@ layout = html.Div(
             html.Div([
                 html.H5("Recalculate With New Costs*",
                         title=("Recalculating will not re-sort transmission "
-                               "connections so there will be some error with "
-                               "Transmission Capital Costs, LCOT, and Total "
-                               "LCOE.")),
+                                "connections so there will be some error with "
+                                "Transmission Capital Costs, LCOT, and Total "
+                                "LCOE.")),
                 dcc.Tabs(
                     id="recalc_tab",
                     value="off",
@@ -423,7 +423,7 @@ layout = html.Div(
                 html.Div(
                     id="recalc_tab_options",
                     children=[
-                       dcc.Tabs(
+                        dcc.Tabs(
                             id="recalc_scenario",
                             value="scenario_a",
                             style=TAB_STYLE,
@@ -446,8 +446,8 @@ layout = html.Div(
                                 # FCR A
                                 html.Div([
                                     html.P("FCR % (A): ",
-                                           className="three columns",
-                                           style={"height": "60%"}),
+                                            className="three columns",
+                                            style={"height": "60%"}),
                                     dcc.Input(id="fcr1", type="number",
                                               className="nine columns",
                                               style={"height": "60%"},
@@ -457,8 +457,8 @@ layout = html.Div(
                                 # CAPEX A
                                 html.Div([
                                     html.P("CAPEX $/KW (A): ",
-                                           className="three columns",
-                                           style={"height": "60%"}),
+                                            className="three columns",
+                                            style={"height": "60%"}),
                                     dcc.Input(id="capex1", type="number",
                                               className="nine columns",
                                               style={"height": "60%"}),
@@ -467,8 +467,8 @@ layout = html.Div(
                                 # OPEX A
                                 html.Div([
                                     html.P("OPEX $/KW (A): ",
-                                           className="three columns",
-                                           style={"height": "60%"}),
+                                            className="three columns",
+                                            style={"height": "60%"}),
                                     dcc.Input(id="opex1", type="number",
                                               className="nine columns",
                                               style={"height": "60%"}),
@@ -477,8 +477,8 @@ layout = html.Div(
                                 # Losses A
                                 html.Div([
                                     html.P("Losses % (A): ",
-                                           className="three columns",
-                                           style={"height": "60%"}),
+                                            className="three columns",
+                                            style={"height": "60%"}),
                                     dcc.Input(id="losses1", type="number",
                                               className="nine columns",
                                               style={"height": "60%"}),
@@ -491,8 +491,8 @@ layout = html.Div(
                             # FCR B
                             html.Div([
                                 html.P("FCR % (B): ",
-                                       className="three columns",
-                                       style={"height": "60%"}),
+                                        className="three columns",
+                                        style={"height": "60%"}),
                                 dcc.Input(id="fcr2", type="number",
                                           className="nine columns",
                                           style={"height": "60%"}),
@@ -501,8 +501,8 @@ layout = html.Div(
                             # CAPEX B
                             html.Div([
                                 html.P("CAPEX $/KW (B): ",
-                                       className="three columns",
-                                       style={"height": "60%"}),
+                                        className="three columns",
+                                        style={"height": "60%"}),
                                 dcc.Input(id="capex2", type="number",
                                           className="nine columns",
                                           style={"height": "60%"}),
@@ -511,8 +511,8 @@ layout = html.Div(
                             # OPEX B
                             html.Div([
                                 html.P("OPEX $/KW (B): ",
-                                       className="three columns",
-                                       style={"height": "60%"}),
+                                        className="three columns",
+                                        style={"height": "60%"}),
                                 dcc.Input(id="opex2", type="number",
                                           className="nine columns",
                                           style={"height": "60%"}),
@@ -521,8 +521,8 @@ layout = html.Div(
                             # Losses B
                             html.Div([
                                 html.P("Losses % (B): ",
-                                       className="three columns",
-                                       style={"height": "60%"}),
+                                        className="three columns",
+                                        style={"height": "60%"}),
                                 dcc.Input(id="losses2", type="number",
                                           className="nine columns",
                                           style={"height": "60%"}),
@@ -552,8 +552,8 @@ layout = html.Div(
         ], style={"margin-left": "50px"}, className="row"),
 
         html.Hr(style={"width": "98%",
-                       "border-top": "2px solid #fccd34",
-                       "border-bottom": "3px solid #1663b5"}),
+                        "border-top": "2px solid #fccd34",
+                        "border-bottom": "3px solid #1663b5"}),
 
         # The chart and map div
         html.Div([
@@ -599,13 +599,13 @@ layout = html.Div(
                     html.Div(
                         id="basemap_options_div",
                         children=[
-                             dcc.Dropdown(
+                              dcc.Dropdown(
                                 id="basemap_options",
                                 clearable=False,
                                 options=BASEMAPS,
                                 multi=False,
                                 value="light"
-                             )
+                              )
                         ]),
 
                     # Color scale options
@@ -672,7 +672,7 @@ layout = html.Div(
                         n_clicks=0,
                         type="button",
                         title=("Click to render the map with the inverse of "
-                               "the chosen color ramp."),
+                                "the chosen color ramp."),
                         style=RC_STYLES["on"], className="one column"
                     )
                 ]),
@@ -752,7 +752,7 @@ layout = html.Div(
                     config={
                         "showSendToCloud": True,
                         "toImageButtonOptions": {"width": None,
-                                                 "height": None},
+                                                  "height": None},
                         "plotlyServerURL": "https://chart-studio.plotly.com"
                     }),
 
@@ -793,8 +793,8 @@ layout = html.Div(
 
         # To maintain the view after updating the map
         html.Div(id="mapview_store",
-                 children=json.dumps(DEFAULT_MAPVIEW),
-                 style={"display": "none"}),
+                  children=json.dumps(DEFAULT_MAPVIEW),
+                  style={"display": "none"}),
 
         # For storing the data frame path and triggering updates
         html.Div(
@@ -850,7 +850,7 @@ layout = html.Div(
 
 # Support functions
 def build_map_layout(mapview, title, basemap, showlegend, ymin, ymax,
-                     title_size=18):
+                      title_size=18):
     """Build the map data layout dictionary."""
     layout = copy.deepcopy(MAP_LAYOUT)
     layout["mapbox"]["center"] = mapview["mapbox.center"]
@@ -897,14 +897,14 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
         offdf = df[pd.isnull(df["text"])]
         if units == "category":
             offdf["text"] = (offdf["latitude"].round(2).astype(str) + ", "
-                             + offdf["longitude"].round(2).astype(str)
-                             + ": <br>   "
-                             + offdf[y].astype(str) + " " + units)
+                              + offdf["longitude"].round(2).astype(str)
+                              + ": <br>   "
+                              + offdf[y].astype(str) + " " + units)
         else:
             offdf["text"] = (offdf["latitude"].round(2).astype(str) + ", "
-                             + offdf["longitude"].round(2).astype(str)
-                             + ": <br>   "
-                             + offdf[y].round(2).astype(str) + " " + units)
+                              + offdf["longitude"].round(2).astype(str)
+                              + ": <br>   "
+                              + offdf[y].round(2).astype(str) + " " + units)
         df = pd.concat([ondf, offdf])
 
     # Categorical data will be made of multiple traces
@@ -913,10 +913,10 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
         color = COLORS_Q[color]
         showlegend = True
         marker = dict(
-             opacity=1.0,
-             reversescale=rev_color,
-             size=point_size,
-             )
+              opacity=1.0,
+              reversescale=rev_color,
+              size=point_size,
+              )
 
         # Create data object
         figure = px.scatter_mapbox(
@@ -933,20 +933,20 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
         color = COLORS[color]
         showlegend = False
         marker = dict(
-             color=df[y],
-             colorscale=color,
-             cmax=float(ymax),
-             cmin=float(ymin),
-             opacity=1.0,
-             reversescale=rev_color,
-             size=point_size,
-             colorbar=dict(
-                 title=dict(text=units,
+              color=df[y],
+              colorscale=color,
+              cmax=float(ymax),
+              cmin=float(ymin),
+              opacity=1.0,
+              reversescale=rev_color,
+              size=point_size,
+              colorbar=dict(
+                  title=dict(text=units,
                             font=dict(size=15, color="white",
                                       family="New Times Roman")),
-                 tickfont=dict(color="white", family="New Times Roman")
-                 )
-             )
+                  tickfont=dict(color="white", family="New Times Roman")
+                  )
+              )
 
         # Create data object
         figure = px.scatter_mapbox(
@@ -1114,7 +1114,7 @@ def calc_mask(df1, df2, threshold, threshold_field):
 
 @app.callback(Output("capacity_print", "children"),
               [Input("mapcap", "children"),
-               Input("map", "selectedData")])
+                Input("map", "selectedData")])
 def calc_remaining_capacity(mapcap, mapsel):
     """Calculate total remaining capacity after all filters are applied."""
     # Calling this from make_map where the chartsel has already been applied
@@ -1179,8 +1179,8 @@ def cache_map_data(signal_dict):
 
     # Is it faster to subset columns before rows?
     keepers = [y, x, "print_capacity", "total_lcoe_threshold",
-               "mean_lcoe_threshold", "state", "nrel_region", "county",
-               "latitude", "longitude", "sc_point_gid", "n_gids", "index"]
+                "mean_lcoe_threshold", "state", "nrel_region", "county",
+                "latitude", "longitude", "sc_point_gid", "n_gids", "index"]
     df1 = df1[keepers]
 
     # For other functions this data frame needs an x field
@@ -1234,7 +1234,7 @@ def cache_chart_tables(signal_dict, region="national", idx=None):
 
     df = cache_map_data(signal_dict)
     df = df[[x, y, "state", "nrel_region", "print_capacity", "index",
-             "sc_point_gid"]]
+              "sc_point_gid"]]
 
     if idx:
         df = df.iloc[idx]
@@ -1256,11 +1256,11 @@ def cache_chart_tables(signal_dict, region="national", idx=None):
     return dfs
 
 @app.callback([Output('chart_options_tab', 'children'),
-               Output('chart_options_div', 'style'),
-               Output('chart_xvariable_options_div', 'style'),
-               Output('chart_region_div', 'style')],
+                Output('chart_options_div', 'style'),
+                Output('chart_xvariable_options_div', 'style'),
+                Output('chart_region_div', 'style')],
               [Input('chart_options_tab', 'value'),
-               Input('chart_options', 'value')])
+                Input('chart_options', 'value')])
 def options_chart_tabs(tab_choice, chart_choice):
     """Choose which map tab dropown to display."""
     # print_args(chart_tab_options, tab_choice, chart_choice)
@@ -1302,9 +1302,9 @@ def options_chart_tabs(tab_choice, chart_choice):
 
 
 @app.callback([Output("low_cost_split_group_options", "options"),
-               Output("low_cost_split_group_options", "value")],
+                Output("low_cost_split_group_options", "value")],
               [Input("low_cost_split_group", "value"),
-               Input("filedf", "children")])
+                Input("filedf", "children")])
 def options_lchh_group(group, filedf):
     """Display the available options for a chosen group."""
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
@@ -1320,11 +1320,11 @@ def options_lchh_group(group, filedf):
 
 
 @app.callback([Output("low_cost_group_tab_div", "style"),
-               Output("low_cost_list", "style"),
-               Output("low_cost_split_group_div", "style"),
-               Output("low_cost_submit", "style")],
+                Output("low_cost_list", "style"),
+                Output("low_cost_split_group_div", "style"),
+                Output("low_cost_submit", "style")],
               [Input("low_cost_tabs", "value"),
-               Input("low_cost_group_tab", "value")])
+                Input("low_cost_group_tab", "value")])
 def options_low_cost_toggle(choice, how):
     """Show the grouping options for the low cost function.
 
@@ -1333,7 +1333,7 @@ def options_low_cost_toggle(choice, how):
     submit_style = {
         **BUTTON_STYLES["on"],
         **{"background-color": "#F9F9F9", "border-color": "#D6D6D6",
-           "margin": "0 auto"}}
+            "margin": "0 auto"}}
 
     if choice == "on":
         style1 = {}
@@ -1355,8 +1355,8 @@ def options_low_cost_toggle(choice, how):
 
 
 @app.callback([Output("state_options", "style"),
-               Output("basemap_options_div", "style"),
-               Output("color_options_div", "style")],
+                Output("basemap_options_div", "style"),
+                Output("color_options_div", "style")],
               [Input("map_options_tab", "value")])
 def options_map_tab(tab_choice, ):
     """Choose which map tab dropdown to display."""
@@ -1369,16 +1369,16 @@ def options_map_tab(tab_choice, ):
 
 
 @app.callback([Output("scenario_a", "options"),
-               Output("scenario_b", "options"),
-               Output("low_cost_list", "options"),
-               Output("scenario_a", "value"),
-               Output("scenario_b", "value"),
-               Output("low_cost_list", "value"),
-               Output("variable", "options"),
-               Output("low_cost_split_group", "options"),
-               Output("filedf", "children")],
+                Output("scenario_b", "options"),
+                Output("low_cost_list", "options"),
+                Output("scenario_a", "value"),
+                Output("scenario_b", "value"),
+                Output("low_cost_list", "value"),
+                Output("variable", "options"),
+                Output("low_cost_split_group", "options"),
+                Output("filedf", "children")],
               [Input("project", "value"),
-               Input("catch_low_cost", "children")])
+                Input("catch_low_cost", "children")])
 def options_options(project, lc_update):
     """Update the options given a project."""
     # Catch the trigger
@@ -1396,7 +1396,7 @@ def options_options(project, lc_update):
     files = scenario_originals + scenario_outputs
     names = [os.path.basename(f).replace("_sc.csv", "") for f in files]
     names = [" ".join([n.capitalize() for n in name.split("_")])
-             for name in names]
+              for name in names]
     file_list = dict(zip(names, files))
 
     # Infer the groups
@@ -1434,7 +1434,7 @@ def options_options(project, lc_update):
 
 
 @app.callback([Output("project", "options"),
-               Output("project", "value")],
+                Output("project", "value")],
               [Input("url", "pathname")])
 def options_project(pathname):
     """Update project options. Triggered by navbar."""
@@ -1451,7 +1451,7 @@ def options_project(pathname):
 
 @app.callback(Output("recalc_a_options", "children"),
               [Input("project", "value"),
-               Input("scenario_a", "value")],
+                Input("scenario_a", "value")],
               [State("recalc_table", "children")])
 def options_recalc_a(project, scenario, recalc_table):
     """Update the drop down options for each scenario."""
@@ -1467,7 +1467,7 @@ def options_recalc_a(project, scenario, recalc_table):
         # FCR A
         html.Div([
             html.P("FCR % (A): ", className="three columns",
-                   style={"height": "60%"}),
+                    style={"height": "60%"}),
             dcc.Input(id="fcr1", type="number", className="nine columns",
                       style={"height": "60%"},
                       value=table["fcr"], placeholder=otable["fcr"]),
@@ -1476,7 +1476,7 @@ def options_recalc_a(project, scenario, recalc_table):
         # CAPEX A
         html.Div([
             html.P("CAPEX $/KW (A): ", className="three columns",
-                   style={"height": "60%"}),
+                    style={"height": "60%"}),
             dcc.Input(id="capex1", type="number", className="nine columns",
                       style={"height": "60%"},
                       value=table["capex"], placeholder=otable["capex"]),
@@ -1485,7 +1485,7 @@ def options_recalc_a(project, scenario, recalc_table):
         # OPEX A
         html.Div([
             html.P("OPEX $/KW (A): ", className="three columns",
-                   style={"height": "60%"}),
+                    style={"height": "60%"}),
             dcc.Input(id="opex1", type="number", className="nine columns",
                       style={"height": "60%"},
                       value=table["opex"], placeholder=otable["opex"]),
@@ -1494,7 +1494,7 @@ def options_recalc_a(project, scenario, recalc_table):
         # Losses A
         html.Div([
             html.P("Losses % (A): ", className="three columns",
-                   style={"height": "60%"}),
+                    style={"height": "60%"}),
             dcc.Input(id="losses1", type="number", className="nine columns",
                       value=table["losses"], placeholder=otable["losses"],
                       style={"height": "60%"}),
@@ -1505,7 +1505,7 @@ def options_recalc_a(project, scenario, recalc_table):
 
 @app.callback(Output("recalc_b_options", "children"),
               [Input("project", "value"),
-               Input("scenario_b", "value")],
+                Input("scenario_b", "value")],
               [State("recalc_table", "children")])
 def options_recalc_b(project, scenario, recalc_table):
     """Update the drop down options for each scenario."""
@@ -1525,7 +1525,7 @@ def options_recalc_b(project, scenario, recalc_table):
         # FCR B
         html.Div([
             html.P("FCR % (B): ", className="three columns",
-                   style={"height": "60%"}),
+                    style={"height": "60%"}),
             dcc.Input(id="fcr2", type="number", className="nine columns",
                       style={"height": "60%"},
                       value=table["fcr"], placeholder=otable["fcr"]),
@@ -1534,7 +1534,7 @@ def options_recalc_b(project, scenario, recalc_table):
         # CAPEX B
         html.Div([
             html.P("CAPEX $/KW (B): ", className="three columns",
-                   style={"height": "60%"}),
+                    style={"height": "60%"}),
             dcc.Input(id="capex2", type="number", className="nine columns",
                       style={"height": "60%"},
                       value=table["capex"], placeholder=otable["capex"]),
@@ -1543,7 +1543,7 @@ def options_recalc_b(project, scenario, recalc_table):
         # OPEX B
         html.Div([
             html.P("OPEX $/KW (B): ", className="three columns",
-                   style={"height": "60%"}),
+                    style={"height": "60%"}),
             dcc.Input(id="opex2", type="number", className="nine columns",
                       style={"height": "60%"},
                       value=table["opex"], placeholder=otable["opex"]),
@@ -1552,7 +1552,7 @@ def options_recalc_b(project, scenario, recalc_table):
         # Losses B
         html.Div([
             html.P("Losses % (B): ", className="three columns",
-                   style={"height": "60%"}),
+                    style={"height": "60%"}),
             dcc.Input(id="losses2", type="number", className="nine columns",
                       value=table["losses"], placeholder=otable["losses"],
                       style={"height": "60%"}),
@@ -1562,10 +1562,10 @@ def options_recalc_b(project, scenario, recalc_table):
 
 
 @app.callback([Output("recalc_tab_options", "style"),
-               Output("recalc_a_options", "style"),
-               Output("recalc_b_options", "style")],
+                Output("recalc_a_options", "style"),
+                Output("recalc_b_options", "style")],
               [Input("recalc_tab", "value"),
-               Input("recalc_scenario", "value")])
+                Input("recalc_scenario", "value")])
 def options_recalc_toggle(recalc, scenario):
     """Toggle the recalc options on and off."""
     tab_style = {}
@@ -1584,16 +1584,16 @@ def options_recalc_toggle(recalc, scenario):
 
 
 @app.callback([Output("color_options", "options"),
-               Output("color_options", "value")],
+                Output("color_options", "value")],
               [Input("submit", "n_clicks")],
               [State("variable", "value"),
-               State("project", "value"),
-               State("map_signal", "children"),
-               State("color_options", "value")])
+                State("project", "value"),
+                State("map_signal", "children"),
+                State("color_options", "value")])
 def options_toggle_color(submit, variable, project, signal, old_value):
     """Provide Qualitative color options for categorical data."""
     print_args(options_toggle_color, variable, project, signal,
-               old_value)
+                old_value)
 
     # To figure out if we need to update we need these
     if not signal:
@@ -1623,8 +1623,8 @@ def options_toggle_color(submit, variable, project, signal, old_value):
 
 
 @app.callback([Output("options", "style"),
-               Output("toggle_options", "children"),
-               Output("toggle_options", "style")],
+                Output("toggle_options", "children"),
+                Output("toggle_options", "style")],
               [Input('toggle_options', 'n_clicks')])
 def options_toggle_options(click):
     """Toggle options on/off."""
@@ -1644,7 +1644,7 @@ def options_toggle_options(click):
 
 @app.callback(Output("scenario_b_div", "style"),
               [Input("difference", "value"),
-               Input("threshold_mask", "value")])
+                Input("threshold_mask", "value")])
 def options_toggle_scenario_b(difference, mask):
     """Show scenario b if the difference option is on."""
     # trig = dash.callback_context.triggered[0]["prop_id"].split(".")
@@ -1659,7 +1659,7 @@ def options_toggle_scenario_b(difference, mask):
 
 
 @app.callback([Output('rev_color', 'children'),
-               Output('rev_color', 'style')],
+                Output('rev_color', 'style')],
               [Input('rev_color', 'n_clicks')])
 def options_toggle_rev_color_button(click):
     """Toggle Reverse Color on/off."""
@@ -1678,14 +1678,14 @@ def options_toggle_rev_color_button(click):
 @app.callback(Output("catch_low_cost", "children"),
               [Input("low_cost_submit", "n_clicks")],
               [State("project", "value"),
-               State("low_cost_group_tab", "value"),
-               State("low_cost_list", "value"),
-               State("low_cost_split_group", "value"),
-               State("low_cost_split_group_options", "value"),
-               State("scenario_a", "options"),
-               State("low_cost_by", "value"),
-               State("recalc_table", "children"),
-               State("recalc_tab", "value")])
+                State("low_cost_group_tab", "value"),
+                State("low_cost_list", "value"),
+                State("low_cost_split_group", "value"),
+                State("low_cost_split_group_options", "value"),
+                State("scenario_a", "options"),
+                State("low_cost_by", "value"),
+                State("recalc_table", "children"),
+                State("recalc_tab", "value")])
 def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
                       by, recalc_table, recalc):
     """Calculate low cost fields based on user decision."""
@@ -1734,7 +1734,7 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
         grp_key = group_choice.replace(".", "")
         if recalc_table and recalc == "on":
             fname = (f"least_cost_by_{by}_{group}_{grp_key}__{recalc_tag}_"
-                     "_sc.csv")
+                      "_sc.csv")
         else:
             fname = f"least_cost_by_{by}_{group}_{grp_key}_sc.csv"
         paths = FILEDF["file"][FILEDF[group] == group_choice].values
@@ -1763,8 +1763,8 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
 # Map callbacks
 @app.callback(Output("chart_data_signal", "children"),
               [Input("variable", "value"),
-               Input("chart_xvariable_options", "value"),
-               Input("state_options", "value")])
+                Input("chart_xvariable_options", "value"),
+                Input("state_options", "value")])
 def retrieve_chart_tables(y, x, state):
     """Store the signal used to get the set of tables needed for the chart."""
     # print_args(get_chart_tables, y, x, state)
@@ -1775,22 +1775,22 @@ def retrieve_chart_tables(y, x, state):
 
 @app.callback(Output("map_signal", "children"),
               [Input("submit", "n_clicks"),
-               Input("state_options", "value"),
-               Input("chart_options", "value"),
-               Input("chart_xvariable_options", "value")],
+                Input("state_options", "value"),
+                Input("chart_options", "value"),
+                Input("chart_xvariable_options", "value")],
               [State("project", "value"),
-               State("upper_lcoe_threshold", "value"),
-               State("threshold_field", "value"),
-               State("scenario_a", "value"),
-               State("scenario_b", "value"),
-               State("lchh_path", "children"),
-               State("variable", "value"),
-               State("difference", "value"),
-               State("low_cost_tabs", "value"),
-               State("threshold_mask", "value"),
-               State("recalc_table", "children"),
-               State("recalc_tab", "value"),
-               State("difference_units", "value")])
+                State("upper_lcoe_threshold", "value"),
+                State("threshold_field", "value"),
+                State("scenario_a", "value"),
+                State("scenario_b", "value"),
+                State("lchh_path", "children"),
+                State("variable", "value"),
+                State("difference", "value"),
+                State("low_cost_tabs", "value"),
+                State("threshold_mask", "value"),
+                State("recalc_table", "children"),
+                State("recalc_tab", "value"),
+                State("difference_units", "value")])
 def retrieve_signal(submit, states, chart, x, project, threshold,
                     threshold_field, path, path2, lchh_path, y, diff,
                     lchh_toggle, mask, recalc_table, recalc, diff_units):
@@ -1872,17 +1872,17 @@ def retrieve_signal(submit, states, chart, x, project, threshold,
 
 @app.callback(Output("recalc_table", "children"),
               [Input("fcr1", "value"),
-               Input("capex1", "value"),
-               Input("opex1", "value"),
-               Input("losses1", "value"),
-               Input("fcr2", "value"),
-               Input("capex2", "value"),
-               Input("opex2", "value"),
-               Input("losses2", "value"),
-               Input("project", "value")])
+                Input("capex1", "value"),
+                Input("opex1", "value"),
+                Input("losses1", "value"),
+                Input("fcr2", "value"),
+                Input("capex2", "value"),
+                Input("opex2", "value"),
+                Input("losses2", "value"),
+                Input("project", "value")])
 def retrieve_recalc_parameters(fcr1, capex1, opex1, losses1,
-                               fcr2, capex2, opex2, losses2,
-                               project):
+                                fcr2, capex2, opex2, losses2,
+                                project):
     """Retrive all given recalc values and store them."""
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
     if "project" == trig:
@@ -1913,10 +1913,10 @@ def retrieve_recalc_parameters(fcr1, capex1, opex1, losses1,
 
 
 @app.callback([Output("scenario_a_specs", "children"),
-               Output("scenario_b_specs", "children")],
+                Output("scenario_b_specs", "children")],
               [Input("scenario_a", "value"),
-               Input("scenario_b", "value"),
-               Input("project", "value")])
+                Input("scenario_b", "value"),
+                Input("project", "value")])
 def scenario_specs(scenario_a, scenario_b, project):
     """Output the specs association with a chosen scenario."""
     # print_args(scenario_specs, scenario_a, scenario_b)
@@ -1942,22 +1942,22 @@ def scenario_specs(scenario_a, scenario_b, project):
 
 
 @app.callback([Output("map", "figure"),
-               Output("mapview_store", "children"),
-               Output("mapcap", "children")],
+                Output("mapview_store", "children"),
+                Output("mapcap", "children")],
               [Input("map_signal", "children"),
-               Input("basemap_options", "value"),
-               Input("color_options", "value"),
-               Input("chart", "selectedData"),
-               Input("map_point_size", "value"),
-               Input("rev_color", "n_clicks"),
-               Input("map_color_min", "value"),
-               Input("map_color_max", "value")],
+                Input("basemap_options", "value"),
+                Input("color_options", "value"),
+                Input("chart", "selectedData"),
+                Input("map_point_size", "value"),
+                Input("rev_color", "n_clicks"),
+                Input("map_color_min", "value"),
+                Input("map_color_max", "value")],
               [State("project", "value"),
-               State("map", "selectedData"),
-               State("map", "relayoutData"),
-               State("weights", "value")])
+                State("map", "selectedData"),
+                State("map", "relayoutData"),
+                State("weights", "value")])
 def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
-             uymax, project, mapsel, mapview, weights):
+              uymax, project, mapsel, mapview, weights):
     """Make the scatterplot map.
 
     To fix the point selection issue check this out:
@@ -1965,8 +1965,8 @@ def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
     """
     trig = dash.callback_context.triggered[0]['prop_id']
     print_args(make_map, signal, basemap, color, chartsel, point_size,
-               rev_color, uymin, uymax, project, mapsel, mapview, weights,
-               trig=trig)
+                rev_color, uymin, uymax, project, mapsel, mapview, weights,
+                trig=trig)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
@@ -2022,21 +2022,21 @@ def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
               [Input("map_signal", "children"),
                Input("chart_options", "value"),
                Input("map", "selectedData"),
-               Input("chart_point_size", "value"),
-               Input("chosen_map_options", "children"),
-               Input("chart_region", "value"),
-               Input("map_color_min", "value"),
-               Input("map_color_max", "value")],
+                Input("chart_point_size", "value"),
+                Input("chosen_map_options", "children"),
+                Input("chart_region", "value"),
+                Input("map_color_min", "value"),
+                Input("map_color_max", "value")],
               [State("project", "value"),
-               State("chart", "relayoutData"),
-               State("chart", "selectedData"),
-               State("weights", "value")])
+                State("chart", "relayoutData"),
+                State("chart", "selectedData"),
+                State("weights", "value")])
 def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
-               uymax, project, chartview, chartsel, weights):
+                uymax, project, chartview, chartsel, weights):
     """Make one of a variety of charts."""
     print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-               region, uymin, uymax, project, chartview,
-               chartsel, weights)
+                region, uymin, uymax, project, chartview,
+                chartsel, weights)
     trig = dash.callback_context.triggered[0]['prop_id']
     print("trig = '" + str(trig) + "'")
 

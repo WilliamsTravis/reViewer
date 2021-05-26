@@ -17,7 +17,7 @@ from review.support import Config, Data_Path
 from tqdm import tqdm
 
 
-CONFIG = Config("Transition | ATB 2020")
+CONFIG = Config('WETO EOS Comparison')
 DP = Data_Path(CONFIG.directory)
 FILES = DP.contents("*sc.csv")
 REGIONS = {
@@ -99,6 +99,24 @@ def reshape_regions():
     return regions
 
 
+def capex(df, unit_capex=910, unit_om=38.95, fcr=0.049):
+    """Recalculate capital costs."""
+    capacity = df["capacity"]
+    capacity_kw = capacity * 1000
+    cc = capacity_kw * unit_capex
+    om = unit_om * capacity_kw
+    mean_cf = df["mean_cf"]
+    lcoe = df["mean_lcoe"]
+    cc = ((lcoe * (capacity * mean_cf * 8760)) - om) / fcr
+
+    unit_cc = cc / capacity_kw  # $/kw
+
+    df["capex"] = cc
+    df["unit_cc"] = unit_cc
+
+    return df
+
+
 def update_file(path):
     """Add fields to a single file."""
     config = CONFIG.project_config
@@ -126,7 +144,9 @@ def update_file(path):
     # And the scenario
     df["scenario"] = scenario
 
-    df.to_csv(path, index=False)
+    df = capex(df)
+
+    df.to_csv(path)
 
 
 def update_files():

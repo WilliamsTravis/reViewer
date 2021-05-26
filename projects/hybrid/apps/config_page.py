@@ -443,11 +443,11 @@ def build_config(n_clicks, groups, project_name, directory, fields):
     # Combine all titles and units
     units = dict(zip(field_df["FIELD"], field_df["UNITS"]))
     titles = dict(zip(field_df["FIELD"], field_df["TITLE"]))
-    units = {**units, **UNITS}
+    field_units = {**units, **UNITS}
     titles = {**titles, **TITLES}
 
     # Find value ranges for color scales
-    scales = get_scales(file_df, units)
+    scales = get_scales(file_df, field_units)
 
     # For each data frame, if it is missing columns add nans in
     for path in file_df["file"]:

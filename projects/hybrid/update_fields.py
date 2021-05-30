@@ -109,7 +109,7 @@ def capex(df, unit_capex=910, unit_om=38.95, fcr=0.049):
     lcoe = df["mean_lcoe"]
     cc = ((lcoe * (capacity * mean_cf * 8760)) - om) / fcr
 
-    unit_cc = cc / capacity_kw  # $/kw
+    unit_cc = (cc / capacity)  / 1000 # $/kw
 
     df["capex"] = cc
     df["unit_cc"] = unit_cc

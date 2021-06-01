@@ -240,7 +240,8 @@ def find_project_directory(name, n_clicks, path):
 
     if name in Config().projects:
         config = Config(name)
-        path = config.directory
+        if not path:
+            path = config.directory
 
     if "proj_nav" in trig:
         if n_clicks > 0:
@@ -349,8 +350,8 @@ def create_groups(submit, name, group_input, group_values, group_dict):
 def add_datasets(n_clicks, pattern, name, initialdir, file_dict):
     """Browse the file system for a list of file paths."""
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(add_datasets, n_clicks, pattern, name, initialdir, file_dict,
-                trig=trig)
+    # print_args(add_datasets, n_clicks, pattern, name, initialdir, file_dict,
+    #             trig=trig)
 
     file_dict = json.loads(file_dict)
 
@@ -373,6 +374,7 @@ def add_datasets(n_clicks, pattern, name, initialdir, file_dict):
                 if not os.path.exists(path):
                     raise OSError(path + "does not exist.")
                 files.append(os.path.join(initialdir, path))
+            files = list(np.unique(files))
 
     elif "file_pattern" in trig:
         new_files = glob(os.path.join(initialdir, pattern), recursive=True)
@@ -382,7 +384,6 @@ def add_datasets(n_clicks, pattern, name, initialdir, file_dict):
     elif "project_name" not in trig:
         raise PreventUpdate
 
-    files = [file for file in files if os.path.exists(file)]
     file_dict[name] = files
     file_dict = json.dumps(file_dict)
 
@@ -441,14 +442,14 @@ def set_dataset_groups(file_dict, proj_dir, group_dict, name):
             new_rows = []
             for file in files:
                 if file not in df["file"].values:
-                    row = df.iloc[0]
+                    row = df.iloc[0].copy()
                     for key in row.keys():
                         row[key] = None
                     row["file"] = file
                     new_rows.append(row)
             if new_rows:
                 ndf = pd.DataFrame(new_rows)
-                df = pd.concat([df, ndf])
+                df = pd.concat([df, ndf])  # <--------------------------------- Somethings is going wrong here
             df = df.reset_index(drop=True)
         else:
             df = pd.DataFrame({"file": files})
@@ -497,7 +498,7 @@ def set_dataset_groups(file_dict, proj_dir, group_dict, name):
                State("project_name", "value")])
 def find_extra_fields(file_dict, group_dict, fields, name):
     """Use one of the files to infer extra fields and assign units."""
-    print_args(find_extra_fields, file_dict, group_dict, fields, name)
+    # print_args(find_extra_fields, file_dict, group_dict, fields, name)
 
     group_dict = json.loads(group_dict)
     file_dict = json.loads(file_dict)
@@ -591,8 +592,8 @@ def find_extra_fields(file_dict, group_dict, fields, name):
                State("extra_fields", "children")])
 def build_config(n_clicks, group_dt, name, directory, fields):
     """Consolidate inputs into a project config and update overall config."""
-    print_args(build_config, n_clicks, group_dt, name, directory,
-               fields)
+    # print_args(build_config, n_clicks, group_dt, name, directory,
+    #            fields)
 
     if n_clicks == 0:
         raise PreventUpdate

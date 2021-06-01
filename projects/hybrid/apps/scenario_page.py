@@ -533,10 +533,6 @@ layout = html.Div(
                 html.Hr(),
 
             ], className="four columns"),
-
-
-
-
         ], id="options", className="row", style={"margin-bottom": "50px"}),
 
 
@@ -689,19 +685,22 @@ layout = html.Div(
                             value="chart",
                             style=TAB_STYLE,
                             children=[
-                                dcc.Tab(value='chart',
-                                        label='Chart Type',
-                                        style=TABLET_STYLE,
-                                        selected_style=TABLET_STYLE
-                                        ),
-                                dcc.Tab(value='xvariable',
-                                        label='X Variable',
+                                dcc.Tab(value="chart",
+                                        label="Chart Type",
                                         style=TABLET_STYLE,
                                         selected_style=TABLET_STYLE),
-                                dcc.Tab(value='region',
-                                        label='Region',
+                                dcc.Tab(value="xvariable",
+                                        label="X Variable",
                                         style=TABLET_STYLE,
                                         selected_style=TABLET_STYLE),
+                                dcc.Tab(value="region",
+                                        label="Region",
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE),
+                                dcc.Tab(value="scenarios",
+                                        label="Additional Scenarios",
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE)
                                 ]),
 
                         # Type of chart
@@ -742,6 +741,20 @@ layout = html.Div(
                                     value="national"
                                 )
                             ]),
+    
+                        # Scenario grouping
+                        html.Div(
+                            id="chart_scenarios_div",
+                            children=[
+                                dcc.Dropdown(
+                                    id="chart_scenarios",
+                                    clearable=False,
+                                    options=SCENARIO_OPTIONS,
+                                    multi=True
+                                )
+                            ]),
+
+
                         ]),
 
                 ], className="row"),
@@ -848,7 +861,7 @@ layout = html.Div(
 )
 
 
-# Support functions
+# Support functions  <--------------------------------------------------------- Move to module
 def build_map_layout(mapview, title, basemap, showlegend, ymin, ymax,
                       title_size=18):
     """Build the map data layout dictionary."""
@@ -871,6 +884,13 @@ def build_map_layout(mapview, title, basemap, showlegend, ymin, ymax,
                             )
                         )
     return layout
+
+
+def build_name(path):
+    """Infer scenario name from path."""
+    name = os.path.basename(path).replace("_sc.csv", "")
+    name = " ".join([n.capitalize() for n in name.split("_")])
+    return name
 
 
 def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
@@ -1030,8 +1050,7 @@ def build_title(df, signal_dict, weights=True):
     config = Config(project)
 
     # Infer scenario name from path
-    s1 = os.path.basename(path).replace("_sc.csv", "")
-    s1 = " ".join([s.capitalize() for s in s1.split("_")])
+    s1 = build_name(path)
 
     # User specified FCR?
     if recalc_table and "least cost" not in s1.lower():
@@ -1228,87 +1247,115 @@ def cache_map_data(signal_dict):
 @cache3.memoize()
 def cache_chart_tables(signal_dict, region="national", idx=None):
     """Read and store a data frame from the config and options given."""
+    # Unpack subsetting information
     states = signal_dict["states"]
     x = signal_dict["x"]
     y = signal_dict["y"]
 
-    df = cache_map_data(signal_dict)
-    df = df[[x, y, "state", "nrel_region", "print_capacity", "index",
-              "sc_point_gid"]]
-
-    if idx:
-        df = df.iloc[idx]
-
-    if states:
-        if "onshore" in states:
-            df = df[~pd.isnull(df["state"])]
-        elif "offshore" in states:
-            df = df[pd.isnull(df["state"])]
-        else:
-            df = df[df["state"].isin(states)]
-
-    if region != "national":
-        regions = df[region].unique()
-        dfs = {r: df[df[region] == r] for r in regions}
+    # If multiple tables selected, create config copies for each
+    if signal_dict["added_scenarios"]:
+        files = [signal_dict["path"]] + signal_dict["added_scenarios"]
     else:
-        dfs = {"Map Data": df}
+        files = [signal_dict["path"]]
+
+    signal_dicts = []
+    for file in files:
+        signal = signal_dict.copy()
+        signal["path"] = file
+        signal_dicts.append(signal)
+
+    # Get the requested data frames
+    dfs = {}
+    for signal in signal_dicts:
+        name = build_name(signal["path"])
+        df = cache_map_data(signal)
+        df = df[[x, y, "state", "nrel_region", "print_capacity", "index",
+                 "sc_point_gid"]]
+    
+        # Subset by index selection
+        if idx:
+            df = df.iloc[idx]
+    
+        # Subset by state selection
+        if states:
+            if "onshore" in states:
+                df = df[~pd.isnull(df["state"])]
+            elif "offshore" in states:
+                df = df[pd.isnull(df["state"])]
+            else:
+                df = df[df["state"].isin(states)]
+    
+        # Divide into regions if one table (cancel otherwise for now)
+        if region != "national" and not signal["added_scenarios"]:
+            regions = df[region].unique()
+            dfs = {r: df[df[region] == r] for r in regions}
+        else:
+            dfs[name] = df
 
     return dfs
 
-@app.callback([Output('chart_options_tab', 'children'),
-                Output('chart_options_div', 'style'),
-                Output('chart_xvariable_options_div', 'style'),
-                Output('chart_region_div', 'style')],
-              [Input('chart_options_tab', 'value'),
-                Input('chart_options', 'value')])
+@app.callback([Output("chart_options_tab", "children"),
+               Output("chart_options_div", "style"),
+               Output("chart_xvariable_options_div", "style"),
+               Output("chart_region_div", "style"),
+               Output("chart_scenarios_div", "style")],
+              [Input("chart_options_tab", "value"),
+               Input("chart_options", "value")])
 def options_chart_tabs(tab_choice, chart_choice):
     """Choose which map tab dropown to display."""
     # print_args(chart_tab_options, tab_choice, chart_choice)
-    styles = [{'display': 'none'}] * 3
-    order = ["chart", "xvariable", "region"]
+    styles = [{"display": "none"}] * 4
+    order = ["chart", "xvariable", "region", "scenarios"]
     idx = order.index(tab_choice)
     styles[idx] = {"width": "100%", "text-align": "center"}
 
     # If Cumulative capacity only show the y variable
     if chart_choice in ["cumsum", "histogram", "box"]:
         children = [
-            dcc.Tab(value='chart',
-                    label='Chart Type',
+            dcc.Tab(value="chart",
+                    label="Chart Type",
                     style=TABLET_STYLE,
-                    selected_style=TABLET_STYLE
-                ),
-            dcc.Tab(value='region',
-                    label='Region',
+                    selected_style=TABLET_STYLE),
+            dcc.Tab(value="region",
+                    label="Region",
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE),
+            dcc.Tab(value="scenarios",
+                    label="Additional Scenarios ",
                     style=TABLET_STYLE,
                     selected_style=TABLET_STYLE)
         ]
     else:
         children = [
-            dcc.Tab(value='chart',
-                    label='Chart Type',
+            dcc.Tab(value="chart",
+                    label="Chart Type",
                     style=TABLET_STYLE,
                     selected_style=TABLET_STYLE),
-            dcc.Tab(value='xvariable',
-                    label='X Variable',
+            dcc.Tab(value="xvariable",
+                    label="X Variable",
                     style=TABLET_STYLE,
                     selected_style=TABLET_STYLE),
-            dcc.Tab(value='region',
-                    label='Region',
+            dcc.Tab(value="region",
+                    label="Region",
+                    style=TABLET_STYLE,
+                    selected_style=TABLET_STYLE),
+            dcc.Tab(value="scenarios",
+                    label="Additional Scenarios",
                     style=TABLET_STYLE,
                     selected_style=TABLET_STYLE)
         ]
 
-    return children, styles[0], styles[1], styles[2]
+    return children, styles[0], styles[1], styles[2], styles[3]
 
 
 @app.callback([Output("low_cost_split_group_options", "options"),
-                Output("low_cost_split_group_options", "value")],
+               Output("low_cost_split_group_options", "value")],
               [Input("low_cost_split_group", "value"),
-                Input("filedf", "children")])
+               Input("filedf", "children")])
 def options_lchh_group(group, filedf):
     """Display the available options for a chosen group."""
     trig = dash.callback_context.triggered[0]['prop_id'].split(".")[0]
-    if filedf:
+    if filedf and group in filedf:
         # print_args(options_lchh_group, group, filedf, trig=trig)
         filedf = json.loads(filedf)
         filedf = pd.DataFrame(filedf)
@@ -1369,16 +1416,16 @@ def options_map_tab(tab_choice, ):
 
 
 @app.callback([Output("scenario_a", "options"),
-                Output("scenario_b", "options"),
-                Output("low_cost_list", "options"),
-                Output("scenario_a", "value"),
-                Output("scenario_b", "value"),
-                Output("low_cost_list", "value"),
-                Output("variable", "options"),
-                Output("low_cost_split_group", "options"),
-                Output("filedf", "children")],
+               Output("scenario_b", "options"),
+               Output("low_cost_list", "options"),
+               Output("scenario_a", "value"),
+               Output("scenario_b", "value"),
+               Output("low_cost_list", "value"),
+               Output("variable", "options"),
+               Output("low_cost_split_group", "options"),
+               Output("filedf", "children")],
               [Input("project", "value"),
-                Input("catch_low_cost", "children")])
+               Input("catch_low_cost", "children")])
 def options_options(project, lc_update):
     """Update the options given a project."""
     # Catch the trigger
@@ -1623,8 +1670,8 @@ def options_toggle_color(submit, variable, project, signal, old_value):
 
 
 @app.callback([Output("options", "style"),
-                Output("toggle_options", "children"),
-                Output("toggle_options", "style")],
+               Output("toggle_options", "children"),
+               Output("toggle_options", "style")],
               [Input('toggle_options', 'n_clicks')])
 def options_toggle_options(click):
     """Toggle options on/off."""
@@ -1775,31 +1822,32 @@ def retrieve_chart_tables(y, x, state):
 
 @app.callback(Output("map_signal", "children"),
               [Input("submit", "n_clicks"),
-                Input("state_options", "value"),
-                Input("chart_options", "value"),
-                Input("chart_xvariable_options", "value")],
+               Input("state_options", "value"),
+               Input("chart_options", "value"),
+               Input("chart_xvariable_options", "value"),
+               Input("chart_scenarios", "value")],
               [State("project", "value"),
-                State("upper_lcoe_threshold", "value"),
-                State("threshold_field", "value"),
-                State("scenario_a", "value"),
-                State("scenario_b", "value"),
-                State("lchh_path", "children"),
-                State("variable", "value"),
-                State("difference", "value"),
-                State("low_cost_tabs", "value"),
-                State("threshold_mask", "value"),
-                State("recalc_table", "children"),
-                State("recalc_tab", "value"),
-                State("difference_units", "value")])
-def retrieve_signal(submit, states, chart, x, project, threshold,
+               State("upper_lcoe_threshold", "value"),
+               State("threshold_field", "value"),
+               State("scenario_a", "value"),
+               State("scenario_b", "value"),
+               State("lchh_path", "children"),
+               State("variable", "value"),
+               State("difference", "value"),
+               State("low_cost_tabs", "value"),
+               State("threshold_mask", "value"),
+               State("recalc_table", "children"),
+               State("recalc_tab", "value"),
+               State("difference_units", "value")])
+def retrieve_signal(submit, states, chart, x, scenarios, project, threshold,
                     threshold_field, path, path2, lchh_path, y, diff,
                     lchh_toggle, mask, recalc_table, recalc, diff_units):
     """Create signal for sharing data between map and chart with dependence."""
-    # print_args(retrieve_map_signal, submit, states, chart, x, project,
-    #            threshold, threshold_field, path, path2, lchh_path, y, diff,
-    #            lchh_toggle, mask, recalc_table, recalc)
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print("trig = '" + trig + "'")
+    # print_args(retrieve_signal, submit, states, chart, x, scenarios, project,
+    #            threshold, threshold_field, path, path2, lchh_path, y, diff,
+    #            lchh_toggle, mask, recalc_table, recalc, diff_units,
+    #            trig=trig)
 
     # Prevent the first trigger when difference is off
     if "scenario_b" in trig and diff == "off":
@@ -1814,9 +1862,12 @@ def retrieve_signal(submit, states, chart, x, project, threshold,
     scales = config.project_config["scales"]
 
     # Get the full path from the config
-    path = os.path.join(config.directory, path)
+    pdir = config.directory
+    path = os.path.join(pdir, path)
     if path2:
-        path2 = os.path.join(config.directory, path2)
+        path2 = os.path.join(pdir, path2)
+    if scenarios:
+        scenarios = [os.path.join(pdir, s) for s in scenarios]
 
     # Create y mask and difference dependent variables
     ymin = scales[y]["min"]
@@ -1859,6 +1910,7 @@ def retrieve_signal(submit, states, chart, x, project, threshold,
         "project": project,
         "recalc": recalc,
         "recalc_table": recalc_table,
+        "added_scenarios": scenarios,
         "states": states,
         "threshold": threshold,
         "units": units,
@@ -2022,23 +2074,22 @@ def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
               [Input("map_signal", "children"),
                Input("chart_options", "value"),
                Input("map", "selectedData"),
-                Input("chart_point_size", "value"),
-                Input("chosen_map_options", "children"),
-                Input("chart_region", "value"),
-                Input("map_color_min", "value"),
-                Input("map_color_max", "value")],
+               Input("chart_point_size", "value"),
+               Input("chosen_map_options", "children"),
+               Input("chart_region", "value"),
+               Input("map_color_min", "value"),
+               Input("map_color_max", "value")],
               [State("project", "value"),
-                State("chart", "relayoutData"),
-                State("chart", "selectedData"),
-                State("weights", "value")])
+               State("chart", "relayoutData"),
+               State("chart", "selectedData"),
+               State("weights", "value")])
 def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
                 uymax, project, chartview, chartsel, weights):
     """Make one of a variety of charts."""
-    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-                region, uymin, uymax, project, chartview,
-                chartsel, weights)
     trig = dash.callback_context.triggered[0]['prop_id']
-    print("trig = '" + str(trig) + "'")
+    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+              region, uymin, uymax, project, chartview,
+              chartsel, weights, trig=trig)
 
     # Unpack the signal
     signal_dict = json.loads(signal)
@@ -2057,7 +2108,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
         idx = None
 
     # Get the data frames
-    group = "Map Data"
+    group = "Scenario"
     dfs = cache_chart_tables(signal_dict, region, idx)
     plotter = Plots(project, dfs, point_size, group=group, yunits=units)
 
@@ -2096,8 +2147,8 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
         dragmode="select",
         yaxis=dict(range=ylim),
         titlefont=dict(color="white",
-                        size=18,
-                        family="Time New Roman"),
+                       size=18,
+                       family="Time New Roman"),
         title=dict(
                 text=title,
                 yref="container",

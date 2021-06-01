@@ -18,7 +18,7 @@ from navbar import NAVBAR
 
 app.layout = html.Div([
     NAVBAR,
-    dcc.Location(id="url", pathname="/apps/config_page", refresh=False),
+    dcc.Location(id="url", pathname="/apps/scenario_page", refresh=False),
     html.Div(id="page_content")
 ])
 

@@ -1297,7 +1297,7 @@ class Least_Cost():
 class Plots(Config):
     """Class for handling grouped plots (needs work)."""
 
-    def __init__(self, project, datasets, point_size, group="Map Data",
+    def __init__(self, project, datasets, point_size, group="Scenarios",
                  yunits=None, xunits=None,
                  config_path="~/.review_config"):
         """Initialize plotting object for a reV project."""
@@ -1504,7 +1504,7 @@ class Plots(Config):
                 df[self.group] = key
                 main_df = pd.concat([main_df, df])
 
-        if "_2" in y:
+        if "_2" in y:  # What's this for?
             labely = y.replace("_2", "")
         else:
             labely = y
@@ -1519,7 +1519,7 @@ class Plots(Config):
             x=self.group,
             y=y,
             custom_data=["sc_point_gid", "print_capacity"],
-            labels={y: self.units[labely]},
+            labels={y: units},
             color=self.group,
             color_discrete_sequence=px.colors.qualitative.Safe
         )

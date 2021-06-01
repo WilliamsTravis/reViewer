@@ -23,7 +23,7 @@ from dash_table import DataTable
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from review.support import CONFIG_PATH, ORIGINAL_FIELDS, TITLES, UNITS
-from review.support import get_scales
+from review.support import get_scales, Config
 
 from app import app
 from review import print_args
@@ -34,16 +34,37 @@ import matplotlib
 # matplotlib.use("TkAgg")
 
 
+PROJECTS = [{"label": p, "value": p} for p in Config().projects]
+
+
 layout = html.Div([
     # Start of the page
     html.H3("Configure Project"),
 
     # Project name
     html.H5("Project Name"),
-    dcc.Input(
-        id="project_name",
-        debounce=True,
-        style={"margin-left": "50px", "margin-bottom": "15px"}
+    html.Div([
+        html.Div([
+            html.H6("Create New Project:"),
+            dcc.Input(
+                id="project_name",
+                debounce=True,
+                placeholder="Enter project name",
+                style={"width": "100%", "margin-left": "26px"}
+            )
+        ]),
+        html.Div([
+            html.H6("Edit Existing Project:"),
+            dcc.Dropdown(
+                id="project_list",
+                options=PROJECTS,
+                placeholder="Select project name",
+                style={"width": "100%", "margin-left": "15px"}
+            )
+        ]),
+        ],
+        style={"margin-left": "50px", "margin-bottom": "15px", "width": "35%"},
+        className="row"
     ),
 
     # Project directory
@@ -82,13 +103,15 @@ layout = html.Div([
         ),
         dcc.Input(
             id="group_value_input",
-            placeholder="Input possible values for this group.",
+            placeholder="Input possible values.",
             style={"width": "27.5%"}
         ),
     ], className="row",
         style={"margin-left": "50px", "margin-bottom": "15px"}
     ),
-    html.Div(id="top_groups"),
+
+    html.Div(id="top_groups",
+             style={"margin-bottom": "50px", "width": "50%"}),
 
     # Dataset paths
     html.H5("Add Data Set(s)", style={"margin-top": "50px"}),
@@ -131,8 +154,8 @@ layout = html.Div([
 
     # Storage
     html.Div(id="proj_dir", style={"display": "none"}, children="/"),
-    html.Div(id="groups",  style={"display": "none"}),
-    html.Div(id="files", style={"display": "none"}),
+    html.Div(id="groups", children="{}", style={"display": "none"}),
+    html.Div(id="files", children="{}", style={"display": "none"}),
     html.Div(id="config", style={"display": "none"})
 
 ], className="twelve columns", style={"margin-bottom": "50px"})
@@ -158,6 +181,10 @@ def navigate(which, initialdir="/"):
 
     root = tk.Tk()
     root.withdraw()
+    root.geometry("1000x200")
+    root.resizable(0, 0)
+    back = tk.Frame(master=root, bg='black')
+    back.pack_propagate(0)
 
     root.option_add('*foreground', 'black')
     root.option_add('*activeForeground', 'black')
@@ -180,16 +207,40 @@ def navigate(which, initialdir="/"):
     return paths
 
 
+@app.callback(Output("project_list", "options"),
+              [Input("project_name", "value")])
+def project_list(name):
+    """Return or update & return available project list."""
+    projects = Config().projects
+    if name:
+        if name not in projects:
+            projects = projects + [name]
+    projects = [{"label": p, "value": p} for p in projects]
+    return projects
+
+
+@app.callback(Output("project_name", "value"),
+              [Input("project_list", "value")])
+def project_name(selection):
+    """Add an existing project selection to the project name entry."""
+    return selection
+
+
 @app.callback([Output("proj_input", "placeholder"),
                Output("proj_dir", "children"),
                Output("project_directory_print", "children")],
-              [Input("proj_nav", "n_clicks"),
+              [Input("project_name", "value"),
+               Input("proj_nav", "n_clicks"),
                Input("proj_input", "value")])
-def find_project_directory(n_clicks, path):
+def find_project_directory(name, n_clicks, path):
     """Find the root project directory containing data files."""
     # Print variables
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(find_project_directory, n_clicks, path, trig=trig)
+    print_args(find_project_directory, name, n_clicks, path, trig=trig)
+
+    if name in Config().projects:
+        config = Config(name)
+        path = config.directory
 
     if "proj_nav" in trig:
         if n_clicks > 0:
@@ -215,90 +266,158 @@ def find_project_directory(n_clicks, path):
 
 @app.callback([Output("top_groups", "children"),
                Output("groups", "children")],
-              [Input("submit_group", "n_clicks")],
+              [Input("submit_group", "n_clicks"),
+               Input("project_name", "value")],
               [State("group_input", "value"),
                State("group_value_input", "value"),
                State("groups", "children")])
-def create_groups(submit, group_input, group_values, groups):
+def create_groups(submit, name, group_input, group_values, group_dict):
     """Set a group with which to categorize datasets."""
-    print_args(create_groups, submit, group_input, group_values, groups)
+    print_args(create_groups, submit, name, group_input, group_values,
+               group_dict)
 
-    if groups:
-        groups = json.loads(groups)
+    group_dict = json.loads(group_dict)
+
+    if name in Config().projects:
+        config = Config(name)
+        data = config.data
+        groups = [c for c in data.columns if c not in ["name", "file"]]
+        groups = {g: ", ".join(data[g].unique()) for g in groups}
     else:
-        groups = {}
+        if name in group_dict:
+            groups = group_dict[name]
+        else:
+            groups = {}
 
     if group_input:
         groups[group_input] = group_values
 
-    children = []
+
+    df = pd.DataFrame(groups, index=[0]).T
+    df = df.reset_index()
+    df.columns = ["group", "values"]
+
+    dt = DataTable(
+            id="group_table",
+            data=df.to_dict("records"),
+            columns=df.columns,
+            editable=True,
+            column_selectable="multi",
+            row_deletable=True,
+            row_selectable="multi",
+            page_size=10,
+            style_cell={"textAlign": "left"},
+            style_data_conditional=[
+                {
+                    "if": {"row_index": "odd"},
+                    "backgroundColor": "rgb(232,240,254)"
+                }
+            ],
+            style_header={
+                "backgroundColor": "rgb(22,99,181)",
+                "color": "rgb(255,255,255)",
+                "fontWeight": "bold"
+            }
+        )
+
+    dt = []
     for group, values in groups.items():
         if group:
-            reminder = "{}: {}".format(group, values)
-            sdiv = html.Div(
+            reminder = "**{}**: {}".format(group, values)
+            sdiv = dcc.Markdown(
                     id="{}_options".format(group),
-                    children=[
-                        html.P(reminder),
-                    ],
+                    children=reminder,
                     className="row",
                     style={"margin-left": "100px", "margin-bottom": "15px"}
                 )
+            dt.append(sdiv)
 
-            children.append(sdiv)
+    group_dict[name] = groups
+    group_dict = json.dumps(group_dict)
 
-    return children, json.dumps(groups)
+    # print(dt)
+
+    return dt, group_dict
 
 
 @app.callback(Output("files", "children"),
               [Input("file_nav", "n_clicks"),
-               Input("file_pattern", "value")],
+               Input("file_pattern", "value"),
+               Input("project_name", "value")],
               [State("proj_dir", "children"),
                State("files", "children")])
-def add_datasets(n_clicks, pattern, initialdir, files):
+def add_datasets(n_clicks, pattern, name, initialdir, file_dict):
     """Browse the file system for a list of file paths."""
     trig = dash.callback_context.triggered[0]['prop_id']
-    print_args(add_datasets, n_clicks, pattern, initialdir, files, trig=trig)
+    print_args(add_datasets, n_clicks, pattern, name, initialdir, file_dict,
+                trig=trig)
 
-    if files == "null" or files == "{}" or files is None:
-        files = {}
-        key = 0
-    else:
-        files = json.loads(files)
-        keys = [int(k) for k in files.keys()]
-        key = max(keys) + 1
+    file_dict = json.loads(file_dict)
+
+    if file_dict == {} or file_dict is None or name not in file_dict:
+        files = []
+    elif name in file_dict:
+        files = file_dict[name]
+
+    if name in Config().projects:
+        config = Config(name)
+        files = config.data
+        pdir = config.directory
+        files["path"] = files["file"].apply(lambda x: os.path.join(pdir, x))
+        files = list(files["path"].values)
 
     if "file_nav" in trig:
         if n_clicks > 0:
             paths = navigate("files", initialdir=initialdir)
             for path in paths:
-                files[key] = os.path.join(initialdir, path)
-                key += 1
                 if not os.path.exists(path):
-                    print("Chosen path does not exist.")  # Add OSError
+                    raise OSError(path + "does not exist.")
+                files.append(os.path.join(initialdir, path))
 
     elif "file_pattern" in trig:
-        paths = glob(os.path.join(initialdir, pattern), recursive=True)
-        paths.sort()
-        new_files = dict(zip(range(0, len(paths)), paths))
-        files = {**files, **new_files}
-    else:
+        new_files = glob(os.path.join(initialdir, pattern), recursive=True)
+        new_files.sort()
+        files = files + new_files
+
+    elif "project_name" not in trig:
         raise PreventUpdate
 
-    file_list = json.dumps(files)
+    files = [file for file in files if os.path.exists(file)]
+    file_dict[name] = files
+    file_dict = json.dumps(file_dict)
 
-    return file_list
+    return file_dict
 
 
 @app.callback(Output("file_groups", "children"),
               [Input("files", "children"),
                Input("proj_dir", "children"),
-               Input("groups", "children")])
-def set_dataset_groups(files, proj_dir, groups):
+               Input("groups", "children")],
+              [State("project_name", "value")])
+def set_dataset_groups(file_dict, proj_dir, group_dict, name):
     """For each file, set a group and value from the user inputs above."""
-    print_args(set_dataset_groups, files, proj_dir, groups)
-    if files and files != "null" and files != '{}':
-        files = json.loads(files)
-        groups = json.loads(groups)
+    print_args(set_dataset_groups, file_dict, proj_dir, group_dict, name)
+    file_dict = json.loads(file_dict)
+
+    if not name:
+        return None
+
+    if name not in file_dict:
+        raise PreventUpdate
+
+    if not file_dict[name]:
+        return None
+
+    if "null" in file_dict:
+        del file_dict["null"]
+
+    if file_dict and name in file_dict:
+        files = file_dict[name]
+        try:
+            groups = json.loads(group_dict)[name]
+        except Exception as e:
+            print(e)
+            raise PreventUpdate
         groups = {k: v.split(",") for k, v in groups.items()}
         groups = {k: [v.split()[0] for v in g] for k, g in groups.items()}
         groups = {k: v + ["NA"] for k, v in groups.items()}
@@ -309,14 +428,32 @@ def set_dataset_groups(files, proj_dir, groups):
             options = [{"label": op, "value": op} for op in options]
             dropdowns[group] = {
                 "options": options,
-                # "placeholder": str(options)
             }
 
         # Data Table
-        files = list(files.values())
-        df = pd.DataFrame({"file": files})
-        for group, options in groups.items():
-            df[group] = ", ".join(options)
+        if name in Config().projects:
+            config = Config(name)
+            df = config.data
+            if "name" in df:
+                del df["name"]
+            pdir = config.directory
+            df["file"] = df["file"].apply(lambda x: os.path.join(pdir, x))
+            new_rows = []
+            for file in files:
+                if file not in df["file"].values:
+                    row = df.iloc[0]
+                    for key in row.keys():
+                        row[key] = None
+                    row["file"] = file
+                    new_rows.append(row)
+            if new_rows:
+                ndf = pd.DataFrame(new_rows)
+                df = pd.concat([df, ndf])
+            df = df.reset_index(drop=True)
+        else:
+            df = pd.DataFrame({"file": files})
+            for group, options in groups.items():
+                df[group] = ", ".join(options)
 
         cols = []
         for col in df.columns:
@@ -356,25 +493,44 @@ def set_dataset_groups(files, proj_dir, groups):
 @app.callback(Output("extra_fields", "children"),
               [Input("files", "children"),
                Input("groups", "children")],
-              [State("extra_fields", "children")])
-def find_extra_fields(files, groups, fields):
+              [State("extra_fields", "children"),
+               State("project_name", "value")])
+def find_extra_fields(file_dict, group_dict, fields, name):
     """Use one of the files to infer extra fields and assign units."""
-    print_args(find_extra_fields, files, groups, fields)
+    print_args(find_extra_fields, file_dict, group_dict, fields, name)
 
-    if files == "null" or files == '{}':
+    group_dict = json.loads(group_dict)
+    file_dict = json.loads(file_dict)
+
+    if not name:
         raise PreventUpdate
+
+    if name not in file_dict:
+        raise PreventUpdate
+
+    if not file_dict[name]:
+        return None
+
+    if "null" in file_dict:
+        del file_dict["null"]
+
+    if not file_dict:
+        raise PreventUpdate
+    if not group_dict:
+        raise PreventUpdate
+
+    files = file_dict[name]
+    groups = group_dict[name]
 
     new_fields = []
     if files:
-        files = json.loads(files)
-        groups = json.loads(groups)
-        files = list(files.values())
         for file in files:
-            with open(files[0], "r") as f1:
-                reader = csv.DictReader(f1)
-                columns = reader.fieldnames
-            new_columns = list(set(columns) - set(ORIGINAL_FIELDS))
-            new_fields = new_fields + new_columns
+            if os.path.isfile(file):
+                with open(file, "r") as f1:
+                    reader = csv.DictReader(f1)
+                    columns = reader.fieldnames
+                new_columns = list(set(columns) - set(ORIGINAL_FIELDS))
+                new_fields = new_fields + new_columns
         new_fields = list(np.unique(new_fields))
     else:
         raise PreventUpdate
@@ -385,6 +541,13 @@ def find_extra_fields(files, groups, fields):
     df["title"] = "N/A"
     df["units"] = "N/A"
     df.columns = ["FIELD", "TITLE", "UNITS"]
+
+    if name in Config().projects:
+        config = Config(name)
+        for field, title in config.titles.items():
+            df["TITLE"][df["FIELD"] == field] = title
+        for field, unit in config.units.items():
+            df["UNITS"][df["FIELD"] == field] = unit
 
     cols = [{"name": i, "id": i, "searchable": True} for i in df.columns]
     cell_styles = [
@@ -424,21 +587,19 @@ def find_extra_fields(files, groups, fields):
               [Input("submit", "n_clicks")],
               [State("file_groups", "children"),
                State("project_name", "value"),
-               State("proj_input", "value"),
+               State("proj_dir", "children"),
                State("extra_fields", "children")])
-def build_config(n_clicks, groups, project_name, directory, fields):
+def build_config(n_clicks, group_dt, name, directory, fields):
     """Consolidate inputs into a project config and update overall config."""
-    print_args(build_config, n_clicks, groups, project_name, directory, fields)
+    print_args(build_config, n_clicks, group_dt, name, directory,
+               fields)
 
     if n_clicks == 0:
         raise PreventUpdate
 
     # Get the file/group and fields data frames
     field_df, fmsg = dash_to_pandas(fields)
-    file_df, gmsg = dash_to_pandas(groups)
-
-    # Get just the file name from the path
-    file_df["name"] = file_df["file"].apply(lambda x: os.path.basename(x))
+    file_df, gmsg = dash_to_pandas(group_dt)
 
     # Combine all titles and units
     units = dict(zip(field_df["FIELD"], field_df["UNITS"]))
@@ -453,7 +614,6 @@ def build_config(n_clicks, groups, project_name, directory, fields):
     for path in file_df["file"]:
         df = pd.read_csv(path)
         for field in list(units.keys()) + ["nrel_region"]:
-            print(field)
             if field not in df.columns:
                 df[field] = np.nan
         df.to_csv(path, index=False)
@@ -476,6 +636,6 @@ def build_config(n_clicks, groups, project_name, directory, fields):
         full_config = {}
 
     # Add in the new entry and save
-    full_config[project_name] = config
+    full_config[name] = config
     with open(CONFIG_PATH, "w") as file:
         file.write(json.dumps(full_config, indent=4))

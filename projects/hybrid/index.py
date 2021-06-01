@@ -18,7 +18,7 @@ from navbar import NAVBAR
 
 app.layout = html.Div([
     NAVBAR,
-    dcc.Location(id="url", pathname="/apps/scenario_page", refresh=False),
+    dcc.Location(id="url", pathname="/apps/config_page", refresh=False),
     html.Div(id="page_content")
 ])
 
@@ -41,5 +41,5 @@ def change_page(pathname):
 
 
 if __name__ == '__main__':
-#    app.run_server(debug=True, port="9876")
+    # app.run_server(debug=True, port="9876")
     app.run_server(debug=False, port="9876")

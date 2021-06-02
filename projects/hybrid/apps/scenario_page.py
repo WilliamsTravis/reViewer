@@ -535,7 +535,6 @@ layout = html.Div(
             ], className="four columns"),
         ], id="options", className="row", style={"margin-bottom": "50px"}),
 
-
         # Submit Button to avoid repeated callbacks
         html.Div([
             html.Button(
@@ -1031,7 +1030,7 @@ def infer_recalc(title):
     return title
 
 
-def build_title(df, signal_dict, weights=True):
+def build_title(df, signal_dict, weights=True):  # ---------------------------> This needs to be its own class
     """Create chart title."""
     # print_args(build_title, df, signal_dict, weights)
     diff = signal_dict["diff"]
@@ -1417,6 +1416,7 @@ def options_map_tab(tab_choice, ):
 
 @app.callback([Output("scenario_a", "options"),
                Output("scenario_b", "options"),
+               Output("chart_scenarios", "options"),
                Output("low_cost_list", "options"),
                Output("scenario_a", "value"),
                Output("scenario_b", "value"),
@@ -1477,11 +1477,11 @@ def options_options(project, lc_update):
         so = json.loads(lc_update)
         sva = so[-1]["value"]
 
-    return so, so, lco, sva, svb, sva, vo, go, fdf
+    return so, so, so, lco, sva, svb, sva, vo, go, fdf
 
 
 @app.callback([Output("project", "options"),
-                Output("project", "value")],
+               Output("project", "value")],
               [Input("url", "pathname")])
 def options_project(pathname):
     """Update project options. Triggered by navbar."""
@@ -1691,7 +1691,7 @@ def options_toggle_options(click):
 
 @app.callback(Output("scenario_b_div", "style"),
               [Input("difference", "value"),
-                Input("threshold_mask", "value")])
+               Input("threshold_mask", "value")])
 def options_toggle_scenario_b(difference, mask):
     """Show scenario b if the difference option is on."""
     # trig = dash.callback_context.triggered[0]["prop_id"].split(".")

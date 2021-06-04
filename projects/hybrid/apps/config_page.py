@@ -24,10 +24,12 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from review.support import CONFIG_PATH, ORIGINAL_FIELDS, TITLES, UNITS
 from review.support import get_scales, Config
+from revruns.rrprocess import Process
 
 from app import app
 from review import print_args
 from tkinter import filedialog
+from tqdm import tqdm
 
 # MAC Tkinter solution?
 import matplotlib
@@ -350,8 +352,8 @@ def create_groups(submit, name, group_input, group_values, group_dict):
 def add_datasets(n_clicks, pattern, name, initialdir, file_dict):
     """Browse the file system for a list of file paths."""
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(add_datasets, n_clicks, pattern, name, initialdir, file_dict,
-    #             trig=trig)
+    print_args(add_datasets, n_clicks, pattern, name, initialdir, file_dict,
+                trig=trig)
 
     file_dict = json.loads(file_dict)
 
@@ -592,15 +594,24 @@ def find_extra_fields(file_dict, group_dict, fields, name):
                State("extra_fields", "children")])
 def build_config(n_clicks, group_dt, name, directory, fields):
     """Consolidate inputs into a project config and update overall config."""
-    # print_args(build_config, n_clicks, group_dt, name, directory,
-    #            fields)
-
+    print_args(build_config, n_clicks, group_dt, name, directory,
+               fields)
     if n_clicks == 0:
         raise PreventUpdate
 
     # Get the file/group and fields data frames
     field_df, fmsg = dash_to_pandas(fields)
     file_df, gmsg = dash_to_pandas(group_dt)
+
+    # We might need to update the home directory
+    if os.path.dirname(file_df["file"].iloc[0]) != directory:
+        old = os.path.dirname(file_df["file"].iloc[0])
+        file_df["file"] = file_df["file"].apply(
+            lambda x: x.replace(old, directory)
+        )
+
+    # Add just the file name
+    file_df["name"] = file_df["file"].apply(lambda x: os.path.basename(x))
 
     # Combine all titles and units
     units = dict(zip(field_df["FIELD"], field_df["UNITS"]))
@@ -612,12 +623,19 @@ def build_config(n_clicks, group_dt, name, directory, fields):
     scales = get_scales(file_df, field_units)
 
     # For each data frame, if it is missing columns add nans in
-    for path in file_df["file"]:
-        df = pd.read_csv(path)
-        for field in list(units.keys()) + ["nrel_region"]:
-            if field not in df.columns:
-                df[field] = np.nan
-        df.to_csv(path, index=False)
+    needed_columns = list(field_units.keys()) + ["nrel_region"]
+    for path in tqdm(file_df["file"]):
+        dcols = pd.read_csv(path, index_col=0, nrows=0).columns
+        if any([c not in dcols for c in needed_columns]):
+            df = pd.read_csv(path, low_memory=False)
+            for field in needed_columns:
+                if field not in df.columns:
+                    df[field] = np.nan
+            df.to_csv(path, index=False)
+
+    # Create Processing object and add additional fields
+    processor = Process(directory, "*csv")
+    processor.process()
 
     # Convert to a config entry
     config = {

@@ -47,7 +47,7 @@ AGGREGATIONS = {
     "transmission_multiplier": "mean",
     "Hub Height": "mean",
     "capex": "mean",
-    "shadow_flicker_120m": "sum",
+    "shadow_flicker_120m": "sum",  # <----------------------------------------- Quick hack
     "shadow_flicker_120m_percent": "mean",
     "shadow_flicker_135m": "sum",
     "shadow_flicker_135m_percent": "mean"
@@ -232,7 +232,7 @@ ORIGINAL_FIELDS = ["sc_gid", "res_gids", "gen_gids", "gid_counts", "n_gids",
                    "sc_row_ind", "sc_col_ind", "res_class", "trans_multiplier",
                    "trans_gid", "trans_capacity", "trans_type",
                    "trans_cap_cost", "dist_mi", "lcot", "total_lcoe",
-                   "elevation_class", "windspeed_class"]
+                   "windspeed_class"]
 
 REGIONS = {
     "Pacific": [
@@ -305,24 +305,6 @@ REGIONS = {
 }
 
 RESOURCE_CLASSES = {
-    "elevation": {
-        "onshore": {  # Double check on these, the order was off in the email
-            1: [1715, 99999],
-            2: [1128, 1715],
-            3: [1120, 1128],
-            4: [977, 1120],
-            5: [918, 977],
-            6: [863, 918],
-            7: [755, 863],
-            8: [750, 755],
-            9: [654, 750],
-            10: [636, 654],
-            11: [-99999, 636]
-        },
-        "offshore": {
-            1: [-99999, 1000]
-        }
-    },
     "windspeed": {
         "onshore": {
             1: [9.01, 100],
@@ -389,7 +371,6 @@ TITLES = {
     "transmission_multiplier": "Transmission Cost Multiplier",
     "trans_multiplier": "Transmission Cost Multiplier",
     "trans_type": "Transmission Feature Type",
-    "elevation_class": "Elevation Class",
     "windspeed_class": "Windspeed Class"
 }
 
@@ -409,7 +390,6 @@ UNITS = {
     "transmission_multiplier": "category",
     "trans_multiplier": "category",
     "trans_type": "category",
-    "elevation_class": "category",
     "windspeed_class": "category"
 }
 
@@ -427,7 +407,6 @@ VARIABLES = [
     {"label": 'Transmission Capital Costs', "value": 'trans_cap_cost'},
     {"label": "Transmission Cost Multiplier", "value": "trans_multiplier"},
     {"label": "Tranmission Feature Type", "value": "trans_type"},
-    {"label": "Elevation Class", "value": "elevation_class"},
     {"label": "Windspeed Class", "value": "windspeed_class"}
 ]
 
@@ -517,7 +496,7 @@ def get_scales(file_df, field_units):
     def get_range(args):
         file, fields = args
         ranges = {}
-        df = pd.read_csv(file)
+        df = pd.read_csv(file, low_memory=False)
         for field in fields:
             ranges[field] = {}
             if field in df.columns:
@@ -912,7 +891,8 @@ class Data(Config):
         params = config["parameters"][scenario]
         ovalues = dict()
         for key in ["fcr", "capex", "opex", "losses"]:
-            ovalues[key] = self._fix_format(params[fields[key]])
+            ovalues[key] = self._fix_format(params[fields[
+                key]])
         return ovalues
 
     def read(self, path):
@@ -939,8 +919,8 @@ class Data(Config):
         # We might need to add fields before we can these in
         df_columns = pd.read_csv(path, index_col=0, nrows=0).columns
         df_columns = df_columns.tolist()
-        if not all([c in df_columns for c in columns]):
-            self._set_fields(path)
+        # if not all([c in df_columns for c in columns]):
+        #     self._set_fields(path)
 
         # There is a discrepancy in transmission multiplier's naming
         if "transmission_multiplier" in df_columns:
@@ -951,6 +931,7 @@ class Data(Config):
             columns += ["scenario"]
 
         # Read in table
+        columns = [c for c in columns if c in self._cols(path)]
         df = pd.read_csv(path, usecols=columns, low_memory=False)
 
         return df
@@ -1101,6 +1082,10 @@ class Data(Config):
         """Assign resource classes if possible to an sc df."""
         for field in RESOURCE_CLASSES.keys():
             self._set_field(path, field)
+
+    def _cols(self, file):
+        """Return only the columns of a csv file."""
+        return pd.read_csv(file, index_col=0, nrows=0).columns
 
 
 class Difference:
@@ -1459,15 +1444,16 @@ class Plots(Config):
             range_y=[0, 4000],
             labels={y: yunits},
             color=self.group,
-            color_discrete_sequence=px.colors.qualitative.Safe
+            color_discrete_sequence=px.colors.qualitative.Safe,
+            barmode="overlay"
         )
 
         fig.update_traces(
             marker=dict(
                 line=dict(
                     width=0
-                    )
-                ),
+                )
+            ),
             unselected=dict(
                 marker=dict(
                     color="grey")

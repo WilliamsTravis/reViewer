@@ -7,17 +7,17 @@ Created on Thu Jan  7 07:17:36 2021
 
 @author: twillia2
 """
-import json
 import os
 
 import pandas as pd
 import pathos.multiprocessing as mp
 
 from review.support import Config, Data_Path
+from revruns.rrprocess import Process
 from tqdm import tqdm
 
 
-CONFIG = Config('WETO EOS Comparison')
+CONFIG = Config('ATB Onshore - FY21')
 DP = Data_Path(CONFIG.directory)
 FILES = DP.contents("*sc.csv")
 REGIONS = {
@@ -92,6 +92,7 @@ REGIONS = {
 
 
 def reshape_regions():
+    """Convert region-states dictionary to state-region dictionary."""
     regions = {}
     for region, states in REGIONS.items():
         for state in states:
@@ -100,7 +101,7 @@ def reshape_regions():
 
 
 def capex(df, unit_capex=910, unit_om=38.95, fcr=0.049):
-    """Recalculate capital costs."""
+    """Recalculate capital costs if needed input columns are present."""
     capacity = df["capacity"]
     capacity_kw = capacity * 1000
     cc = capacity_kw * unit_capex
@@ -108,8 +109,7 @@ def capex(df, unit_capex=910, unit_om=38.95, fcr=0.049):
     mean_cf = df["mean_cf"]
     lcoe = df["mean_lcoe"]
     cc = ((lcoe * (capacity * mean_cf * 8760)) - om) / fcr
-
-    unit_cc = (cc / capacity)  / 1000 # $/kw
+    unit_cc = (cc / capacity) / 1000  # $/kw
 
     df["capex"] = cc
     df["unit_cc"] = unit_cc
@@ -150,9 +150,11 @@ def update_file(path):
 
 
 def update_files():
+    """Update all files with added field."""
     with mp.Pool(mp.cpu_count()) as pool:
         for _ in tqdm(pool.imap(update_file, FILES), total=len(FILES)):
             pass
+
 
 if __name__ == "__main__":
     update_files()

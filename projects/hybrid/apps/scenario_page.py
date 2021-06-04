@@ -132,8 +132,8 @@ layout = html.Div(
         # Options Label
         html.H4("Options"),
         html.Hr(style={"width": "98%",
-                        "border-bottom": "2px solid #fccd34",
-                        "border-top": "3px solid #1663b5"}),
+                       "border-bottom": "2px solid #fccd34",
+                       "border-top": "3px solid #1663b5"}),
 
         # Toggle Options
         html.Div([
@@ -1251,12 +1251,16 @@ def cache_chart_tables(signal_dict, region="national", idx=None):
     x = signal_dict["x"]
     y = signal_dict["y"]
 
-    # If multiple tables selected, create config copies for each
+    # If multiple tables selected, make a list of those files
     if signal_dict["added_scenarios"]:
         files = [signal_dict["path"]] + signal_dict["added_scenarios"]
     else:
         files = [signal_dict["path"]]
 
+    # Remove additional scenarios from signal_dict for the cache's sake
+    del signal_dict["added_scenarios"]
+
+    # Make a signal copy for each file
     signal_dicts = []
     for file in files:
         signal = signal_dict.copy()
@@ -1270,11 +1274,11 @@ def cache_chart_tables(signal_dict, region="national", idx=None):
         df = cache_map_data(signal)
         df = df[[x, y, "state", "nrel_region", "print_capacity", "index",
                  "sc_point_gid"]]
-    
+
         # Subset by index selection
         if idx:
             df = df.iloc[idx]
-    
+
         # Subset by state selection
         if states:
             if "onshore" in states:
@@ -1283,9 +1287,9 @@ def cache_chart_tables(signal_dict, region="national", idx=None):
                 df = df[pd.isnull(df["state"])]
             else:
                 df = df[df["state"].isin(states)]
-    
+
         # Divide into regions if one table (cancel otherwise for now)
-        if region != "national" and not signal["added_scenarios"]:
+        if region != "national" and len(signal_dicts) == 1:
             regions = df[region].unique()
             dfs = {r: df[df[region] == r] for r in regions}
         else:

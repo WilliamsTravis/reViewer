@@ -21,3 +21,4 @@ dependencies:
     - addfips
     - colorama
     - us
+    - flask-sqlalchemy

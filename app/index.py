@@ -10,11 +10,14 @@ import dash_html_components as html
 
 from dash.dependencies import Input, Output
 
+import scenario_page, config_page
+
 from app import app, server
-from apps import scenario_page, config_page
 from review.support import BUTTON_STYLES
 from navbar import NAVBAR
 
+
+print("FLASK SERVER CONFIG: \n   " + str(dict(server.config)))
 
 app.layout = html.Div([
     NAVBAR,

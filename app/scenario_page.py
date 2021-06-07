@@ -34,7 +34,7 @@ from review.support import (Config, Data, Data_Path, Difference, Least_Cost,
                             Plots, point_filter, wmean)
 
 
-############## Temporary for initial layout ###################################
+############## Temporary for initial layout ###################################  Perhaps we could include the initial setup in the config
 CONFIG = Config("Transition | ATB 2020").project_config
 DP = Data_Path(CONFIG["directory"])
 FILEDF = pd.DataFrame(CONFIG["data"])

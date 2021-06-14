@@ -35,7 +35,7 @@ from review.support import (Config, Data, Data_Path, Difference, Least_Cost,
 
 
 ############## Temporary for initial layout ###################################  Perhaps we could include the initial setup in the config
-CONFIG = Config("Transition | ATB 2020").project_config
+CONFIG = Config("ATB 2020").project_config
 DP = Data_Path(CONFIG["directory"])
 FILEDF = pd.DataFrame(CONFIG["data"])
 SPECS = CONFIG["parameters"]
@@ -117,7 +117,7 @@ layout = html.Div(
                 dcc.Dropdown(
                     id="project",
                     options=PROJECT_OPTIONS,
-                    value="Transition | ATB 2020"
+                    value="ATB 2020"
                 )
             ], className="three columns"),
 
@@ -658,7 +658,7 @@ layout = html.Div(
                             className="two columns",
                             style={"width": "11%", "margin-left": "-20px"}
                         )
-                    ], className="seven columns", style=BOTTOM_DIV_STYLE),
+                    ], className="five columns", style=BOTTOM_DIV_STYLE),
 
                     # Right option
                     html.Button(
@@ -722,7 +722,7 @@ layout = html.Div(
                                 dcc.Dropdown(
                                     id="chart_xvariable_options",
                                     clearable=False,
-                                    options=VARIABLES,
+                                    options=VARIABLE_OPTIONS,
                                     multi=False,
                                     value="mean_cf"
                                 )
@@ -763,31 +763,43 @@ layout = html.Div(
                     id="chart",
                     config={
                         "showSendToCloud": True,
-                        "toImageButtonOptions": {"width": None,
-                                                  "height": None},
+                        "toImageButtonOptions": {"width": 300, "height": 250},
                         "plotlyServerURL": "https://chart-studio.plotly.com"
                     }),
 
-                # Point Size
+                # Below Chart Options
                 html.Div(
-                    id="chart_point_size_div",
+                    id="chart_extra_div",
                     children=[
-                        html.H6("Point Size:",
-                                className="seven columns",
-                                style={"margin-left": 7}
-                                ),
+                        html.H6("Point Size:",style={"margin-left": 5},
+                                className="three columns"),
                         dcc.Input(
                             id="chart_point_size",
                             value=5,
                             type="number",
                             className="two columns",
-                            style={"width": "35%", "margin-left": "-5px"}
+                            style={"margin-left": -1}
+                        ),
+                        html.Div(
+                            id="chart_xbin_div",
+                            style={"margin-left": "10px"},
+                            children=[
+                                html.H6("Bin Size:", style={"margin-left": 15},
+                                        className="three columns"),
+                                dcc.Input(
+                                    className="two columns",
+                                    style={"margin-left": -1},
+                                    id="chart_xbin",
+                                    value=None,
+                                    type="number",
+                                )
+                            ]
                         ),
                     ],
-                    className="row",
-                    style={**BOTTOM_DIV_STYLE, **{"width": "18%"}}
-                    ),
-                ], className="six columns"),
+                    className="five columns", style=BOTTOM_DIV_STYLE
+                ),
+
+            ], className="six columns"),
         ], className="row"),
 
 
@@ -1426,6 +1438,7 @@ def options_map_tab(tab_choice, ):
                Output("scenario_b", "value"),
                Output("low_cost_list", "value"),
                Output("variable", "options"),
+               Output("chart_xvariable_options", "options"),
                Output("low_cost_split_group", "options"),
                Output("filedf", "children")],
               [Input("project", "value"),
@@ -1481,7 +1494,7 @@ def options_options(project, lc_update):
         so = json.loads(lc_update)
         sva = so[-1]["value"]
 
-    return so, so, so, lco, sva, svb, sva, vo, go, fdf
+    return so, so, so, lco, sva, svb, sva, vo, vo, go, fdf
 
 
 @app.callback([Output("project", "options"),
@@ -1709,6 +1722,17 @@ def options_toggle_scenario_b(difference, mask):
     return style
 
 
+@app.callback(Output("chart_xbin_div", "style"),
+              [Input("chart_options", "value")])
+def options_toggle_bins(chart_type):
+    """Show the bin size option under the chart."""
+    print_args(options_toggle_bins, chart_type)
+    style = {"display": "none"}
+    if chart_type == "binned":
+        style = {"margin-left": "10px"}
+    return style
+
+
 @app.callback([Output('rev_color', 'children'),
                 Output('rev_color', 'style')],
               [Input('rev_color', 'n_clicks')])
@@ -1814,8 +1838,8 @@ def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
 # Map callbacks
 @app.callback(Output("chart_data_signal", "children"),
               [Input("variable", "value"),
-                Input("chart_xvariable_options", "value"),
-                Input("state_options", "value")])
+               Input("chart_xvariable_options", "value"),
+               Input("state_options", "value")])
 def retrieve_chart_tables(y, x, state):
     """Store the signal used to get the set of tables needed for the chart."""
     # print_args(get_chart_tables, y, x, state)
@@ -2082,18 +2106,19 @@ def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
                Input("chosen_map_options", "children"),
                Input("chart_region", "value"),
                Input("map_color_min", "value"),
-               Input("map_color_max", "value")],
+               Input("map_color_max", "value"),
+               Input("chart_xbin", "value")],
               [State("project", "value"),
                State("chart", "relayoutData"),
                State("chart", "selectedData"),
                State("weights", "value")])
 def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
-                uymax, project, chartview, chartsel, weights):
+                uymax, xbin, project, chartview, chartsel, weights):
     """Make one of a variety of charts."""
     trig = dash.callback_context.triggered[0]['prop_id']
     print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-              region, uymin, uymax, project, chartview,
-              chartsel, weights, trig=trig)
+              region, uymin, uymax, xbin, project, chartview, chartsel,
+              weights, trig=trig)
 
     # Unpack the signal
     signal_dict = json.loads(signal)
@@ -2114,12 +2139,15 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
     # Get the data frames
     group = "Scenario"
     dfs = cache_chart_tables(signal_dict, region, idx)
-    plotter = Plots(project, dfs, point_size, group=group, yunits=units)
+    plotter = Plots(project, dfs, point_size, group=group, yunits=units,
+                    xbin=xbin)
 
     if chart == "cumsum":
         fig = plotter.ccap()
     elif chart == "scatter":
         fig = plotter.scatter()
+    elif chart == "binned":
+        fig = plotter.binned()
     elif chart == "histogram":
         ylim = [0, 2000]
         fig = plotter.histogram()

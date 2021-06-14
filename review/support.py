@@ -91,6 +91,7 @@ BOTTOM_DIV_STYLE = {
     "height": "45px",
     "float": "left",
     "margin-top": "-2px",
+    "margin-left": -1,
     "border": "3px solid #1663b5",
     "border-radius": "4px",
     "border-width": "3px",
@@ -101,7 +102,8 @@ BOTTOM_DIV_STYLE = {
 
 
 CHART_OPTIONS = [{"label": "Cumulative Capacity", "value": "cumsum"},
-                 {"label": "Scatterplot", "value": "scatter"},
+                 {"label": "Bivariate - Scatterplot", "value": "scatter"},
+                 {"label": "Bivariate - Binned Line Plot", "value": "binned"},
                  {"label": "Histogram", "value": "histogram"},
                  {"label": "Boxplot", "value": "box"}]
 
@@ -1283,7 +1285,7 @@ class Plots(Config):
     """Class for handling grouped plots (needs work)."""
 
     def __init__(self, project, datasets, point_size, group="Scenarios",
-                 yunits=None, xunits=None,
+                 yunits=None, xunits=None, xbin=None,
                  config_path="~/.review_config"):
         """Initialize plotting object for a reV project."""
         super().__init__(project, config_path)
@@ -1292,6 +1294,7 @@ class Plots(Config):
         self.point_size = point_size
         self.yunits = yunits
         self.xunits = xunits
+        self.xbin = xbin
 
     def __repr__(self):
         """Print representation string."""
@@ -1337,6 +1340,87 @@ class Plots(Config):
             color=self.group,
             color_discrete_sequence=px.colors.qualitative.Safe
         )
+
+        fig.update_traces(
+            marker=dict(
+                size=self.point_size,
+                line=dict(
+                    width=0
+                    )
+                ),
+            unselected=dict(
+                marker=dict(
+                    color="grey")
+                )
+            )
+
+        return fig
+
+    def binned(self):
+        """Return a line plot."""
+        # The clustered scatter plot part
+        main_df = None
+        for key, df in self.datasets.items():
+            df = self._fix_doubles(df)
+            if main_df is None:
+                x = df.columns[0]
+                y = df.columns[1]
+                bins = self._bins(df[x])
+                df = df.sort_values(x)
+                df["xbin"] = df[x].apply(self._binit, bins=bins)
+                df["ybin"] = df.groupby("xbin")[y].transform("mean")
+                main_df = df.copy()
+                main_df[self.group] = key
+            else:
+                df[self.group] = key
+                df = df.sort_values(x)
+                df["xbin"] = df[x].apply(self._binit, bins=bins)
+                df["ybin"] = df.groupby("xbin")[y].transform("mean")
+                main_df = pd.concat([main_df, df])
+
+        # The simpler line plot part
+        line_df = main_df.copy()
+        line_df = line_df[["xbin", "ybin", self.group]].drop_duplicates()
+
+        if "_2" in y:
+            labely = y.replace("_2", "")
+        else:
+            labely = y
+
+        if self.yunits:
+            yunits = self.yunits
+        else:
+            yunits = self.units[labely]
+
+        if self.xunits:
+            xunits = self.xunits
+        else:
+            xunits = self.units[x]
+
+        main_df = main_df.sort_values(self.group)
+        xlabel = f"{TITLES[x]} ({xunits})"
+
+        # Points
+        fig = px.scatter(
+            main_df,
+            x="xbin",
+            y="ybin",  # Plot all y's so we can share selections with map
+            custom_data=["sc_point_gid", "print_capacity"],
+            labels={x: xlabel, y: yunits},
+            color=self.group,
+            color_discrete_sequence=px.colors.qualitative.Safe
+        )
+
+        # Lines
+        colors = px.colors.qualitative.Safe
+        for i, group in enumerate(line_df[self.group].unique()):
+            df = line_df[line_df[self.group] == group]
+            lines = px.line(df, x="xbin", y="ybin", color=self.group,
+                            color_discrete_sequence=[colors[i]])  # <------------ We could run out of colors this way
+            fig.add_trace(lines.data[0])
+
+        fig.layout["xaxis"]["title"]["text"] = xlabel
+        fig.layout["yaxis"]["title"]["text"] = labely
 
         fig.update_traces(
             marker=dict(
@@ -1525,6 +1609,25 @@ class Plots(Config):
             )
 
         return fig
+
+    def _bins(self, values):
+        """Create a list of bins given a size and array of values."""
+        minv = min(values)
+        maxv = max(values)
+        if self.xbin is None or self.xbin > maxv:
+            self.xbin = maxv / 20
+        n = int(np.ceil((maxv - minv) / self.xbin))
+        steps = [round(minv + (i * self.xbin), 2) for i in range(n + 1)]
+        bins = [(steps[i], steps[i + 1]) for i in range(len(steps) - 1)]
+        return bins
+
+    def _binit(self, x, bins):
+        """Assign binned value to values."""
+        try:
+            xbin = [b for b in bins if x >= b[0] and x < b[1]][0]  # <------------- Ask if you want to use the top or bottom bin value
+            return xbin[1]
+        except IndexError:
+            print("Index Error: " + str(x))
 
     def _fix_doubles(self, df):
         """Check and or fix columns names when they match."""

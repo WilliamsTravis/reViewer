@@ -12,9 +12,12 @@ dependencies:
   - h5py
   - matplotlib
   - pathos
+  - postgresql
   - pip
+  - psycopg2
   - scipy
   - spyder
+  - sqlalchemy
   - tqdm
   - tk
   - pip:

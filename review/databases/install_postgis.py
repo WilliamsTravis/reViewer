@@ -1,14 +1,13 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Install PostGIS plugin
+"""Install PostGIS plugin
 
-Created on Sun Sep  1 17:20:35 2019
+Created on Sun Sep 1 17:20:35 2019
 
 @author: travis williams
 """
 import psycopg2 as pq
-from reviewer.databases.postgres import initdb, config, runcmd
+
+from review.databases.postgres import initdb, config, runcmd
 
 
 def main():
@@ -39,5 +38,7 @@ def main():
         print("PostGIS already installed: ")
         print(str(r))
 
+
 if __name__ == "__main__":
     main()
+

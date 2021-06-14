@@ -1,0 +1,125 @@
+LOG:  database system was shut down at 2021-06-13 10:11:22 MDT
+LOG:  MultiXact member wraparound protections are now enabled
+LOG:  autovacuum launcher started
+LOG:  database system is ready to accept connections
+FATAL:  database "travis" does not exist
+LOG:  invalid length of startup packet
+LOG:  invalid length of startup packet
+LOG:  invalid length of startup packet
+FATAL:  database "travis" does not exist
+FATAL:  database "reviewdb" does not exist
+LOG:  invalid length of startup packet
+FATAL:  database "reveiwdb" does not exist
+FATAL:  database "travis" does not exist
+ERROR:  table "reviewdb" does not exist
+STATEMENT:  drop table reviewdb;
+ERROR:  cannot drop the currently open database
+STATEMENT:  drop database reviewdb;
+FATAL:  database "twillia2" does not exist
+FATAL:  database "travis" does not exist
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  using stale statistics instead of current ones because stats collector is not responding
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  using stale statistics instead of current ones because stats collector is not responding
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  could not open temporary statistics file "pg_stat_tmp/global.tmp": No such file or directory
+LOG:  using stale statistics instead of current ones because stats collector is not responding
+LOG:  could not open file "postmaster.pid": No such file or directory
+LOG:  performing immediate shutdown because data directory lock file is invalid
+LOG:  received immediate shutdown request
+WARNING:  terminating connection because of crash of another server process
+DETAIL:  The postmaster has commanded this server process to roll back the current transaction and exit, because another server process exited abnormally and possibly corrupted shared memory.
+HINT:  In a moment you should be able to reconnect to the database and repeat your command.
+LOG:  could not open temporary statistics file "pg_stat/global.tmp": No such file or directory
+LOG:  database system is shut down

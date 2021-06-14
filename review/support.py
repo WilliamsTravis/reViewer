@@ -1379,6 +1379,7 @@ class Plots(Config):
                 main_df = pd.concat([main_df, df])
 
         # The simpler line plot part
+        main_df = main_df.sort_values(self.group)
         line_df = main_df.copy()
         line_df = line_df[["xbin", "ybin", self.group]].drop_duplicates()
 
@@ -1397,7 +1398,6 @@ class Plots(Config):
         else:
             xunits = self.units[x]
 
-        main_df = main_df.sort_values(self.group)
         xlabel = f"{TITLES[x]} ({xunits})"
 
         # Points
@@ -1416,7 +1416,7 @@ class Plots(Config):
         for i, group in enumerate(line_df[self.group].unique()):
             df = line_df[line_df[self.group] == group]
             lines = px.line(df, x="xbin", y="ybin", color=self.group,
-                            color_discrete_sequence=[colors[i]])  # <------------ We could run out of colors this way
+                            color_discrete_sequence=[colors[i]])  # <---------- We could run out of colors this way
             fig.add_trace(lines.data[0])
 
         fig.layout["xaxis"]["title"]["text"] = xlabel

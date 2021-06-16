@@ -1379,7 +1379,7 @@ class Plots(Config):
                 main_df = pd.concat([main_df, df])
 
         # The simpler line plot part
-        main_df = main_df.sort_values(self.group)
+        main_df = main_df.sort_values([x, self.group])
         line_df = main_df.copy()
         line_df = line_df[["xbin", "ybin", self.group]].drop_duplicates()
 

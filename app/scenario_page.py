@@ -35,7 +35,8 @@ from review.support import (Config, Data, Data_Path, Difference, Least_Cost,
 
 
 ############## Temporary for initial layout ###################################  Perhaps we could include the initial setup in the config
-CONFIG = Config("ATB 2020").project_config
+PROJECT = "Transition"
+CONFIG = Config(PROJECT).project_config
 DP = Data_Path(CONFIG["directory"])
 FILEDF = pd.DataFrame(CONFIG["data"])
 SPECS = CONFIG["parameters"]
@@ -117,7 +118,7 @@ layout = html.Div(
                 dcc.Dropdown(
                     id="project",
                     options=PROJECT_OPTIONS,
-                    value="ATB 2020"
+                    value=PROJECT
                 )
             ], className="three columns"),
 

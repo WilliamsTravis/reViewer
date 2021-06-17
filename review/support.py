@@ -187,7 +187,7 @@ COLOR_Q_OPTIONS = [{"label": k, "value": k} for k, _ in COLORS_Q.items()]
 DEFAULT_MAPVIEW = {
     "mapbox.center": {
         "lon": -96.50,
-        "lat": 39.5
+        "lat": 37.5
     },
     "mapbox.zoom": 3.5,
     "mapbox.bearing": 0,

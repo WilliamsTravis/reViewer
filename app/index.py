@@ -16,8 +16,8 @@ from app import app, server
 from review.support import BUTTON_STYLES
 from navbar import NAVBAR
 
-
 print("FLASK SERVER SETTINGS: \n   " + str(dict(server.config)))
+
 
 app.layout = html.Div([
     NAVBAR,

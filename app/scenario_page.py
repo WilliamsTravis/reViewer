@@ -1210,8 +1210,9 @@ def cache_map_data(signal_dict):
 
     # Is it faster to subset columns before rows?
     keepers = [y, x, "print_capacity", "total_lcoe_threshold",
-                "mean_lcoe_threshold", "state", "nrel_region", "county",
-                "latitude", "longitude", "sc_point_gid", "n_gids", "index"]
+               "mean_lcoe_threshold", "state", "nrel_region", "county",
+               "latitude", "longitude", "sc_point_gid", "n_gids", "offshore",
+               "index"]
     df1 = df1[keepers]
 
     # For other functions this data frame needs an x field
@@ -1246,12 +1247,13 @@ def cache_map_data(signal_dict):
 
     # Finally filter for states
     if states:
-        if "onshore" in states:
-            df = df[~pd.isnull(df["state"])]
-        elif "offshore" in states:
-            df = df[pd.isnull(df["state"])]
-        else:
+        if any([s in df["state"] for s in states]):
             df = df[df["state"].isin(states)]
+
+        if "offshore" in states:
+            df = df[df["offshore"] == 1]
+        if "onshore" in states:
+            df = df[df["offshore"] == 0]
 
     return df
 
@@ -1286,7 +1288,7 @@ def cache_chart_tables(signal_dict, region="national", idx=None):
         name = build_name(signal["path"])
         df = cache_map_data(signal)
         df = df[[x, y, "state", "nrel_region", "print_capacity", "index",
-                 "sc_point_gid"]]
+                 "sc_point_gid", "offshore"]]
 
         # Subset by index selection
         if idx:
@@ -1294,12 +1296,13 @@ def cache_chart_tables(signal_dict, region="national", idx=None):
 
         # Subset by state selection
         if states:
-            if "onshore" in states:
-                df = df[~pd.isnull(df["state"])]
-            elif "offshore" in states:
-                df = df[pd.isnull(df["state"])]
-            else:
+            if any([s in df["state"] for s in states]):
                 df = df[df["state"].isin(states)]
+    
+            if "offshore" in states:
+                df = df[df["offshore"] == 1]
+            if "onshore" in states:
+                df = df[df["offshore"] == 0]
 
         # Divide into regions if one table (cancel otherwise for now)
         if region != "national" and len(signal_dicts) == 1:

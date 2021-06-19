@@ -823,7 +823,10 @@ class Data(Config):
         """
         # This can be a path or a scenario
         if ".csv" in scenario:
-            scenario = os.path.basename(scenario).replace("_sc.csv", "")
+            if "_agg" in scenario:
+                scenario = os.path.basename(scenario).replace("_agg.csv", "")
+            else:
+                scenario = os.path.basename(scenario).replace("_sc.csv", "")
 
         # Recalculate if needed, else return original table
         recalcs = dict(fcr=fcr, capex=capex, opex=opex, losses=losses)
@@ -911,11 +914,15 @@ class Data(Config):
             A supply-curve table with original vlaues.
         """
         # Find the path and columns associated with this scenario
-        if not os.path.isfile(path):
-            path = self.files[path]
+        try:
+            if not os.path.isfile(path):
+                path = self.files[path]
+        except Exception:
+            print("Problem of some sort found~!")
         fields = list(self.units.keys())
         ids = ["sc_gid", "sc_point_gid", "res_gids", "gid_counts", "n_gids",
-               "state", "nrel_region", "county", "latitude", "longitude"]
+               "state", "nrel_region", "county", "offshore", "latitude",
+               "longitude"]
         columns = ids + fields
 
         # We might need to add fields before we can these in

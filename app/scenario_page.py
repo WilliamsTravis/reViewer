@@ -13,6 +13,8 @@ import copy
 import json
 import os
 
+from collections import Counter
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -903,6 +905,32 @@ def build_name(path):
     name = os.path.basename(path).replace("_sc.csv", "")
     name = " ".join([n.capitalize() for n in name.split("_")])
     return name
+
+
+class Categories:
+
+    def __init__(self):
+        """Initialize Scatter object."""
+
+    def mode(self, df, y):
+        """Return the mode for a json dictionary with categorical counts."""
+        values = df[y].apply(lambda d: self._mode(d))
+        return values
+
+    def counts(self, df, y):
+        """Return counts for each category from all rows."""  # <-------------- Need to account for partial exclusions translate to area
+        dicts = df[y].apply(json.loads)
+        counters = [Counter(d) for d in dicts]
+        c1 = counters[0]
+        for c in counters[1:]:
+            c1.update(c)
+        counts = dict(c1)
+        return counts
+
+    def _mode(self, d):
+        """Return the most common key in a dictionary with counts."""
+        d = json.loads(d)
+        return max(d, key=d.get)
 
 
 def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,

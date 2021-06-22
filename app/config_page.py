@@ -618,6 +618,9 @@ def build_config(n_clicks, group_dt, name, directory, fields):
     titles = dict(zip(field_df["FIELD"], field_df["TITLE"]))
     field_units = {**units, **UNITS}
     titles = {**titles, **TITLES}
+    for field, title in titles.items():
+        if title == "N/A":
+            titles[field] = field
 
     # Find value ranges for color scalesondf
     scales = get_scales(file_df, field_units)

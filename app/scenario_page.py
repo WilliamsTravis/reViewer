@@ -417,7 +417,7 @@ layout = html.Div(
                       dcc.Tab(value='off',
                               label='Off',
                               style=TABLET_STYLE,
-                              selected_style=TABLET_STYLE_CLOSED),          
+                              selected_style=TABLET_STYLE_CLOSED),
                     ]
                 ),
 
@@ -464,7 +464,7 @@ layout = html.Div(
                                               className="nine columns",
                                               style={"height": "60%"}),
                                 ], className="row"),
-                        
+
                                 # OPEX A
                                 html.Div([
                                     html.P("OPEX $/KW (A): ",
@@ -485,7 +485,7 @@ layout = html.Div(
                                               style={"height": "60%"}),
                                 ], className="row")
                         ]),
-    
+
                     html.Div(
                         id="recalc_b_options",
                         children=[
@@ -498,7 +498,7 @@ layout = html.Div(
                                           className="nine columns",
                                           style={"height": "60%"}),
                             ], className="row"),
-                    
+
                             # CAPEX B
                             html.Div([
                                 html.P("CAPEX $/KW (B): ",
@@ -508,7 +508,7 @@ layout = html.Div(
                                           className="nine columns",
                                           style={"height": "60%"}),
                             ], className="row"),
-                    
+
                             # OPEX B
                             html.Div([
                                 html.P("OPEX $/KW (B): ",
@@ -741,7 +741,7 @@ layout = html.Div(
                                     value="national"
                                 )
                             ]),
-    
+
                         # Scenario grouping
                         html.Div(
                             id="chart_scenarios_div",
@@ -908,7 +908,7 @@ def build_name(path):
 def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
                   title, mapview, mapsel, basemap, title_size=18):
     """Build a Plotly scatter plot dictionary for the map.
-    
+
     Notes
     -----
     We should set this up in the same fashion as for the chart plots. We have
@@ -1247,7 +1247,7 @@ def cache_map_data(signal_dict):
 
     # Finally filter for states
     if states:
-        if any([s in df["state"] for s in states]):
+        if any([s in df["state"].values for s in states]):
             df = df[df["state"].isin(states)]
 
         if "offshore" in states:
@@ -1298,7 +1298,7 @@ def cache_chart_tables(signal_dict, region="national", idx=None):
         if states:
             if any([s in df["state"] for s in states]):
                 df = df[df["state"].isin(states)]
-    
+
             if "offshore" in states:
                 df = df[df["offshore"] == 1]
             if "onshore" in states:
@@ -1646,7 +1646,7 @@ def options_recalc_toggle(recalc, scenario):
     if scenario == "scenario_a":
         recalc_b_style = {"display": "none"}
     else:
-        recalc_a_style = {"display": "none"}    
+        recalc_a_style = {"display": "none"}
 
     return tab_style, recalc_a_style, recalc_b_style
 
@@ -1876,10 +1876,10 @@ def retrieve_signal(submit, states, chart, x, scenarios, project, threshold,
                     lchh_toggle, mask, recalc_table, recalc, diff_units):
     """Create signal for sharing data between map and chart with dependence."""
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(retrieve_signal, submit, states, chart, x, scenarios, project,
-    #            threshold, threshold_field, path, path2, lchh_path, y, diff,
-    #            lchh_toggle, mask, recalc_table, recalc, diff_units,
-    #            trig=trig)
+    print_args(retrieve_signal, submit, states, chart, x, scenarios, project,
+                threshold, threshold_field, path, path2, lchh_path, y, diff,
+                lchh_toggle, mask, recalc_table, recalc, diff_units,
+                trig=trig)
 
     # Prevent the first trigger when difference is off
     if "scenario_b" in trig and diff == "off":
@@ -2026,22 +2026,22 @@ def scenario_specs(scenario_a, scenario_b, project):
 
 
 @app.callback([Output("map", "figure"),
-                Output("mapview_store", "children"),
-                Output("mapcap", "children")],
+               Output("mapview_store", "children"),
+               Output("mapcap", "children")],
               [Input("map_signal", "children"),
-                Input("basemap_options", "value"),
-                Input("color_options", "value"),
-                Input("chart", "selectedData"),
-                Input("map_point_size", "value"),
-                Input("rev_color", "n_clicks"),
-                Input("map_color_min", "value"),
-                Input("map_color_max", "value")],
+               Input("basemap_options", "value"),
+               Input("color_options", "value"),
+               Input("chart", "selectedData"),
+               Input("map_point_size", "value"),
+               Input("rev_color", "n_clicks"),
+               Input("map_color_min", "value"),
+               Input("map_color_max", "value")],
               [State("project", "value"),
-                State("map", "selectedData"),
-                State("map", "relayoutData"),
-                State("weights", "value")])
+               State("map", "selectedData"),
+               State("map", "relayoutData"),
+               State("weights", "value")])
 def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
-              uymax, project, mapsel, mapview, weights):
+             uymax, project, mapsel, mapview, weights):
     """Make the scatterplot map.
 
     To fix the point selection issue check this out:

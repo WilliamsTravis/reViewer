@@ -604,7 +604,7 @@ def build_config(n_clicks, group_dt, name, directory, fields):
     file_df, gmsg = dash_to_pandas(group_dt)
 
     # We might need to update the home directory
-    if os.path.dirname(file_df["file"].iloc[0]) != directory:
+    if os.path.dirname(file_df["file"].iloc[0]) != directory:  # <------------- This breaks if files are in different folders
         old = os.path.dirname(file_df["file"].iloc[0])
         file_df["file"] = file_df["file"].apply(
             lambda x: x.replace(old, directory)
@@ -619,7 +619,7 @@ def build_config(n_clicks, group_dt, name, directory, fields):
     field_units = {**units, **UNITS}
     titles = {**titles, **TITLES}
 
-    # Find value ranges for color scales
+    # Find value ranges for color scalesondf
     scales = get_scales(file_df, field_units)
 
     # For each data frame, if it is missing columns add nans in
@@ -634,7 +634,7 @@ def build_config(n_clicks, group_dt, name, directory, fields):
             df.to_csv(path, index=False)
 
     # Create Processing object and add additional fields
-    processor = Process(directory, "*csv")
+    processor = Process(files=list(file_df["file"].values))
     processor.process()
 
     # Convert to a config entry
@@ -644,7 +644,7 @@ def build_config(n_clicks, group_dt, name, directory, fields):
         "units": units,
         "scales": scales,
         "titles": titles,
-        "parameters": {}   # We will add an option to upload a parameter table
+        "parameters": {}   # <------------------------------------------------- add a config input option and infer everything from the pipeline config (SAM, Gen, maybe there are things in agg we'd need).
     }
 
     # Get existing/build new configuration file

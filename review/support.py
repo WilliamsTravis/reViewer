@@ -637,6 +637,32 @@ def wmean(df, y, weight="n_gids", on=True):  # <--------------------------------
     return x
 
 
+class Categories:
+
+    def __init__(self):
+        """Initialize Scatter object."""
+
+    def mode(self, df, y):
+        """Return the mode for a json dictionary with categorical counts."""
+        values = df[y].apply(lambda d: self._mode(d))
+        return values
+
+    def counts(self, df, y):
+        """Return counts for each category from all rows."""  # <-------------- Need to account for partial exclusions translate to area
+        dicts = df[y].apply(json.loads)
+        counters = [Counter(d) for d in dicts]
+        c1 = counters[0]
+        for c in counters[1:]:
+            c1.update(c)
+        counts = dict(c1)
+        return counts
+
+    def _mode(self, d):
+        """Return the most common key in a dictionary with counts."""
+        d = json.loads(d)
+        return max(d, key=d.get)
+
+
 class Config:
     """Class for handling configuration variables."""
 
@@ -1405,7 +1431,7 @@ class Plots(Config):
         else:
             xunits = self.units[x]
 
-        xlabel = f"{TITLES[x]} ({xunits})"
+        xlabel = f"{self.titles[x]} ({xunits})"
 
         # Points
         fig = px.scatter(
@@ -1474,7 +1500,7 @@ class Plots(Config):
             xunits = self.units[x]
 
         main_df = main_df.sort_values(self.group)
-        xlabel = f"{TITLES[x]} ({xunits})"
+        xlabel = f"{self.titles[x]} ({xunits})"
         fig = px.scatter(
             main_df,
             x=x,

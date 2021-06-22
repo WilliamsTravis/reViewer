@@ -32,12 +32,12 @@ from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
                             COLOR_Q_OPTIONS, COLORS, COLORS_Q, DEFAULT_MAPVIEW,
                             MAP_LAYOUT, STATES, TAB_STYLE, TABLET_STYLE,
                             VARIABLES)
-from review.support import (Config, Data, Data_Path, Difference, Least_Cost,
-                            Plots, point_filter, wmean)
+from review.support import (Categories, Config, Data, Data_Path, Difference,
+                            Least_Cost, Plots, point_filter, wmean)
 
 
 ############## Temporary for initial layout ###################################  Perhaps we could include the initial setup in the config
-PROJECT = "Transition"
+PROJECT = "ATB Offshore - FY21"
 CONFIG = Config(PROJECT).project_config
 DP = Data_Path(CONFIG["directory"])
 FILEDF = pd.DataFrame(CONFIG["data"])
@@ -907,32 +907,6 @@ def build_name(path):
     return name
 
 
-class Categories:
-
-    def __init__(self):
-        """Initialize Scatter object."""
-
-    def mode(self, df, y):
-        """Return the mode for a json dictionary with categorical counts."""
-        values = df[y].apply(lambda d: self._mode(d))
-        return values
-
-    def counts(self, df, y):
-        """Return counts for each category from all rows."""  # <-------------- Need to account for partial exclusions translate to area
-        dicts = df[y].apply(json.loads)
-        counters = [Counter(d) for d in dicts]
-        c1 = counters[0]
-        for c in counters[1:]:
-            c1.update(c)
-        counts = dict(c1)
-        return counts
-
-    def _mode(self, d):
-        """Return the most common key in a dictionary with counts."""
-        d = json.loads(d)
-        return max(d, key=d.get)
-
-
 def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
                   title, mapview, mapsel, basemap, title_size=18):
     """Build a Plotly scatter plot dictionary for the map.
@@ -976,7 +950,12 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
               opacity=1.0,
               reversescale=rev_color,
               size=point_size,
-              )
+        )
+
+        # If y is a json dict, find the mode
+        ty = df[y].iloc[0]
+        if isinstance(ty, str) and ty[0] == "{" and ty[-1] == "}":
+            df[y] = Categories().mode(df, y)  # This will all be incorporated into the same class, so this is a bit odd atm
 
         # Create data object
         figure = px.scatter_mapbox(
@@ -987,7 +966,8 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
                     lat="latitude",
                     custom_data=["sc_point_gid", "print_capacity"],
                     hover_name="text",
-            )
+        )
+
     # Continuous data will be just one trace
     else:
         color = COLORS[color]

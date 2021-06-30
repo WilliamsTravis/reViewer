@@ -1221,6 +1221,7 @@ def cache_map_data(signal_dict):
                "mean_lcoe_threshold", "state", "nrel_region", "county",
                "latitude", "longitude", "sc_point_gid", "n_gids", "offshore",
                "index"]
+
     df1 = df1[keepers]
 
     # For other functions this data frame needs an x field
@@ -1511,8 +1512,9 @@ def options_options(project, lc_update):
 
 @app.callback([Output("project", "options"),
                Output("project", "value")],
-              [Input("url", "pathname")])
-def options_project(pathname):
+              [Input("url", "pathname")],
+              [State("submit", "n_clicks")])
+def options_project(pathname, n_clicks):
     """Update project options. Triggered by navbar."""
     # Open config json
     fconfig = Config()
@@ -1521,7 +1523,10 @@ def options_project(pathname):
         pconfig = Config(project)
         if "parameters" in pconfig.project_config:
             options.append({"label": project, "value": project})
-    project = options[0]["value"]
+    if n_clicks == 0:
+        project = PROJECT
+    else:
+        project = options[0]["value"]
     return options, project
 
 
@@ -2103,7 +2108,7 @@ def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
         weights = False
 
     # Build map elements
-    title = build_title(df, signal_dict, weights)
+    title = build_title (df, signal_dict, weights)
     figure = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
                            point_size, title, mapview, mapsel, basemap)
 

@@ -30,14 +30,13 @@ from review import print_args
 from review.support import (AGGREGATIONS, BASEMAPS, BOTTOM_DIV_STYLE,
                             BUTTON_STYLES, CHART_OPTIONS, COLOR_OPTIONS,
                             COLOR_Q_OPTIONS, COLORS, COLORS_Q, DEFAULT_MAPVIEW,
-                            MAP_LAYOUT, STATES, TAB_STYLE, TABLET_STYLE,
-                            VARIABLES)
+                            MAP_LAYOUT, PROJECT, STATES, TAB_STYLE,
+                            TABLET_STYLE, VARIABLES)
 from review.support import (Categories, Config, Data, Data_Path, Difference,
                             Least_Cost, Plots, point_filter, wmean)
 
 
 ############## Temporary for initial layout ###################################  Perhaps we could include the initial setup in the config
-PROJECT = "ATB Offshore - FY21"
 CONFIG = Config(PROJECT).project_config
 DP = Data_Path(CONFIG["directory"])
 FILEDF = pd.DataFrame(CONFIG["data"])
@@ -1665,12 +1664,12 @@ def options_recalc_toggle(recalc, scenario):
 
 
 @app.callback([Output("color_options", "options"),
-                Output("color_options", "value")],
+               Output("color_options", "value")],
               [Input("submit", "n_clicks")],
               [State("variable", "value"),
-                State("project", "value"),
-                State("map_signal", "children"),
-                State("color_options", "value")])
+               State("project", "value"),
+               State("map_signal", "children"),
+               State("color_options", "value")])
 def options_toggle_color(submit, variable, project, signal, old_value):
     """Provide Qualitative color options for categorical data."""
     print_args(options_toggle_color, variable, project, signal,

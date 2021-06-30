@@ -24,7 +24,7 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from review.support import CONFIG_PATH, ORIGINAL_FIELDS, TITLES, UNITS
 from review.support import get_scales, Config
-from revruns.rrprocess import Process
+# from revruns.rrprocess import Process
 
 from app import app
 from review import print_args
@@ -637,8 +637,8 @@ def build_config(n_clicks, group_dt, name, directory, fields):
             df.to_csv(path, index=False)
 
     # Create Processing object and add additional fields
-    processor = Process(files=list(file_df["file"].values))
-    processor.process()
+    # processor = Process(files=list(file_df["file"].values))
+    # processor.process()
 
     # Convert to a config entry
     config = {

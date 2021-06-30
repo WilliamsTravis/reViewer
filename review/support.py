@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 pd.set_option('mode.chained_assignment', None)
 
-
+PROJECT = "ATB Offshore - FY21"
 CONFIG_PATH = os.path.expanduser("~/.review_config")
 with open(CONFIG_PATH, "r") as file:
     CONFIG = json.load(file)
@@ -36,6 +36,7 @@ AGGREGATIONS = {
     "capacity": "sum",
     "elevation": "mean",
     "dist_mi": "mean",
+    "dist_km": "mean",
     "lcot": "mean",
     "mean_cf": "mean",
     "mean_lcoe": "mean",
@@ -233,8 +234,8 @@ ORIGINAL_FIELDS = ["sc_gid", "res_gids", "gen_gids", "gid_counts", "n_gids",
                    "county", "elevation", "timezone", "sc_point_gid",
                    "sc_row_ind", "sc_col_ind", "res_class", "trans_multiplier",
                    "trans_gid", "trans_capacity", "trans_type",
-                   "trans_cap_cost", "dist_mi", "lcot", "total_lcoe",
-                   "windspeed_class"]
+                   "trans_cap_cost", "dist_mi", "dist_km", "lcot",
+                   "total_lcoe", "windspeed_class"]
 
 REGIONS = {
     "Pacific": [
@@ -362,7 +363,8 @@ TITLES = {
     "area_sq_km": "Supply Curve Point Area",
     "capacity": "Total Capacity",
     "elevation": "Elevation",
-    "dist_mi": "Distance to Transmission",
+    "dist_mi": "Distance to Transmission (miles)",
+    "dist_km": "Distance to Transmission (km)",
     "lcot": "LCOT",
     "mean_cf": "Mean Capacity Factor",
     "mean_lcoe": "Mean Site-Based LCOE",
@@ -382,6 +384,7 @@ UNITS = {
     "elevation": "m",  # Double check this
     "capacity": "MW",
     "dist_mi": "miles",
+    "dist_km": "miles",
     "lcot": "$/MWh",
     "mean_cf": "ratio",
     "mean_lcoe": "$/MWh",
@@ -396,7 +399,8 @@ UNITS = {
 }
 
 VARIABLES = [
-    {"label": "Distance to Transmission", "value": "dist_mi"},
+    {"label": "Distance to Transmission (miles)", "value": "dist_mi"},
+    {"label": "Distance to Transmission (km)", "value": "dist_km"},
     {"label": "Elevation", "value": "elevation"},
     {"label": "LCOT", "value": "lcot"},
     {"label": "Mean Capacity Factor", "value": "mean_cf"},
@@ -429,7 +433,7 @@ def config_div(config_path):
         dcc.Dropdown(
             id="project",
             options=options,
-            value=keys[1]
+            value=PROJECT
             )
         ], className="three columns"
     )
@@ -638,9 +642,10 @@ def wmean(df, y, weight="n_gids", on=True):  # <--------------------------------
 
 
 class Categories:
+    """Methods for handling json dictionary entries."""
 
     def __init__(self):
-        """Initialize Scatter object."""
+        """Initialize Categories object."""
 
     def mode(self, df, y):
         """Return the mode for a json dictionary with categorical counts."""

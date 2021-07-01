@@ -1419,7 +1419,7 @@ class Plots(Config):
         # The simpler line plot part
         main_df = main_df.sort_values([x, self.group])
         ag = AGGREGATIONS[y]
-        main_df["yagg"] = main_df.groupby("xbin")[y].transform(ag)
+        main_df["yagg"] = main_df.groupby(["xbin", "Scenario"])[y].transform(ag)
         line_df = main_df.copy()
         line_df = line_df[["xbin", "yagg", self.group]].drop_duplicates()
 

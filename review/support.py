@@ -1418,9 +1418,10 @@ class Plots(Config):
 
         # The simpler line plot part
         main_df = main_df.sort_values([x, self.group])
-        main_df["ysum"] = main_df.groupby("xbin")[y].transform("sum")
+        ag = AGGREGATIONS[y]
+        main_df["yagg"] = main_df.groupby("xbin")[y].transform(ag)
         line_df = main_df.copy()
-        line_df = line_df[["xbin", "ysum", self.group]].drop_duplicates()
+        line_df = line_df[["xbin", "yagg", self.group]].drop_duplicates()
 
         if "_2" in y:
             labely = y.replace("_2", "")
@@ -1443,7 +1444,7 @@ class Plots(Config):
         fig = px.scatter(
             main_df,
             x="xbin",
-            y="ysum",  # Plot all y's so we can share selections with map
+            y="yagg",  # Plot all y's so we can share selections with map
             custom_data=["sc_point_gid", "print_capacity"],
             labels={x: xlabel, y: yunits},
             color=self.group,
@@ -1454,7 +1455,7 @@ class Plots(Config):
         colors = px.colors.qualitative.Safe
         for i, group in enumerate(line_df[self.group].unique()):
             df = line_df[line_df[self.group] == group]
-            lines = px.line(df, x="xbin", y="ysum", color=self.group,
+            lines = px.line(df, x="xbin", y="yagg", color=self.group,
                             color_discrete_sequence=[colors[i]])  # <---------- We could run out of colors this way
             fig.add_trace(lines.data[0])
 

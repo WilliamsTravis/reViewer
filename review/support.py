@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Support functions for the all reView projects.
+"""Support functions for all reView projects.
 
 Created on Sat Aug 15 15:47:40 2020
 
@@ -88,7 +88,7 @@ BUTTON_STYLES = {
     }
 
 BOTTOM_DIV_STYLE = {
-    "height": "45px",
+    "height": "65px",
     "float": "left",
     "margin-top": "-2px",
     "margin-left": -1,
@@ -189,7 +189,7 @@ DEFAULT_MAPVIEW = {
         "lon": -96.50,
         "lat": 37.5
     },
-    "mapbox.zoom": 3.5,
+    "mapbox.zoom": 2.75,
     "mapbox.bearing": 0,
     "mapbox.pitch": 0
 }
@@ -224,7 +224,7 @@ MAP_LAYOUT = dict(
                      "aWlwcHZvdzdoIn0.9pxpgXxyyhM6qEF_dcyjIQ"),
         style="satellite-streets",
         center=dict(lon=-100.75, lat=39.5),
-        zoom=5)
+        zoom=3)
 )
 
 ORIGINAL_FIELDS = ["sc_gid", "res_gids", "gen_gids", "gid_counts", "n_gids",
@@ -543,6 +543,11 @@ def get_scales(file_df, field_units):
         scales[field]["min"] = vmin
         scales[field]["max"] = vmax
 
+    # The LCOES need to be set manually
+    for field in scales.keys():
+        if "lcoe" in field:
+            scales[field] = {"min": 10, "max": 125}
+
     # Add in qualifier for categorical fields
     for field in categories:
         scales[field] = {"min": "na", "max": "na"}
@@ -683,6 +688,11 @@ class Config:
         msg = (f"<reView Config object: path='{path}', project='{project}', "
                f"{files} files>")
         return msg
+
+    @property
+    def home(self):
+        """Return a Data_Path object of the data directory."""
+        return Data_Path(self.directory, warnings=False)
 
     def map_title(self, variable, op_values):
         """Make a title for the map given a variable name and option values."""
@@ -1123,6 +1133,139 @@ class Data(Config):
         return pd.read_csv(file, index_col=0, nrows=0).columns
 
 
+class Defaults(Config):
+    """Methods for extracting default values for the initial page layout."""
+
+    def __init__(self, project=None, scenario_a=None, scenario_b=None,
+                 **kwargs):
+        """Initialize Defaults object."""
+        super().__init__(project, **kwargs)
+        self.scenario_a = scenario_a
+        self.scenario_b = scenario_b
+
+    def __repr__(self):
+        """Print the project and config path."""
+        path = self.project_config["directory"]
+        project = self.project
+        if project:
+            files = len(self.project_config["data"]["file"])
+        else:
+            files = 0
+        msg = (f"<reView Defaults object: path='{path}', project='{project}', "
+               f"{files} files>")
+        return msg
+
+    @property
+    def file_df(self):
+        """Return a file dataframe."""
+        return pd.DataFrame(self.project_config["data"])
+
+    @property
+    def file_list(self):
+        """Return list of file paths."""
+        # Here we want all available files
+        lcs = self.home.contents("review_outputs", "least_cost*_sc.csv")
+        originals = list(self.file_df["file"].values)
+        files = originals + lcs
+
+        # Use the file to infer the scenario name
+        names = []
+        for f in files:
+            name = os.path.basename(f)
+            name = name.replace("_sc.csv", "").replace("_ag.csv", "")
+            name = " ".join([n.capitalize() for n in name.split("_")])
+            names.append(name)
+
+        return dict(zip(names, files))
+
+    @property
+    def group_options(self):
+        """Return group options."""
+        groups = [c for c in self.file_df.columns if c not in ["file", "name"]]
+        options = [
+            {"label": g, "value": g} for g in groups
+        ]
+        return options
+
+    @property
+    def map_view(self):
+        """Return default map view."""
+        
+
+    @property
+    def project_options(self):
+        """Return project choices."""
+        project_options = []
+        for project in Config().projects:
+            if "parameters" in Config(project).project_config:
+                option = {"label": project, "value": project}
+                project_options.append(option)
+        return project_options
+
+    @property
+    def region_options(self):
+        """Return region options."""
+        options = [
+            {"label": "National", "value": "national"},
+            {"label": "NREL Regions", "value": "nrel_region"},
+            {"label": "States", "value": "state"}
+        ]
+        return options
+
+    @property
+    def recalc_table(self):
+        """Return default recalc table."""
+        table = {
+            "scenario_a": {
+                "fcr": None, "capex": None, "opex": None, "losses": None
+            },
+            "scenario_b": {
+                "fcr": None, "capex": None, "opex": None, "losses": None
+            }
+        }
+
+        return table
+
+    @property
+    def scenario_choices(self):
+        """Return the first scenario if specified."""
+        choices = {}
+        if self.scenario_a is None:
+            choices["a"] = self.scenario_options[0]["value"]
+        else:
+            paths = self.file_df[self.file_df["name"] == self.scenario_a]
+            path = paths["file"].iloc[0]
+            choices["a"] = path
+
+        if self.scenario_b is None:
+            choices["b"] = self.scenario_options[1]["value"]
+        else:
+            paths = self.file_df[self.file_df["name"] == self.scenario_b]
+            path = paths["file"].iloc[0]
+            choices["b"] = path
+
+        return choices
+
+    @property
+    def scenario_options(self):
+        """Return scenario options."""
+        files = self.file_list
+        options = [
+            {"label": key, "value": file} for key, file in files.items()
+        ]
+        return options
+
+    @property
+    def variable_options(self):
+        """Return variable options."""
+        titles = self.project_config["titles"]
+        options = [
+            {"label": v, "value": k} for k, v in titles.items()
+        ]
+
+        return options
+
+
 class Difference:
     """Class to handle supply curve difference calculations."""
 
@@ -1414,7 +1557,8 @@ class Plots(Config):
         # The simpler line plot part
         main_df = main_df.sort_values([x, self.group])
         agg = AGGREGATIONS[y]
-        main_df["yagg"] = main_df.groupby("xbin")[y].transform(agg)
+        yagg = main_df.groupby(["xbin", "Scenario"])[y].transform(agg)
+        main_df["yagg"] = yagg
         line_df = main_df.copy()
         line_df = line_df[["xbin", "yagg", self.group]].drop_duplicates()
 

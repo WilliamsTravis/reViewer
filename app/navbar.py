@@ -69,7 +69,7 @@ NAVBAR = html.Nav(
                 style={"display": "none"},
                 ),
               id="scenario_link",
-              href="/apps/scenario_page",
+              href="/scenario_page",
           ),
 
           # dcc.Link(
@@ -93,7 +93,7 @@ NAVBAR = html.Nav(
                 style={"display": "none"}
               ),
               id="config_link",
-              href="/apps/config_page"
+              href="/config_page"
           ),
 
           html.A(

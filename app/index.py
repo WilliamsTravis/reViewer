@@ -10,7 +10,7 @@ import dash_html_components as html
 
 from dash.dependencies import Input, Output
 
-import scenario_page, config_page
+import scenario_page, config_page, innovations_one, innovations_two
 
 from app import app, server
 from review.support import BUTTON_STYLES
@@ -21,9 +21,19 @@ print("FLASK SERVER SETTINGS: \n   " + str(dict(server.config)))
 
 app.layout = html.Div([
     NAVBAR,
-    dcc.Location(id="url", pathname="/apps/scenario_page", refresh=False),
+    dcc.Location(id="url", refresh=False),
     html.Div(id="page_content")
 ])
+
+
+PAGES = {
+    "/": scenario_page.layout,
+    "/scenario_page": scenario_page.layout,
+    "/config_page": config_page.layout,
+    "/innovations_one": innovations_one.layout,
+    "/innovations_two": innovations_two.layout,
+
+}
 
 
 @app.callback([Output("page_content", "children"),
@@ -34,11 +44,11 @@ def change_page(pathname):
     """Output chosen layout from the navigation bar links."""
     config_style = BUTTON_STYLES["on"]
     scenario_style = BUTTON_STYLES["on"]
-    if pathname == "/apps/config_page":
-        page = config_page.layout
+    print(f"URL: {pathname}")
+    page = PAGES[pathname]
+    if pathname == "/config_page":
         config_style = {"display": "none"}
     else:
-        page = scenario_page.layout
         scenario_style = {"display": "none"}
     return page, scenario_style, config_style
 

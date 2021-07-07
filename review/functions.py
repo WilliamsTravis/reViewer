@@ -36,50 +36,59 @@ def print_args(func, *args, **kwargs):
 class Data_Path:
     """Data_Path joins a root directory path to data file paths."""
 
-    def __init__(self, data_path, mkdir=False):
+    def __init__(self, data_path=".", mkdir=False, warnings=True):
         """Initialize Data_Path."""
         data_path = os.path.abspath(os.path.expanduser(data_path))
         self.data_path = data_path
         self.last_path = os.getcwd()
+        self.warnings = warnings
         self._exist_check(data_path, mkdir)
         self._expand_check()
 
     def __repr__(self):
         """Print the data path."""
         items = ["=".join([str(k), str(v)]) for k, v in self.__dict__.items()]
-        arguments = " ".join(items)
+        arguments = ", ".join(items)
         msg = "".join(["<Data_Path " + arguments + ">"])
         return msg
+
+    def contents(self, *args, recursive=False):
+        """List all content in the data_path or in sub directories."""
+        if not any(["*" in a for a in args]):
+            items = glob(self.join(*args, "*"), recursive=recursive)
+        else:
+            items = glob(self.join(*args), recursive=recursive)
+        return items
+
+    def folders(self, *args, recursive=False):
+        """List folders in the data_path or in sub directories."""
+        items = self.contents(*args, recursive=recursive)
+        folders = [i for i in items if os.path.isdir(i)]
+        return folders
+
+    def files(self, *args, recursive=False):
+        """List files in the data_path or in sub directories."""
+        items = self.contents(*args, recursive=recursive)
+        files = [i for i in items if os.path.isfile(i)]
+        return files
 
     def join(self, *args, mkdir=False):
         """Join a file path to the root directory path."""
         path = os.path.join(self.data_path, *args)
         self._exist_check(path, mkdir)
+        path = os.path.abspath(path)
         return path
 
-    def contents(self, *args):
-        """List all content in the data_path or in sub directories."""
-        if not any(["*" in a for a in args]):
-            items = glob(self.join(*args, "*"))
-        else:
-            items = glob(self.join(*args))
-        return items
+    @property
+    def base(self):
+        """Return the base name of the home directory."""
+        return os.path.basename(self.data_path)
 
-    def folders(self, *args):
-        """List folders in the data_path or in sub directories."""
-        items = self.contents(*args)
-        folders = [i for i in items if os.path.isdir(i)]
-        return folders
-
-    def files(self, pattern=None, *args):
-        """List files in the data_path or in sub directories."""
-        items = self.contents(*args)
-        files = [i for i in items if os.path.isfile(i)]
-        if pattern:
-            files = [f for f in files if pattern in f]
-            if len(files) == 1:
-                files = files[0]
-        return files
+    @property
+    def back(self):
+        """Change directory back to last working directory if home was used."""
+        os.chdir(self.last_path)
+        print(self.last_path)
 
     @property
     def home(self):
@@ -88,16 +97,15 @@ class Data_Path:
         os.chdir(self.data_path)
         print(self.data_path)
 
-    @property
-    def back(self):
-        """Change directory back to last working directory if home was used."""
-        os.chdir(self.last_path)
-        print(self.last_path)
+    def extend(self, path, mkdir=False):
+        """Return a new Data_Path object with an extended home directory."""
+        new = Data_Path(os.path.join(self.data_path, path), mkdir)
+        return new
 
     def _exist_check(self, path, mkdir=False):
         """Check if the directory of a path exists, and make it if not."""
         # If this is a file name, get the directory
-        if "." in os.path.basename(path):
+        if "." in path:  # Will break if you use "."'s in your directories
             directory = os.path.dirname(path)
         else:
             directory = path
@@ -106,11 +114,13 @@ class Data_Path:
         if "*" not in directory:
             if not os.path.exists(directory):
                 if mkdir:
-                    print("Warning: " + directory + " did not exist, creating "
-                          "directory.")
+                    if self.warnings:
+                        print(f"Warning: {directory} did not exist, "
+                              "creating directory.")
                     os.makedirs(directory, exist_ok=True)
                 else:
-                    print("Warning: " + directory + " does not exist.")
+                    if self.warnings:
+                        print(f"Warning: {directory} does not exist.")
 
     def _expand_check(self):
         # Expand the user path if a tilda is present in the root folder path.

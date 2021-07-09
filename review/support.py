@@ -50,7 +50,9 @@ AGGREGATIONS = {
     "shadow_flicker_120m": "sum",  # <----------------------------------------- Quick hack
     "shadow_flicker_120m_percent": "mean",
     "shadow_flicker_135m": "sum",
-    "shadow_flicker_135m_percent": "mean"
+    "shadow_flicker_135m_percent": "mean",
+    "trans_voltage": "mean",
+    "trans_ac_cap": "mean"
 }
 
 
@@ -189,7 +191,7 @@ DEFAULT_MAPVIEW = {
         "lon": -96.50,
         "lat": 37.5
     },
-    "mapbox.zoom": 2.75,
+    "mapbox.zoom": 3.25,
     "mapbox.bearing": 0,
     "mapbox.pitch": 0
 }
@@ -1134,7 +1136,7 @@ class Data(Config):
 
 
 class Defaults(Config):
-    """Methods for extracting default values for the initial page layout."""
+    """Methods for providing default values to the initial page layout."""
 
     def __init__(self, project=None, scenario_a=None, scenario_b=None,
                  **kwargs):
@@ -1227,21 +1229,34 @@ class Defaults(Config):
         return table
 
     @property
+    def review_outputs(self):
+        """Return list of existing file names in review_outputs."""
+        paths = self.home.files("review_outputs")
+        fnames = [os.path.basename(f) for f in paths]
+        return fnames
+
+    @property
     def scenario_choices(self):
         """Return the first scenario if specified."""
         choices = {}
         if self.scenario_a is None:
             choices["a"] = self.scenario_options[0]["value"]
         else:
-            paths = self.file_df[self.file_df["name"] == self.scenario_a]
-            path = paths["file"].iloc[0]
+            if self.scenario_a in self.review_outputs:
+                path = self.home.join("review_outputs", self.scenario_a)
+            else:
+                paths = self.file_df[self.file_df["name"] == self.scenario_a]
+                path = paths["file"].iloc[0]
             choices["a"] = path
 
         if self.scenario_b is None:
             choices["b"] = self.scenario_options[1]["value"]
         else:
-            paths = self.file_df[self.file_df["name"] == self.scenario_b]
-            path = paths["file"].iloc[0]
+            if self.scenario_a in self.review_outputs:
+                path = self.home.join("review_outputs", self.scenario_a)
+            else:
+                paths = self.file_df[self.file_df["name"] == self.scenario_b]
+                path = paths["file"].iloc[0]
             choices["b"] = path
 
         return choices

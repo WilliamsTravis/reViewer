@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Transition reView project index file.
+"""Transition reView project 5index file.
 
 Created on Sun Aug 23 16:41:32 2020
 
@@ -10,9 +10,10 @@ import dash_html_components as html
 
 from dash.dependencies import Input, Output
 
-import scenario_page, config_page, innovations_one, innovations_two
+import scenario_page, config_page
 
 from app import app, server
+from innovations_presentation import innovation_layouts
 from review.support import BUTTON_STYLES
 from navbar import NAVBAR
 
@@ -29,11 +30,10 @@ app.layout = html.Div([
 PAGES = {
     "/": scenario_page.layout,
     "/scenario_page": scenario_page.layout,
-    "/config_page": config_page.layout,
-    "/innovations_one": innovations_one.layout,
-    "/innovations_two": innovations_two.layout,
-
+    "/config_page": config_page.layout
 }
+
+PAGES = {**PAGES, **innovation_layouts()}
 
 
 @app.callback([Output("page_content", "children"),
@@ -55,4 +55,4 @@ def change_page(pathname):
 
 if __name__ == '__main__':
     # app.run_server(debug=True, port="9876")
-    app.run_server(debug=False, port="9876")
+    app.run_server(debug=False, port="8000")

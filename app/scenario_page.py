@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """View reV results using a configuration file.
 
 Things to do:
@@ -962,14 +961,14 @@ def options_toggle_rev_color_button(click):
 def retrieve_low_cost(submit, project, how, lst, group, group_choice, options,
                       by, recalc_table, recalc):
     """Calculate low cost fields based on user decision."""
-    # print_args(retrieve_low_cost, submit, project, how, lst, group,
-    #            group_choice, options, by, recalc_table, recalc)
+    print_args(retrieve_low_cost, submit, project, how, lst, group,
+                group_choice, options, by, recalc_table, recalc)
 
     if not submit:
         raise PreventUpdate
 
     config = Config(project)
-    filedf = pd.DataFrame(config["data"])
+    filedf = pd.DataFrame(config.project_config["data"])
     DP = Data_Path(config.directory)
 
     # Make a tag for all of our recalc values
@@ -1315,9 +1314,9 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
                uymax, xbin, project, chartview, chartsel, weights):
     """Make one of a variety of charts."""
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-    #            region, uymin, uymax, xbin, project, chartview, chartsel,
-    #            weights, trig=trig)
+    print_args(make_chart, signal, chart, mapsel, point_size, op_values,
+                region, uymin, uymax, xbin, project, chartview, chartsel,
+                weights, trig=trig)
 
     # Unpack the signal
     signal_dict = json.loads(signal)
@@ -1372,7 +1371,7 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
         font_size=15,
         margin=dict(l=70, r=20, t=115, b=20),
         height=700,
-        hovermode="x unified",
+        hovermode="closest",
         paper_bgcolor="#1663B5",
         legend_title_text=group,
         dragmode="select",

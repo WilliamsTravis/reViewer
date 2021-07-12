@@ -10,14 +10,12 @@ import os
 import time
 
 from collections import Counter
-from itertools import product
 from pathos import multiprocessing as mp
 
 import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 import pandas as pd
-import pathos.multiprocessing as mp
 import plotly.colors as pcs
 import plotly.express as px
 import us

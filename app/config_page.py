@@ -24,7 +24,7 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from review.support import CONFIG_PATH, ORIGINAL_FIELDS, TITLES, UNITS
 from review.support import get_scales, Config
-from review.pre_processing import Process
+from revruns.rrprocess import Process
 
 from app import app
 from review import print_args

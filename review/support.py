@@ -10,6 +10,8 @@ import os
 import time
 
 from collections import Counter
+from itertools import product
+from pathos import multiprocessing as mp
 
 import dash_core_components as dcc
 import dash_html_components as html
@@ -644,32 +646,6 @@ def wmean(df, y, weight="n_gids", on=True):  # <--------------------------------
     return x
 
 
-class Categories:
-
-    def __init__(self):
-        """Initialize Scatter object."""
-
-    def mode(self, df, y):
-        """Return the mode for a json dictionary with categorical counts."""
-        values = df[y].apply(lambda d: self._mode(d))
-        return values
-
-    def counts(self, df, y):
-        """Return counts for each category from all rows."""  # <-------------- Need to account for partial exclusions translate to area
-        dicts = df[y].apply(json.loads)
-        counters = [Counter(d) for d in dicts]
-        c1 = counters[0]
-        for c in counters[1:]:
-            c1.update(c)
-        counts = dict(c1)
-        return counts
-
-    def _mode(self, d):
-        """Return the most common key in a dictionary with counts."""
-        d = json.loads(d)
-        return max(d, key=d.get)
-
-
 class Config:
     """Class for handling configuration variables."""
 
@@ -819,6 +795,85 @@ class Config:
             addons = {k: u for k, u in UNITS.items() if k not in units}
             units = {**units, **addons}
             return units
+
+
+class Categories(Config):
+    """Methods for handling json dictionary entries."""
+
+    def __init__(self, df, project):
+        """Initialize Scatter object."""
+        super().__init__(project)
+        self.df = df
+        self.aggregations = AGGREGATIONS
+
+    def counts(self, df, y):
+        """Return counts for each category from all rows."""  # <-------------- Need to account for partial exclusions translate to area
+        if Categories.is_json(df, y):
+            dicts = df[y].apply(json.loads)
+        else:
+            dicts = df[y].values
+        counters = [Counter(d) for d in dicts]
+        c1 = counters[0]
+        for c in counters[1:]:
+            c1.update(c)
+        counts = dict(c1)
+        return counts
+
+    def mode(self, df, y):
+        """Return the mode for a json dictionary with categorical counts."""
+        values = df[y].apply(lambda d: self._mode(d))
+        return values
+
+    def dataframe(self, df, y, x=None):
+        """Build a new dataframe with all categories accounted for."""
+        # Dejesonify
+        if Categories.is_json(df, y):
+            df = df[y].apply(json.load)
+        if Categories.is_json(df, "gid_counts"):
+            df = df["gid_counts"].apply(json.load)
+
+        # Get all unique categories
+        categories = self.unique(df, y)
+
+
+    def _xportions(self, args):
+        """Return the x fraction with a category for a dataframe."""
+        def _xportion(row, y, x, ckey):
+            """Return the x fraction within a category for a row."""
+            if ckey in row[y]:
+                fraction = row[y][ckey] / sum(row["gid_counts"])
+                xfraction = row[x] * fraction
+            else:
+                xfraction = 0
+            return xfraction
+
+        df, y, x, ckey = args
+        xportions = df.apply(_xportion, y=y, x=x, ckey=ckey, axis=1)
+        agfun = self.np.__dict__[self.aggregations[x]]
+        xportions = agfun(xportions)
+        return ckey, xportions
+
+
+
+    def _mode(self, d):
+        """Return the most common key in a dictionary with counts."""
+        if isinstance(d, str) and d[0] == "{":
+            d = json.loads(d)
+        try:
+            mode = max(d, key=d.get)
+        except ValueError:
+            mode = ""
+        return mode
+
+    @staticmethod
+    def is_json(df, y):
+        """Check if a variable within a dataframe is a set of json dicts."""
+        sample_y = df[y].iloc[0]
+        is_str = isinstance(sample_y, str)
+        if is_str and sample_y[0] == "{" and sample_y[-1] == "}":
+            return True
+        else:
+            return False
 
 
 class Data(Config):
@@ -1475,6 +1530,8 @@ class Least_Cost():
 class Plots(Config):
     """Class for handling grouped plots (needs work)."""
 
+    import numpy as np
+
     def __init__(self, project, datasets, point_size, group="Scenarios",
                  yunits=None, xunits=None, xbin=None,
                  config_path="~/.review_config"):
@@ -1486,11 +1543,56 @@ class Plots(Config):
         self.yunits = yunits
         self.xunits = xunits
         self.xbin = xbin
+        # self.aggregations = AGGREGATIONS
+        # self.category_check()
 
     def __repr__(self):
         """Print representation string."""
         m = f"<Plots object: path={self.config_path}, project={self.project}>"
         return m
+
+    def adjust_category(self, df):
+        """Adjust dataset for categorical data."""
+        # We'll need x and y
+        x, y = df.columns[:2]
+        if Categories.is_json(df, y):
+            df[y] = df[y].apply(json.loads)
+            df["gid_counts"] = df["gid_counts"].apply(json.loads)
+
+        # Find the mode and counts
+        df["y_mode"] = Categories().mode(df, y)
+        y_counts = Categories().counts(df, y)
+        x_portions = {}
+
+        # Speed this up?
+        arg_list = [(df, y, x, k) for k in y_counts]
+        for args in tqdm(arg_list):
+            ckey, xp = self._xportions(args)
+            x_portions[ckey] = xp
+
+        # Make the category dataframe
+        adf = pd.DataFrame({y: y_counts, x: x_portions})
+        adf["y_mode"] = adf.index
+
+        # Append to mode field!
+        del df[y]
+        del df[x]
+        df = pd.merge(df, adf, on="y_mode")
+
+        return df
+
+    def category_check(self):
+        """Check for json dictionary entries and adjust if needed."""
+        # Use one dataset to check
+        sample_df = self.datasets[next(iter(self.datasets))]
+        y = sample_df.columns[1]
+        if Categories.is_json(sample_df, y):
+            adjusted_datasets = {}
+            for key, df in self.datasets.items():
+                df = df.copy()
+                df = self.adjust_category(df)
+                adjusted_datasets[key] = df
+            self.datasets = adjusted_datasets
 
     def ccap(self):
         """Return a cumulative capacity scatterplot."""

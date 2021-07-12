@@ -1,12 +1,12 @@
 """View reV results using a configuration file.
 
 Things to do:
-    - Fix Histogram
     - Move styling to CSS
     - Improve caching
     - Speed up everything
     - Download option
     - Automate startup elements
+    - Build categorical variable charts
 """
 import copy
 import json
@@ -35,7 +35,6 @@ from review.support import (Categories, Config, Data, Data_Path, Defaults,
 # Default object for initial layout
 PROJECT = "Transition"
 DEFAULTS = Defaults(project=PROJECT)
-
 layout = scenario_layout(DEFAULTS)
 
 
@@ -69,6 +68,58 @@ def build_name(path):
     name = os.path.basename(path).replace("_sc.csv", "")
     name = " ".join([n.capitalize() for n in name.split("_")])
     return name
+
+
+class Scatter():
+    """Methods for building scatter plots.  NOT DONE YET."""
+
+    def __init__(self, project, dfs, x, y, color, rev_color, ymin, ymax,
+                 point_size, title, mapview, mapsel, basemap, title_size=18):
+        """Initialize Scatter object."""
+        self.project = project
+        self.df = dfs
+        self.x = x
+        self.y = y
+        self.rev_color
+        self.ymin
+        self.ymax
+        self.point_size
+        self.title
+        self.mapview
+        self.mapsel
+        self.basemap
+        self.title_size
+
+    @property
+    def config(self):
+        """Return project Config object."""
+        return Config(self.project)
+
+    @property
+    def formatted_df(self):
+        """Format the data frame for use in the Plotly figure."""
+        self.df["text"] = self.hover_text
+
+    @property
+    def hover_text(self):
+        """Return hovertext for points."""
+        text = self.df["county"] + " County, " + self.df["state"] + ": <br>   "
+        if self.units == "category":
+            text = text + self.df[self.y].astype(str) + " " + self.units
+        else:
+            text = (text + self.df[self.y].round(2).astype(str) + " "
+                    + self.units)
+
+        return text
+
+    @property
+    def units(self):
+        """Return y-units."""
+        return self.config.units[self.y]
+
+    def build(self):
+        """Build the Plotly figure object."""
+        dfs = self.formatted_df
 
 
 def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
@@ -108,7 +159,7 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
     # Categorical data will be made of multiple traces
     if units == "category":
         # We need to grab the actual rgb sequence for this
-        color = COLORS_Q[color]
+        pcolor = COLORS_Q[color]
         showlegend = True
         marker = dict(
             opacity=1.0,
@@ -117,8 +168,7 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
         )
 
         # If y is a json dict, find the mode
-        ty = df[y].iloc[0]
-        if isinstance(ty, str) and ty[0] == "{" and ty[-1] == "}":
+        if Categories.is_json(df, y):
             # This will all be incorporated into the same class, so this is a
             # bit odd atm
             df[y] = Categories().mode(df, y)
@@ -127,7 +177,7 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
         figure = px.scatter_mapbox(
             data_frame=df,
             color=y,
-            color_discrete_sequence=color,
+            color_discrete_sequence=pcolor,
             lon="longitude",
             lat="latitude",
             custom_data=["sc_point_gid", "print_capacity"],
@@ -136,11 +186,11 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
 
     # Continuous data will be just one trace
     else:
-        color = COLORS[color]
+        pcolor = COLORS[color]
         showlegend = False
         marker = dict(
             color=df[y],
-            colorscale=color,
+            colorscale=pcolor,
             cmax=float(ymax),
             cmin=float(ymin),
             opacity=1.0,
@@ -217,8 +267,8 @@ def infer_recalc(title):
     return title
 
 
-# ---------------------------> This needs to be its own class
-def build_title(df, signal_dict, weights=True):
+
+def build_title(df, signal_dict, weights=True): # ---------------------------> This needs to be its own class
     """Create chart title."""
     # print_args(build_title, df, signal_dict, weights)
     diff = signal_dict["diff"]
@@ -386,8 +436,8 @@ def cache_map_data(signal_dict):
     # Is it faster to subset columns before rows?
     keepers = [y, x, "print_capacity", "total_lcoe_threshold",
                "mean_lcoe_threshold", "state", "nrel_region", "county",
-               "latitude", "longitude", "sc_point_gid", "n_gids", "index",
-               "offshore"]
+               "latitude", "longitude", "sc_point_gid", "n_gids", "gid_counts",
+               "index", "offshore"]
     if "offshore" not in df1.columns:
         keepers.remove("offshore")
 
@@ -439,24 +489,26 @@ def cache_map_data(signal_dict):
 @cache3.memoize()
 def cache_chart_tables(signal_dict, region="national", idx=None):
     """Read and store a data frame from the config and options given."""
+    signal_copy = signal_dict.copy()
+
     # Unpack subsetting information
-    states = signal_dict["states"]
-    x = signal_dict["x"]
-    y = signal_dict["y"]
+    states = signal_copy["states"]
+    x = signal_copy["x"]
+    y = signal_copy["y"]
 
     # If multiple tables selected, make a list of those files
-    if signal_dict["added_scenarios"]:
-        files = [signal_dict["path"]] + signal_dict["added_scenarios"]
+    if signal_copy["added_scenarios"]:
+        files = [signal_copy["path"]] + signal_copy["added_scenarios"]
     else:
-        files = [signal_dict["path"]]
+        files = [signal_copy["path"]]
 
     # Remove additional scenarios from signal_dict for the cache's sake
-    del signal_dict["added_scenarios"]
+    del signal_copy["added_scenarios"]
 
     # Make a signal copy for each file
     signal_dicts = []
     for file in files:
-        signal = signal_dict.copy()
+        signal = signal_copy.copy()
         signal["path"] = file
         signal_dicts.append(signal)
 
@@ -467,10 +519,10 @@ def cache_chart_tables(signal_dict, region="national", idx=None):
         df = cache_map_data(signal)
         if "offshore" in df.columns:
             df = df[[x, y, "state", "nrel_region", "print_capacity", "index",
-                     "sc_point_gid", "offshore"]]
+                     "sc_point_gid", "gid_counts", "n_gids", "offshore"]]
         else:
             df = df[[x, y, "state", "nrel_region", "print_capacity", "index",
-                     "sc_point_gid"]]
+                     "sc_point_gid", "gid_counts", "n_gids"]]
 
         # Subset by index selection
         if idx:
@@ -1242,9 +1294,9 @@ def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
         https://community.plotly.com/t/clear-selecteddata-on-figurechange/37285
     """
     trig = dash.callback_context.triggered[0]['prop_id']
-    # print_args(make_map, signal, basemap, color, chartsel, point_size,
-    #            rev_color, uymin, uymax, project, mapsel, mapview, weights,
-    #            trig=trig)
+    print_args(make_map, signal, basemap, color, chartsel, point_size,
+               rev_color, uymin, uymax, project, mapsel, mapview, weights,
+               trig=trig)
     print("'MAP'; trig = '" + str(trig) + "'")
 
     # Get map elements from data signal
@@ -1315,8 +1367,8 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
     """Make one of a variety of charts."""
     trig = dash.callback_context.triggered[0]['prop_id']
     print_args(make_chart, signal, chart, mapsel, point_size, op_values,
-                region, uymin, uymax, xbin, project, chartview, chartsel,
-                weights, trig=trig)
+               region, uymin, uymax, xbin, project, chartview, chartsel,
+               weights, trig=trig)
 
     # Unpack the signal
     signal_dict = json.loads(signal)

@@ -7,6 +7,7 @@ Created on Sun Mar  8 16:12:01 2020
 """
 import datetime as dt
 import inspect
+import json
 import os
 import requests
 
@@ -126,6 +127,424 @@ class Data_Path:
         # Expand the user path if a tilda is present in the root folder path.
         if "~" in self.data_path:
             self.data_path = os.path.expanduser(self.data_path)
+
+
+@pd.api.extensions.register_dataframe_accessor("rr")
+class PandasExtension:
+    """Accessing useful pandas functions directly from a data frame object."""
+
+    import warnings
+
+    from json import JSONDecodeError
+
+    import geopandas as gpd
+    import pandas as pd
+    import numpy as np
+
+    from scipy.spatial import cKDTree
+    from shapely.geometry import Point
+
+    def __init__(self, pandas_obj):
+        """Initialize PandasExtension object."""
+        self.warnings.simplefilter(action='ignore', category=UserWarning)
+        if type(pandas_obj) != self.pd.core.frame.DataFrame:
+            if type(pandas_obj) != self.gpd.geodataframe.GeoDataFrame:
+                raise TypeError("Can only use .rr accessor with a pandas or "
+                                "geopandas data frame.")
+        self._obj = pandas_obj
+
+    def average(self, value, weight="n_gids", group=None):
+        """Return the weighted average of a column.
+
+        Parameters
+        ----------
+        value : str
+            Column name of the variable to calculate.
+        weight : str
+            Column name of the variable to use as the weights. The default is
+            'n_gids'.
+        group : str, optional
+            Column name of the variable to use to group results. The default is
+            None.
+
+        Returns
+        -------
+        dict | float
+            Single value or a dictionary with group, weighted average value
+            pairs.
+        """
+        df = self._obj.copy()
+        if not group:
+            values = df[value].values
+            weights = df[weight].values
+            x = self.np.average(values, weights=weights)
+        else:
+            x = {}
+            for g in df[group].unique():
+                gdf = df[df[group] == g]
+                values = gdf[value].values
+                weights = gdf[weight].values
+                x[g] = self.np.average(values, weights=weights)
+        return x
+
+    def bmap(self):
+        """Show a map of the data frame with a basemap if possible."""
+        if not isinstance(self._obj, self.gpd.geodataframe.GeoDataFrame):
+            print("Data frame is not a GeoDataFrame")
+
+    def decode(self):
+        """Decode the columns of a meta data object from a reV output."""
+        import ast
+
+        def decode_single(x):
+            """Try to decode a single value, pass if fail."""
+            try:
+                x = x.decode()
+            except UnicodeDecodeError:
+                x = "indecipherable"
+            return x
+
+        for c in self._obj.columns:
+            x = self._obj[c].iloc[0]
+            if isinstance(x, bytes):
+                try:
+                    self._obj[c] = self._obj[c].apply(decode_single)
+                except Exception:
+                    self._obj[c] = None
+                    print("Column " + c + " could not be decoded.")
+            elif isinstance(x, str):
+                try:
+                    if isinstance(ast.literal_eval(x), bytes):
+                        try:
+                            self._obj[c] = self._obj[c].apply(
+                                lambda x: ast.literal_eval(x).decode()
+                                )
+                        except Exception:
+                            self._obj[c] = None
+                            print("Column " + c + " could not be decoded.")
+                except:
+                    pass
+
+    def dist_apply(self, linedf):
+        """To apply the distance function in parallel (not ready)."""
+        from pathos.multiprocessing import ProcessingPool as Pool
+        from tqdm import tqdm
+
+        # Get distances
+        ncpu = os.cpu_count()
+        chunks = self.np.array_split(self._obj.index, ncpu)
+        args = [(self._obj.loc[idx], linedf) for idx in chunks]
+        distances = []
+        with Pool(ncpu) as pool:
+            for dists in tqdm(pool.imap(self.point_line, args),
+                              total=len(args)):
+                distances.append(dists)
+        return distances
+
+    def find_coords(self):
+        """Check if lat/lon names are in a pre-made list of possible names."""
+        # List all column names
+        df = self._obj.copy()
+        cols = df.columns
+
+        # For direct matches
+        ynames = ["y", "lat", "latitude", "Latitude", "ylat"]
+        xnames = ["x", "lon", "long", "longitude", "Longitude", "xlon",
+                  "xlong"]
+
+        # Direct matches
+        possible_ys = [c for c in cols if c in ynames]
+        possible_xs = [c for c in cols if c in xnames]
+
+        # If no matches return item and rely on manual entry
+        if len(possible_ys) == 0 or len(possible_xs) == 0:
+            raise ValueError("No field names found for coordinates, use "
+                             "latcol and loncol arguments.")
+
+        # If more than one match raise error
+        elif len(possible_ys) > 1:
+            raise ValueError("Multiple possible entries found for y/latitude "
+                             "coordinates, use latcol argument: " +
+                             ", ".join(possible_ys))
+        elif len(possible_xs) > 1:
+            raise ValueError("Multiple possible entries found for y/latitude "
+                             "coordinates, use latcol argument: " +
+                             ", ".join(possible_xs))
+
+        # If there's just one column use that
+        else:
+            return possible_ys[0], possible_xs[0]
+
+    def gid_join(self, df_path, fields, agg="mode", left_on="res_gids",
+                 right_on="gid"):
+        """Join a resource-scale data frame to a supply curve data frame.
+
+        Parameters
+        ----------
+        df_path : str
+            Path to csv with desired join fields.
+        fields : str | list
+            The field(s) in the right DataFrame to join to the left.
+        agg : str
+            The aggregating function to apply to the right DataFrame. Any
+            appropriate numpy function.
+        left_on : str
+            Column name to join on in the left DataFrame.
+        right_on : str
+            Column name to join on in the right DataFrame.
+
+        Returns
+        -------
+        pandas.core.frame.DataFrame
+            A pandas DataFrame with the specified fields in the right
+            DataFrame aggregated and joined.
+        """
+        from pathos.multiprocessing import ProcessingPool as Pool
+
+        # The function to apply to each item of the left dataframe field
+        def single_join(x, vdict, right_on, field, agg):
+            """Return the aggregation of a list of values in df."""
+            x = self._destring(x)
+            rvalues = [vdict[v] for v in x]
+            rvalues = [self._destring(v) for v in rvalues]
+            rvalues = [self._delist(v) for v in rvalues]
+            return agg(rvalues)
+
+        def chunk_join(arg):
+            """Apply single to a subset of the main dataframe."""
+            chunk, df_path, left_on, right_on, field, agg = arg
+            rdf = pd.read_csv(df_path)
+            vdict = dict(zip(rdf[right_on], rdf[field]))
+            chunk[field] = chunk[left_on].apply(single_join, args=(
+                vdict, right_on, field, agg
+                )
+            )
+            return chunk
+
+        # Create a copy of the left data frame
+        df1 = self._obj.copy()
+
+        # Set the function
+        if agg == "mode":
+            def mode(x): max(set(x), key=x.count)
+            agg = mode
+        else:
+            agg = getattr(self.np, agg)
+
+        # If a single string is given for the field, make it a list
+        if isinstance(fields, str):
+            fields = [fields]
+
+        # Split this up and apply the join functions
+        chunks = self.np.array_split(df1, os.cpu_count())
+        for field in fields:
+            args = [(c, df_path, left_on, right_on, field, agg)
+                    for c in chunks]
+            df1s = []
+            with Pool(os.cpu_count()) as pool:
+                for cdf1 in pool.imap(chunk_join, args):
+                    df1s.append(cdf1)
+            df = pd.concat(df1s)
+
+        return df
+
+    def nearest(self, df, fields=None, lat=None, lon=None, no_repeat=False,
+                k=5):
+        """Find all of the closest points in a second data frame.
+
+        Parameters
+        ----------
+        df : pandas.core.frame.DataFrame | geopandas.geodataframe.GeoDataFrame
+            The second data frame from which a subset will be extracted to
+            match all points in the first data frame.
+        fields : str | list
+            The field(s) in the second data frame to append to the first.
+        lat : str
+            The name of the latitude field.
+        lon : str
+            The name of the longitude field.
+        no_repeat : logical
+            Return closest points with no duplicates. For two points in the
+            left dataframe that would join to the same point in the right, the
+            point of the left pair that is closest will be associated with the
+            original point in the right, and other will be associated with the
+            next closest. (not implemented yet)
+        k : int
+            The number of next closest points to calculate when no_repeat is
+            set to True. If no_repeat is false, this value is 1.
+
+        Returns
+        -------
+        df : pandas.core.frame.DataFrame | geopandas.geodataframe.GeoDataFrame
+            A copy of the first data frame with the specified field and a
+            distance column.
+        """
+        # We need geodataframes
+        df1 = self._obj.copy()
+        original_type = type(df1)
+        if not isinstance(df1, self.gpd.geodataframe.GeoDataFrame):
+            df1 = df1.rr.to_geo(lat, lon)  # <--------------------------------- not necessary, could speed this up just finding the lat/lon columns, we'd also need to reproject for this to be most accurate.
+        if not isinstance(df, self.gpd.geodataframe.GeoDataFrame):
+            df = df.rr.to_geo(lat, lon)
+            df = df.reset_index(drop=True)
+
+        # What from the second data frame do we want to return?
+        if fields:
+            if isinstance(fields, str):
+                fields = [fields]
+        else:
+            fields = [c for c in df if c != "geometry"]
+
+        # Get arrays of point coordinates
+        crds1 = self.np.array(
+            list(df1["geometry"].apply(lambda x: (x.x, x.y)))
+        )
+        crds2 = self.np.array(
+            list(df["geometry"].apply(lambda x: (x.x, x.y)))
+        )
+
+        # Build the connections tree and query points from the first df
+        tree = self.cKDTree(crds2)
+        if no_repeat:
+            dist, idx = tree.query(crds1, k=k)
+            dist, idx = self._derepeat(dist, idx)
+        else:
+            dist, idx = tree.query(crds1, k=1)
+
+        # We might be relacing a column
+        for field in fields:
+            if field in df1:
+                del df1[field]
+
+        # Rebuild the dataset
+        dfa = df1.reset_index(drop=True)
+        dfb = df.iloc[idx, :]
+        del dfb["geometry"]
+        dfb = dfb.reset_index(drop=True)
+        df = pd.concat([dfa, dfb[fields], pd.Series(dist, name='dist')],
+                       axis=1)
+
+        # If this wasn't already a geopandas data frame reformat
+        if not isinstance(df, original_type):
+            del df["geometry"]
+            df = pd.DataFrame(df)
+
+        return df
+
+    def to_bbox(self, bbox):
+        """Return points within a bounding box [xmin, ymin, xmax, ymax]."""
+        df = self._obj.copy()
+        df = df[(df["longitude"] >= bbox[0]) &
+                (df["latitude"] >= bbox[1]) &
+                (df["longitude"] <= bbox[2]) &
+                (df["latitude"] <= bbox[3])]
+        return df
+
+    def to_geo(self, lat=None, lon=None):
+        """Convert a Pandas data frame to a geopandas geodata frame."""
+        # Let's not transform in place
+        df = self._obj.copy()
+        df.rr.decode()
+
+        # Find coordinate columns
+        if "geometry" not in df.columns:
+            if "geom" not in df.columns:
+                try:
+                    lat, lon = self.find_coords()
+                except ValueError:
+                    pass
+
+                # For a single row
+                def to_point(x):
+                    return self.Point(tuple(x))
+                df["geometry"] = df[[lon, lat]].apply(to_point, axis=1)
+
+        # Create the geodataframe - add in projections
+        if "geometry" in df.columns:
+            gdf = self.gpd.GeoDataFrame(df, crs='epsg:4326',
+                                        geometry="geometry")
+        if "geom" in df.columns:
+            gdf = self.gpd.GeoDataFrame(df, crs='epsg:4326',
+                                        geometry="geom")
+
+        return gdf
+
+    def to_sarray(self):
+        """Create a structured array for storing in HDF5 files."""
+        # Create a copy
+        df = self._obj.copy()
+
+        # For a single column
+        def make_col_type(col, types):
+
+            coltype = types[col]
+            column = df.loc[:, col]
+
+            try:
+                if 'numpy.object_' in str(coltype.type):
+                    maxlens = column.dropna().str.len()
+                    if maxlens.any():
+                        maxlen = maxlens.max().astype(int)
+                        coltype = ('S%s' % maxlen)
+                    else:
+                        coltype = 'f2'
+                return column.name, coltype
+            except:
+                print(column.name, coltype, coltype.type, type(column))
+                raise
+
+        # All values and types
+        v = df.values
+        types = df.dtypes
+        struct_types = [make_col_type(col, types) for col in df.columns]
+        dtypes = self.np.dtype(struct_types)
+
+        # The target empty array
+        array = self.np.zeros(v.shape[0], dtypes)
+
+        # For each type fill in the empty array
+        for (i, k) in enumerate(array.dtype.names):
+            try:
+                if dtypes[i].str.startswith('|S'):
+                    array[k] = df[k].str.encode('utf-8').astype('S')
+                else:
+                    array[k] = v[:, i]
+            except:
+                raise
+
+        return array, dtypes
+
+    def _delist(self, value):
+        """Extract the value of an object if it is a list with one value."""
+        if isinstance(value, list):
+            if len(value) == 1:
+                value = value[0]
+        return value
+
+    # def _derepeat(dist, idx):
+    #     """Find the next closest index for repeating cKDTree outputs."""  # <-- Rethink this, we could autmomatically set k tot he max repeats
+    #     # Get repeated idx and counts
+    #     k = idx.shape[1]
+    #     uiidx, nrepeats = np.unique(idx, return_counts=True)
+    #     max_repeats = nrepeats.max()
+    #     if max_repeats > k:
+    #         raise ValueError("There are a maximum of " + str(max_repeats) +
+    #                          " repeating points, to use the next closest "
+    #                          "neighbors to avoid repeats, set k to this "
+    #                          "number.")
+
+    #     for i in range(k - 1):
+    #         # New arrays for this axis
+    #         iidx = idx[:, i]
+    #         idist = dist[:, i]
+
+    def _destring(self, string):
+        """Destring values into their literal python types if needed."""
+        try:
+            return json.loads(string)
+        except (TypeError, self.JSONDecodeError):
+            return string
+
 
 
 class LBNL:

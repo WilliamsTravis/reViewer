@@ -80,8 +80,8 @@ class Process:
     import addfips
     import numpy as np
     import pandas as pd
+    import review
 
-    from revruns import rr
     from tqdm import tqdm
 
     af = addfips.AddFIPS()
@@ -104,7 +104,7 @@ class Process:
         resolution : int
             The resolution in meters of the exclusion/characterization raster.
         """
-        self.home = self.rr.Data_Path(home)
+        self.home = self.review.Data_Path(home)
         self._files = files
         self.file_pattern = file_pattern
         self.pixel_sum_fields = pixel_sum_fields

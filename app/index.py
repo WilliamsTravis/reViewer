@@ -17,7 +17,7 @@ import scenario_page, config_page
 from app import app, server
 from innovations_presentation import innovation_layouts
 from navbar import NAVBAR
-from support import Config
+from review.support import Config
 from review.support import BUTTON_STYLES
 
 print("FLASK SERVER SETTINGS: \n   " + str(dict(server.config)))

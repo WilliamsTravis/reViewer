@@ -21,7 +21,8 @@ import plotly.express as px
 import us
 
 from colorama import Style, Fore
-from review import Data_Path, print_args
+from revruns.rr import Data_Path
+from review import print_args
 from tqdm import tqdm
 
 pd.set_option('mode.chained_assignment', None)

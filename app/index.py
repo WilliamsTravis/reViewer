@@ -5,6 +5,8 @@ Created on Sun Aug 23 16:41:32 2020
 
 @author: travis
 """
+import os
+
 import dash_core_components as dcc
 import dash_html_components as html
 
@@ -14,8 +16,9 @@ import scenario_page, config_page
 
 from app import app, server
 from innovations_presentation import innovation_layouts
-from review.support import BUTTON_STYLES
 from navbar import NAVBAR
+from support import Config
+from review.support import BUTTON_STYLES
 
 print("FLASK SERVER SETTINGS: \n   " + str(dict(server.config)))
 
@@ -33,7 +36,11 @@ PAGES = {
     "/config_page": config_page.layout
 }
 
-PAGES = {**PAGES, **innovation_layouts()}
+# Make sure transition is configured correctly
+if "Transition" in Config().projects:
+    TCONFIG = Config("Transition")
+    if os.path.exists(TCONFIG.data["file"].iloc[0]):
+        PAGES = {**PAGES, **innovation_layouts()}
 
 
 @app.callback([Output("page_content", "children"),

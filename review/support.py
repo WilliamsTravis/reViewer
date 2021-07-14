@@ -10,6 +10,7 @@ import os
 import time
 
 from collections import Counter
+from functools import lru_cache
 from pathos import multiprocessing as mp
 
 import dash_core_components as dcc
@@ -653,6 +654,8 @@ class Config:
         self.project = project
         self.config_path = os.path.expanduser(config_path)
         self.title_size = 20
+        self._unpack()
+        self._set_categories()
 
     def __repr__(self):
         """Print the project and config path."""
@@ -795,6 +798,36 @@ class Config:
             units = {**units, **addons}
             return units
 
+    def _set_categories(self):
+        """Return list of variables with categorical dictionary entries."""
+        variables = []
+        if self.project:
+            if "categories" not in dir(self):
+                for file in tqdm(self.files.values(), total=len(self.files)):
+                    df = pd.read_csv(file, low_memory=False)
+                    for col, values in df.items():
+                        values = values.values
+                        values = values[~pd.isnull(values)]
+                        if len(values) > 0:
+                            v1 = values[0]
+                            if isinstance(v1, str) and "{" in v1:
+                                if col not in variables:
+                                    variables.append(col)
+                self.categories = variables
+                full_config = self.config
+                project_config = self.project_config
+                project_config["categories"] = variables
+                full_config[self.project] = project_config
+                with open(self.config_path, "w") as file:
+                    file.write(json.dumps(full_config, indent=4))
+
+    def _unpack(self):
+        """Make all dictionary values attributes."""
+        if self.project:
+            for key, value in self.project_config.items():
+                if key not in dir(self):
+                    self.__setattr__(key, value)
+
 
 class Categories(Config):
     """Methods for handling json dictionary entries."""
@@ -805,35 +838,57 @@ class Categories(Config):
         self.df = df
         self.aggregations = AGGREGATIONS
 
-    def counts(self, df, y):
-        """Return counts for each category from all rows."""  # <-------------- Need to account for partial exclusions translate to area
-        if Categories.is_json(df, y):
-            dicts = df[y].apply(json.loads)
+    def categories(self, y):
+        """Return all possible categories."""
+        values = list(self.counts(y)["category"].values)
+        values.sort()
+        return values
+
+    @lru_cache(1)
+    def counts(self, y):
+        """Return counts for each category from all rows."""
+        if Categories.is_json(self.df, y):
+            dicts = self.df[y].apply(json.loads)
         else:
-            dicts = df[y].values
+            dicts = self.df[y].values
         counters = [Counter(d) for d in dicts]
         c1 = counters[0]
         for c in counters[1:]:
             c1.update(c)
         counts = dict(c1)
+        counts = pd.DataFrame(counts, index=[0]).T
+        counts = counts.reset_index()
+        counts.columns = ["category", y]
+
+        if self.project_config["parameters"]:
+            # Replace category numbers with their names
+            print("parameters found")
+        else:
+            counts["category"] = counts["category"].apply(lambda x: f"c{x}")
+
         return counts
 
-    def mode(self, df, y):
+    def mode(self, y):
         """Return the mode for a json dictionary with categorical counts."""
-        values = df[y].apply(lambda d: self._mode(d))
+        values = self.df[y].apply(lambda d: self._mode(d))
         return values
 
-    def dataframe(self, df, y, x=None):
-        """Build a new dataframe with all categories accounted for."""
-        # Dejesonify
-        if Categories.is_json(df, y):
-            df = df[y].apply(json.load)
-        if Categories.is_json(df, "gid_counts"):
-            df = df["gid_counts"].apply(json.load)
+    # def dataframe(self, y, x=None):
+    #     """Build a new dataframe with all categories accounted for."""
+    #     # Dejesonify
+    #     if Categories.is_json(self.df, y):
+    #         df = self.df[y].apply(json.load)
+    #         df = df["gid_counts"].apply(json.load)
 
-        # Get all unique categories
-        categories = self.unique(df, y)
+    #     # Get all unique categories
+    #     categories = self.unique(df, y)
 
+    def maxy(self, y):
+        """Find the maxy value."""
+        counts = self.counts(y)
+        maxy = max(counts[y])
+
+        return maxy
 
     def _xportions(self, args):
         """Return the x fraction with a category for a dataframe."""
@@ -851,8 +906,6 @@ class Categories(Config):
         agfun = self.np.__dict__[self.aggregations[x]]
         xportions = agfun(xportions)
         return ckey, xportions
-
-
 
     def _mode(self, d):
         """Return the most common key in a dictionary with counts."""
@@ -1238,15 +1291,15 @@ class Defaults(Config):
     def group_options(self):
         """Return group options."""
         groups = [c for c in self.file_df.columns if c not in ["file", "name"]]
-        options = [
-            {"label": g, "value": g} for g in groups
-        ]
+        if len(groups) > 0:
+            options = [{"label": g, "value": g} for g in groups]
+        else:
+            options = [{"label": None, "value": None}]
         return options
 
     @property
     def map_view(self):
         """Return default map view."""
-        
 
     @property
     def project_options(self):
@@ -1314,6 +1367,15 @@ class Defaults(Config):
             choices["b"] = path
 
         return choices
+
+    @property
+    def category_options(self):
+        """Return scenario options."""
+        options = []
+        for cat in self.categories:
+            if cat in self.titles:
+                options.append({"label": self.titles[cat], "value": cat})
+        return options
 
     @property
     def scenario_options(self):

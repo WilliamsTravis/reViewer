@@ -33,7 +33,7 @@ from review.support import (Categories, Config, Data, Data_Path, Defaults,
 
 
 # Default object for initial layout
-PROJECT = "Transition"
+PROJECT = "ATB Onshore - FY21"
 DEFAULTS = Defaults(project=PROJECT)
 layout = scenario_layout(DEFAULTS)
 
@@ -123,7 +123,7 @@ class Scatter():
 
 
 def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
-                  title, mapview, mapsel, basemap, title_size=18):
+                  title, mapview, mapsel, basemap, project, title_size=18):
     """Build a Plotly scatter plot dictionary for the map.
 
     Notes
@@ -171,7 +171,8 @@ def build_scatter(df, y, x, units, color, rev_color, ymin, ymax, point_size,
         if Categories.is_json(df, y):
             # This will all be incorporated into the same class, so this is a
             # bit odd atm
-            df[y] = Categories().mode(df, y)
+            processor = Categories(df, project)
+            df[y] = processor.mode(y)
 
         # Create data object
         figure = px.scatter_mapbox(
@@ -1343,12 +1344,13 @@ def make_map(signal, basemap, color, chartsel, point_size, rev_color, uymin,
     # Build map elements
     title = build_title(df, signal_dict, weights)
     figure = build_scatter(df, y, x, units, color, rev_color, ymin, ymax,
-                           point_size, title, mapview, mapsel, basemap)
+                           point_size, title, mapview, mapsel, basemap,
+                           project)
 
     return figure, json.dumps(mapview), json.dumps(mapcap)
 
 
-@app.callback(Output('chart', 'figure'),
+@app.callback(Output("chart", "figure"),
               [Input("map_signal", "children"),
                Input("chart_options", "value"),
                Input("map", "selectedData"),
@@ -1449,5 +1451,89 @@ def make_chart(signal, chart, mapsel, point_size, op_values, region, uymin,
             )
         )
     )
+
+    return fig
+
+
+@app.callback(Output("char_chart", "figure"),
+              [Input("submit", "n_clicks"),
+               Input("char_variable", "value"),
+               Input("chart", "selectedData"),
+               Input("map", "selectedData"),
+               Input("state_options", "value")],
+              [State("scenario_a", "value"),
+               State("project", "value"),
+               State("char_chart", "relayoutData")])
+def make_characterization(submit, y, chartsel, mapsel, states, path, project,
+                          char_view):
+    """Make the partially independent characterization chart."""
+    print_args(make_characterization, submit, y, chartsel, mapsel, states,
+               path, project, char_view)
+
+    # Get the project config object
+    config = Config(project)
+
+    # We aren't retrieving the signal here...but should we? What about states?
+    odf = cache_table(project, path)
+
+    # We need the categories object before we subset
+    processor = Categories(odf, project)
+    maxy = processor.maxy(y)
+    xs = processor.categories(y)
+
+    # Use the points selected in the map and chart (Make function)
+    if mapsel or chartsel:
+        midx = []
+        cidx = []
+
+        if mapsel:
+            if len(mapsel["points"]) > 0:
+                midx = [d["customdata"][0] for d in mapsel["points"]]
+
+        if chartsel:
+            if len(chartsel["points"]) > 0:
+                cidx = [d["customdata"][0] for d in chartsel["points"]]
+
+        if midx and cidx:
+            idx = set(midx).intersection(cidx)
+        elif midx or cidx:
+            idx = cidx + midx
+
+        odf = odf[odf["sc_point_gid"].isin(idx)]
+
+    # I think I want a different style graph as well (Like DSI from DrIP)
+    if states:
+        if any([s in odf["state"].values for s in states]):
+            odf = odf[odf["state"].isin(states)]
+    processor = Categories(odf, project)
+    df = processor.counts(y)
+    for x in xs:
+        if x not in df["category"]:
+            df = df.append(pd.DataFrame({"category": x, y: 0}, index=[0]))
+    df = df.sort_values("category")
+
+    # Bar chart probably
+    fig = px.bar(
+            df,
+            y=y,
+            range_y=[0, maxy + .10 * maxy],
+            x="category",
+            labels={y: "pixel count"}
+        )
+
+    fig.update_traces(marker_color="#1663b5")
+    fig.update_layout(
+        title=dict(
+            text=config.titles[y],
+            yref="container",
+            x=0.5,
+            # y=0.94,
+            pad=dict(b=10)
+        ),
+        plot_bgcolor="white",
+        paper_bgcolor="white"
+    )
+    fig.update_xaxes(showgrid=True, gridwidth=2, gridcolor="lightgrey")
+    fig.update_yaxes(showgrid=True, gridwidth=2, gridcolor="lightgrey")
 
     return fig

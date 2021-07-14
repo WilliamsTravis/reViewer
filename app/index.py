@@ -31,12 +31,13 @@ app.layout = html.Div([
 
 
 PAGES = {
+    None: scenario_page.layout,
     "/": scenario_page.layout,
     "/scenario_page": scenario_page.layout,
     "/config_page": config_page.layout
 }
 
-# Make sure transition is configured correctly
+# Include Transition slide pages if configured correctly
 if "Transition" in Config().projects:
     TCONFIG = Config("Transition")
     if os.path.exists(TCONFIG.data["file"].iloc[0]):
@@ -53,6 +54,7 @@ def change_page(pathname):
     scenario_style = BUTTON_STYLES["on"]
     print(f"URL: {pathname}")
     page = PAGES[pathname]
+    # page = scenario_page.layout
     if pathname == "/config_page":
         config_style = {"display": "none"}
     else:
@@ -61,5 +63,5 @@ def change_page(pathname):
 
 
 if __name__ == '__main__':
-    # app.run_server(debug=True, port="9876")
+    # app.run_server(debug=True, port="8000")
     app.run_server(debug=False, port="8000")

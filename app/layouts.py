@@ -98,7 +98,7 @@ def scenario_layout(defaults):
                            "margin-bottom": "-1px",
                            "margin-top": "-1px",
                            "border-bottom": "2px solid #fccd34",
-                           "border-top": "3px solid #1663b5"}),            
+                           "border-top": "3px solid #1663b5"}),
 
             # Data Options
             html.Div([
@@ -797,7 +797,69 @@ def scenario_layout(defaults):
                         className="five columns", style=BOTTOM_DIV_STYLE
                     ),
                 ], className="six columns"),
+
             ], className="row"),
+
+            # Characterization Chart
+            html.Div(
+                id="char_div",
+                children=[
+                    html.Div([
+                        # Chart options
+                        html.H3("Characterization Layers*",
+                                title=("Selections do not affect the map "
+                                       "or chart above."),
+                                style={"text-align": "center"}),
+                        dcc.Tabs(
+                            id="char_chart_options_tab",
+                            value="char_option_1",
+                            style=TAB_STYLE,
+                            children=[
+                                dcc.Tab(value="variable",
+                                        label="Variable",
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE),
+                                dcc.Tab(value="char_option_2",
+                                        label="Option #2",
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE),
+                                dcc.Tab(value="char_option_3",
+                                        label="Option #3",
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE),
+                                dcc.Tab(value="char_option_4",
+                                        label="Option #4",
+                                        style=TABLET_STYLE,
+                                        selected_style=TABLET_STYLE)
+                                ]),
+
+                        html.Div(
+                            id="char_var_options_div",
+                            children=[
+                                dcc.Dropdown(
+                                    id="char_variable",
+                                    options=defaults.category_options,
+                                    value=defaults.category_options[0]["value"]
+                                )
+                            ]),
+
+                        # The chart
+                        dcc.Graph(
+                            id="char_chart",
+                            config={
+                                "showSendToCloud": True,
+                                "toImageButtonOptions":
+                                    {"width": 2400, "height": 350},
+                                "plotlyServerURL":
+                                    "https://chart-studio.plotly.com"
+                            }),
+                    ])
+                ],
+                className="row",
+                style={"margin-top": "50px",
+                       "margin-left": "50px",
+                       "margin-right": "50px"}
+            ),
 
             # To store option names for the map title
             html.Div(
